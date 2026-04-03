@@ -1,4 +1,5 @@
 """AI 商业洞察总结模块 — 基于采集数据生成竞品分析总结"""
+import asyncio
 import httpx
 import json
 import os
@@ -114,6 +115,64 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     return result
 
 
+async def generate_ai_summary_from_text(product_name: str, text_description: str) -> dict:
+    """从用户提供的文字描述或 PDF 提取内容生成竞品/产品分析（无需网站 URL）"""
+
+    prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars。
+
+用户提供了以下关于产品 **{product_name}** 的描述材料（可能来自 pitch deck、产品文档、竞品介绍等）：
+
+---
+
+{text_description[:8000]}
+
+---
+
+请基于以上信息，输出一份结构化的产品增长分析报告（中文，每个结论尽量有依据，无法判断的维度请标注"材料不足"）：
+
+### 一、产品定位与目标用户（ICP）
+
+**核心用户画像**：这个产品服务于哪类用户？职业、痛点、使用场景。
+
+**市场定位**：在市场上如何差异化？占据哪个细分位置？
+
+### 二、商业模式拆解
+
+**定价与变现**：描述其收费逻辑（或推断可能的商业模式）。免费策略和付费钩子是什么？
+
+**收入潜力**：根据目标市场和产品定位，估算收入范围（标注假设）。
+
+### 三、增长路径分析
+
+基于产品特性，推断：
+- 最适合的用户获取渠道（PLG/SLG/社区/内容）
+- 早期 0→100 用户的关键动作
+- 可能的病毒传播机制
+
+### 四、增长飞轮
+
+描述这个产品类型的典型增长正循环（A → B → C → 回到 A）。
+
+### 五、给创始人/竞争者的战术建议
+
+5 条最重要的可执行建议：
+- 今天就可以开始的行动
+- 不这样做的代价
+
+### 六、风险与机会
+
+**主要风险**（2-3 条）：这类产品的典型陷阱和竞争威胁。
+
+**市场机会**（1-2 条）：当前市场的空白点或进入时机。
+
+---
+
+语言风格：像军师，直接，不废话。每段不超过 150 字。"""
+
+    result = await _call_llm(prompt)
+    return result
+
+
 def _build_wayback_insight(website: dict) -> str:
     ws = website or {}
     parts = []
@@ -216,7 +275,6 @@ def _build_social_insight(social: dict) -> str:
             line += f"（{v['note'][:60]}）"
         parts.append(line)
 
-        # Top tweets / posts
         top = v.get("top_tweets") or v.get("top_posts", [])
         if top:
             top_sorted = sorted(top, key=lambda x: x.get("likes", 0) + x.get("retweets", 0), reverse=True)
@@ -312,7 +370,6 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
     if struct:
         parts.append(f"**页面结构**: {' → '.join(struct[:8])}")
 
-    # Traffic
     tr = traffic or {}
     rank = tr.get("domain_rank", {})
     if rank.get("organic_traffic"):
@@ -335,7 +392,6 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
         for k in kw["keywords"][:8]:
             parts.append(f"  「{k['keyword']}」位置#{k['position']} 月搜索量{k.get('search_volume',0):,}")
 
-    # Social summary
     sm = social or {}
     ch = sm.get("channels", {})
     social_lines = []
@@ -346,7 +402,6 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
     if social_lines:
         parts.append(f"\n**社交媒体**: {' | '.join(social_lines)}")
 
-    # PH
     ph = producthunt or {}
     if ph.get("found"):
         parts.append(f"**Product Hunt**: {ph.get('launch_date','')} ⬆{ph.get('votes',0):,} votes ⭐{ph.get('reviews_rating',0):.1f}({ph.get('reviews_count',0)}条)")
@@ -355,7 +410,7 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
 
 
 async def _call_llm(prompt: str) -> dict:
-    """调用 LLM — 优先 TeamoRouter，fallback DeepSeek"""
+    """调用 LLM — 优先 TeamoRouter（重试3次），fallback DeepSeek（重试2次）"""
     teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
     if not teamo_key:
         try:
@@ -363,28 +418,36 @@ async def _call_llm(prompt: str) -> dict:
         except FileNotFoundError:
             pass
 
+    last_teamo_err = None
     if teamo_key:
-        try:
-            model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
-            async with httpx.AsyncClient(timeout=120) as client:
-                resp = await client.post(
-                    "https://router.teamolab.com/v1/chat/completions",
-                    headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.6,
-                        "max_tokens": 4000,
-                    },
-                )
-                data = resp.json()
-                actual_model = data.get("model", model)
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return {"success": True, "content": content, "source": f"TeamoRouter ({actual_model})"}
-        except Exception:
-            pass
+        model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=90) as client:
+                    resp = await client.post(
+                        "https://router.teamolab.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.6,
+                            "max_tokens": 4000,
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    actual_model = data.get("model", model)
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content:
+                        return {"success": True, "content": content, "source": f"TeamoRouter ({actual_model})"}
+                    # Empty content — retry
+                    last_teamo_err = "empty response"
+            except Exception as e:
+                last_teamo_err = str(e)
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)  # 1s then 2s backoff
 
+    # DeepSeek fallback
     api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
         try:
@@ -394,26 +457,33 @@ async def _call_llm(prompt: str) -> dict:
     if not api_key:
         return _fallback_summary()
 
-    try:
-        async with httpx.AsyncClient(timeout=90) as client:
-            resp = await client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.6,
-                    "max_tokens": 4000,
-                },
-            )
-            data = resp.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            if content:
-                return {"success": True, "content": content, "source": "DeepSeek"}
-    except Exception as e:
-        return {"success": False, "content": "", "note": f"LLM 调用失败: {str(e)[:100]}", "source": "error"}
+    last_ds_err = None
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=90) as client:
+                resp = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.6,
+                        "max_tokens": 4000,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return {"success": True, "content": content, "source": "DeepSeek"}
+                last_ds_err = "empty response"
+        except Exception as e:
+            last_ds_err = str(e)
+        if attempt < 1:
+            await asyncio.sleep(3)
 
-    return _fallback_summary()
+    note = f"LLM 调用失败 (TeamoRouter: {last_teamo_err or 'skipped'} / DeepSeek: {last_ds_err or 'skipped'})"
+    return {"success": False, "content": "", "note": note[:200], "source": "error"}
 
 
 def _fallback_summary() -> dict:
