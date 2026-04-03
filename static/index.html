@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>竞品调研工具 — Gingiris</title>
+    <title>Analook — 30秒看透竞品增长策略</title>
+    <meta name="description" content="输入竞品网址，自动分析官网演变、社媒渠道、流量趋势、增长策略。由 Gingiris 驱动。">
+    <meta property="og:title" content="Analook — 竞品深度调研工具">
+    <meta property="og:description" content="输入竞品网址，30–50 秒获得完整竞品情报报告">
+    <meta property="og:url" content="https://www.analook.com">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
@@ -11,56 +15,85 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         table { border-spacing: 0; }
         pre { white-space: pre-wrap; word-break: break-all; }
+        .chip:hover { background: #374151; }
+        .history-item:hover { background: #1f2937; }
     </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
     <header class="border-b border-gray-800 py-4">
         <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
-            <div>
-                <h1 class="text-xl font-bold text-white">🔍 竞品调研工具</h1>
-                <p class="text-xs text-gray-500 mt-0.5">Powered by Gingiris · MVP v0.4</p>
+            <div class="flex items-center gap-3">
+                <span class="text-2xl font-bold tracking-tight text-white">Analook</span>
+                <span class="hidden sm:inline text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">MVP v0.4</span>
             </div>
+            <span class="text-xs text-gray-500">Powered by Gingiris</span>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-6 py-8">
+
+        <!-- Hero tagline (hidden when report is shown) -->
+        <div id="hero-section" class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-white mb-3">30 秒看透任何竞品</h2>
+            <p class="text-gray-400 text-base max-w-xl mx-auto">输入竞品网址，自动获取官网演变 · 社媒渠道 · 流量趋势 · 增长打法完整报告</p>
+        </div>
+
         <!-- Input -->
-        <div id="input-section" class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-8">
-            <h2 class="text-lg font-semibold mb-4">输入竞品信息</h2>
+        <div id="input-section" class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="md:col-span-2">
-                    <label class="block text-sm text-gray-400 mb-1">竞品网址 *</label>
-                    <input type="text" id="url-input" placeholder="例如：lovable.dev"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <label class="block text-sm text-gray-400 mb-1">竞品网址 <span class="text-red-400">*</span></label>
+                    <input type="text" id="url-input" placeholder="例如：lovable.dev 或 https://linear.app"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-400 mb-1">产品名称（可选）</label>
-                    <input type="text" id="name-input" placeholder="自动识别"
-                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                    <input type="text" id="name-input" placeholder="留空自动识别"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 </div>
             </div>
+
+            <!-- Example chips -->
+            <div class="mt-3 flex flex-wrap gap-2 items-center">
+                <span class="text-xs text-gray-500">试试：</span>
+                <button onclick="fillExample('lovable.dev')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">lovable.dev</button>
+                <button onclick="fillExample('linear.app')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">linear.app</button>
+                <button onclick="fillExample('notion.so')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">notion.so</button>
+                <button onclick="fillExample('cursor.com')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">cursor.com</button>
+            </div>
+
+            <!-- Error message -->
+            <div id="error-msg" class="hidden mt-3 text-sm text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-4 py-2.5"></div>
+
             <button id="start-btn" onclick="startAnalysis()"
-                class="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2.5 rounded-lg transition-colors">
+                class="mt-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors">
                 🚀 开始调研
             </button>
+        </div>
+
+        <!-- Recent history -->
+        <div id="history-section" class="mb-8 hidden">
+            <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-2 px-1">最近调研</h3>
+            <div id="history-list" class="space-y-1.5"></div>
         </div>
 
         <!-- Progress -->
         <div id="progress-section" class="hidden mb-8">
             <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-                <h2 class="text-lg font-semibold mb-4">调研进度</h2>
-                <div class="space-y-3">
-                    <div class="flex items-center gap-3" id="prog-website"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 1: 官网深度分析（Wayback Machine 多快照抓取）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-social"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 2: 社交媒体渠道检测（Twitter/Reddit/GitHub/YouTube）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-propagation"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 2b: 传播深度分析（Launch 帖四阶段 · KOL 影响力）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-traffic"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 3: 流量与 SEO 分析（DataForSEO + Product Hunt）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-traffic_peaks"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 3b: Google Trends 流量峰值分析（品牌热度 · 增长阶段）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-growth_analysis"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 4: 增长深度分析（渠道拆解 · 0→1 故事线 · 多波 Launch）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="flex items-center gap-3" id="prog-report"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 5: AI 商业洞察分析（TeamoRouter）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
-                    <div class="mt-4 text-center">
-                        <div id="prog-timer" class="text-xs text-gray-500">已用时 0 秒 · 预计 40-50 秒完成</div>
-                    </div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-semibold">正在分析...</h2>
+                    <span id="prog-timer" class="text-xs text-gray-500">已用时 0 秒</span>
                 </div>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3" id="prog-website"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">官网深度分析（Wayback Machine）</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-social"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">社交媒体渠道检测</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-propagation"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">传播深度分析（KOL 影响力）</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-traffic"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">流量与 SEO 分析</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-traffic_peaks"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">Google Trends 流量峰值</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-growth_analysis"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">增长深度分析（渠道拆解·多波 Launch）</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                    <div class="flex items-center gap-3" id="prog-report"><span class="status-icon w-5 text-center">⏳</span><span class="flex-1 text-sm text-gray-300">AI 商业洞察生成</span><div class="w-32 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="prog-bar-fill h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></div>
+                </div>
+                <p class="text-xs text-gray-600 mt-4">预计 40–50 秒完成，请稍候</p>
             </div>
         </div>
 
@@ -69,11 +102,13 @@
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-xl font-bold">📊 调研报告</h2>
                 <div class="flex gap-2">
-                    <button onclick="shareReport()" class="bg-blue-900 hover:bg-blue-800 text-sm px-4 py-2 rounded-lg border border-blue-700" id="share-btn">🔗 分享报告</button>
-                    <button onclick="exportMarkdown()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700">📄 导出 Markdown</button>
-                    <button onclick="location.reload()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700">🔄 新调研</button>
+                    <button onclick="shareReport()" class="bg-blue-900 hover:bg-blue-800 text-sm px-4 py-2 rounded-lg border border-blue-700 transition-colors" id="share-btn">🔗 分享</button>
+                    <button onclick="exportMarkdown()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700 transition-colors">📄 导出 MD</button>
+                    <button onclick="newAnalysis()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700 transition-colors">＋ 新调研</button>
                 </div>
             </div>
+            <!-- Summary card injected by JS -->
+            <div id="section-summary-card" class="fade-in mb-6"></div>
             <div class="space-y-6">
                 <div id="section-website" class="fade-in"></div>
                 <div id="section-producthunt" class="fade-in"></div>
