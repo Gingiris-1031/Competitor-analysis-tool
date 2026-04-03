@@ -1,58 +1,49 @@
 """流量峰值分析模块 — Google Trends 周级别数据检测品牌搜索热度峰值"""
 import asyncio
-import json
 import re
-import subprocess
 from datetime import datetime, timedelta
 from typing import Optional
 
 
 # ---------------------------------------------------------------------------
-# Caravo helpers
+# pytrends helpers（替代 Caravo Google Trends）
 # ---------------------------------------------------------------------------
 
 def _fetch_trends_sync(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """同步版本 — 在 run_in_executor 线程中运行，不阻塞事件循环。"""
+    """
+    用 pytrends 获取 Google Trends 数据，返回与原 Caravo 格式兼容的 timeline 列表：
+    [{"timestamp": int, "date": str, "values": [{"query": str, "extracted_value": int}]}]
+    """
     try:
-        result = subprocess.run(
-            [
-                "npx", "-y", "@caravo/cli@latest",
-                "exec", "google-data/trends",
-                "-d", json.dumps({"q": query, "data_type": "TIMESERIES", "date": date_range}),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=20,  # reduced from 60
-        )
-        if result.returncode != 0:
+        from pytrends.request import TrendReq
+        pt = TrendReq(hl="en-US", tz=0, timeout=(10, 25), retries=2, backoff_factor=0.5)
+        pt.build_payload([query], cat=0, timeframe=date_range, geo="", gprop="")
+        df = pt.interest_over_time()
+        if df is None or df.empty:
             return None
+        if "isPartial" in df.columns:
+            df = df.drop(columns=["isPartial"])
 
-        raw = result.stdout.strip()
-        if not raw:
-            return None
-
-        lines = raw.split("\n")
-        # Skip Caravo payment line
-        json_text = "\n".join(lines[1:]) if lines[0].startswith("[caravo]") else raw
-        data = json.loads(json_text)
-        timeline = (
-            data.get("output", {})
-            .get("json", {})
-            .get("interest_over_time", {})
-            .get("timeline_data", [])
-        )
+        timeline = []
+        for date, row in df.iterrows():
+            val = int(row[query]) if query in row else 0
+            timeline.append({
+                "timestamp": int(date.timestamp()),
+                "date":      date.strftime("%Y-%m-%d"),
+                "values":    [{"query": query, "extracted_value": val}],
+            })
         return timeline if timeline else None
     except Exception:
         return None
 
 
 async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """异步包装：在线程池中运行，不阻塞事件循环，最长等待 25 秒。"""
+    """异步包装：在线程池中运行，不阻塞事件循环，最长等待 35 秒。"""
     loop = asyncio.get_event_loop()
     try:
         return await asyncio.wait_for(
             loop.run_in_executor(None, _fetch_trends_sync, query, date_range),
-            timeout=25,
+            timeout=35,
         )
     except Exception:
         return None
