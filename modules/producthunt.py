@@ -165,16 +165,21 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
                     if m:
                         product_slug = m.group(1).lower()
 
-        # If we found launches via slug, verify domain match before returning
+        # If we found launches via slug, filter to the correct product
         if all_hits:
             if not product_slug:
                 product_slug = brave_slug or brand
-            # Filter: only keep hits whose website matches our domain
-            domain_lower = domain.lower().replace("www.", "")
-            verified = [h for h in all_hits if domain_lower in (h.get("website", "") or "").lower()]
-            if verified:
-                return _build_result(verified, product_slug, brand, product_name)
-            # No domain match — don't return wrong product, fall through to next steps
+            # PH website field is often a redirect URL, so domain check is unreliable.
+            # Instead, filter by product name match + pick highest votes.
+            name_lower = product_name.lower()
+            name_matched = [h for h in all_hits if h.get("name", "").lower() == name_lower]
+            if name_matched:
+                # Among name-matched hits, pick the one with most votes
+                best = max(name_matched, key=lambda h: h.get("votes", 0))
+                # But reject if votes < 10 and tagline is clearly unrelated
+                if best.get("votes", 0) >= 10:
+                    return _build_result(name_matched, product_slug, brand, product_name)
+            # No reliable name match — don't return wrong product, fall through
 
         # If API gave nothing, use brave_slug or brand as product_slug
         if not product_slug:
@@ -260,6 +265,13 @@ def _build_slug_list(brand: str, name_slug: str) -> list:
     for suffix in range(2, 11):
         for base in base_names:
             slugs.append(f"{base}-{suffix}")
+    # Version-style slugs: notion-2-0, notion-3-0 (common for major product updates)
+    for major in range(2, 6):
+        for base in base_names:
+            slugs.append(f"{base}-{major}-0")
+    # AI-specific: notion-ai-2, notion-ai-3
+    for base in base_names:
+        slugs.extend([f"{base}-ai-2", f"{base}-ai-3"])
     for base in base_names:
         for variant in ["dev", "app", "io", "pro", "hq", "so", "xyz", "co"]:
             slugs.append(f"{base}-{variant}")

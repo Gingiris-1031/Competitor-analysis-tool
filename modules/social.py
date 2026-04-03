@@ -237,7 +237,7 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 # Actor IDs on Apify
-_APIFY_PROFILE_ACTOR = "apidojo/twitter-profile-scraper"
+_APIFY_PROFILE_ACTOR = "happitap/twitter-profile-scraper"
 _APIFY_TWEET_ACTOR = "apidojo/tweet-scraper"
 
 
@@ -271,8 +271,7 @@ async def _call_apify_twitter_user(handle: str) -> dict:
     api_base = "https://api.apify.com/v2"
     headers = {"Authorization": f"Bearer {token}"}
     run_input = {
-        "twitterHandles": [handle],
-        "maxItems": 40,  # 40 included free per profile ($0.016)
+        "handles": [handle],
     }
 
     try:
@@ -324,36 +323,54 @@ async def _call_apify_twitter_user(handle: str) -> dict:
             if not isinstance(items, list) or not items:
                 return {"success": False, "error": "Apify returned empty dataset"}
 
-            # Extract profile from the first item's author field
+            # happitap/twitter-profile-scraper returns flat profile objects:
+            # {"type": "user", "userName": ..., "name": ..., "bio": ..., "followers": ...}
+            # Old apidojo actor returned tweets with nested author fields.
+            # Support both formats for backward compatibility.
             first = items[0] if items else {}
-            author = first.get("author", {})
-            profile = {
-                "userName": author.get("userName", handle),
-                "name": author.get("name", ""),
-                "followers": author.get("followers"),
-                "following": author.get("following"),
-                "description": (author.get("description") or "")[:200],
-                "isBlueVerified": author.get("isBlueVerified", False),
-                "isVerified": author.get("isVerified", False),
-                "id": author.get("id", ""),
-            }
-
-            # Extract tweets
-            tweets = []
-            for item in items:
-                if item.get("type") not in (None, "tweet"):
-                    continue  # skip replies if any leaked in
-                tweets.append({
-                    "text": (item.get("fullText") or item.get("text") or "")[:200],
-                    "likeCount": item.get("likeCount", 0),
-                    "retweetCount": item.get("retweetCount", 0),
-                    "replyCount": item.get("replyCount", 0),
-                    "viewCount": item.get("viewCount", 0),
-                    "bookmarkCount": item.get("bookmarkCount", 0),
-                    "quoteCount": item.get("quoteCount", 0),
-                    "createdAt": item.get("createdAt", ""),
-                    "url": item.get("url", ""),
-                })
+            if first.get("type") == "user" or "bio" in first:
+                # New happitap format: flat profile object
+                profile = {
+                    "userName": first.get("userName", handle),
+                    "name": first.get("name", ""),
+                    "followers": first.get("followers"),
+                    "following": first.get("following"),
+                    "description": (first.get("bio") or "")[:200],
+                    "isBlueVerified": first.get("isBlueVerified", False),
+                    "isVerified": first.get("isVerified", False),
+                    "verifiedType": first.get("verifiedType", ""),
+                    "id": first.get("id", ""),
+                    "website": first.get("website", ""),
+                }
+                tweets = []  # Profile-only actor, no tweets
+            else:
+                # Old apidojo format: tweets with author field
+                author = first.get("author", {})
+                profile = {
+                    "userName": author.get("userName", handle),
+                    "name": author.get("name", ""),
+                    "followers": author.get("followers"),
+                    "following": author.get("following"),
+                    "description": (author.get("description") or "")[:200],
+                    "isBlueVerified": author.get("isBlueVerified", False),
+                    "isVerified": author.get("isVerified", False),
+                    "id": author.get("id", ""),
+                }
+                tweets = []
+                for item in items:
+                    if item.get("type") not in (None, "tweet"):
+                        continue
+                    tweets.append({
+                        "text": (item.get("fullText") or item.get("text") or "")[:200],
+                        "likeCount": item.get("likeCount", 0),
+                        "retweetCount": item.get("retweetCount", 0),
+                        "replyCount": item.get("replyCount", 0),
+                        "viewCount": item.get("viewCount", 0),
+                        "bookmarkCount": item.get("bookmarkCount", 0),
+                        "quoteCount": item.get("quoteCount", 0),
+                        "createdAt": item.get("createdAt", ""),
+                        "url": item.get("url", ""),
+                    })
 
             return {"success": True, "profile": profile, "tweets": tweets}
 
