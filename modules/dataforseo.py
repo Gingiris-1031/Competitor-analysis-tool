@@ -198,8 +198,11 @@ async def _top_keywords(client, headers, domain) -> dict:
     for k in non_branded:
         k["is_content_only"] = not _is_product_related(k["keyword"])
 
-    # Sort non-branded by search_volume desc for "top exposure" keywords
-    non_branded_by_volume = sorted(non_branded, key=lambda x: x.get("search_volume", 0), reverse=True)
+    # Sort: first-page rankings (pos ≤ 10) first, then by search_volume desc within each group
+    non_branded_by_volume = sorted(
+        non_branded,
+        key=lambda x: (0 if x.get("position", 99) <= 10 else 1, -x.get("search_volume", 0)),
+    )
 
     # Separate product-related vs content-only non-branded
     product_non_branded = [k for k in non_branded_by_volume if not k.get("is_content_only")]

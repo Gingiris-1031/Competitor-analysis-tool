@@ -272,7 +272,7 @@ async def _run_analysis(job_id: str):
     # Phase 1: all modules run in parallel
     job["progress"]["pr_news"] = "running"
     results_phase1 = await asyncio.gather(
-        _t(analyze_website(url), 28),                                           # was 40s
+        _t(analyze_website(url), 40),
         _t(analyze_domain(domain), 20),
         _t(analyze_producthunt(domain, product_name), 25),
         _t(analyze_social(domain, product_name, website_social_links={}), 22),  # was 35s
@@ -319,35 +319,66 @@ async def _run_analysis(job_id: str):
                 product_name = _first_seg
                 job["product_name"] = product_name
 
-    # Phase 1.5: Retry github_oss with website social_links if Phase 1 missed it
+    # Prepare for Phase 1.5 parallel tasks
     _gh_result = job["results"].get("github_oss", {})
-    if not _gh_result.get("found"):
-        _ws_social = (_website_res.get("current_site", {}) or {}).get("social_links", {})
+    _ws_social = (_website_res.get("current_site", {}) or {}).get("social_links", {})
+    import re as _re3
+    _brand_lower = _re3.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
+    _gh_org = _gh_result.get("owner", "")
+    _tiktok_hint  = job["results"].get("social", {}).get("_tiktok_hint")
+    _facebook_hint = job["results"].get("social", {}).get("_facebook_hint")
+
+    # Phase 1.5: Slow Apify channels (TikTok 55s + Facebook 65s) run in parallel with
+    # conditional retries for github_oss and funding — total bounded by 65s
+    from modules.social import _deep_tiktok_apify, _deep_facebook_apify
+
+    async def _slow_tiktok():
         try:
-            _gh_retry = await asyncio.wait_for(
-                analyze_github_oss(domain, product_name, _ws_social or {}), timeout=20
+            res = await asyncio.wait_for(
+                _deep_tiktok_apify(_brand_lower, product_name, handle_hint=_tiktok_hint), timeout=55
             )
-            if isinstance(_gh_retry, dict) and _gh_retry.get("found"):
-                job["results"]["github_oss"] = _gh_retry
+            soc = job["results"].setdefault("social", {})
+            soc.setdefault("channels", {})["tiktok"] = res if isinstance(res, dict) else {"platform": "TikTok", "detected": False}
         except Exception:
             pass
 
-    # Phase 1.6: Retry funding with GitHub org name if brand search missed it
-    # e.g. brand="affine" misses Toeverything's seed round → try org="toeverything"
-    _gh_result = job["results"].get("github_oss", {})
-    _gh_org = _gh_result.get("owner", "")
-    import re as _re3
-    _brand_lower = _re3.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
-    if (not job["results"].get("funding", {}).get("found")
-            and _gh_org and _gh_org.lower() != _brand_lower):
+    async def _slow_facebook():
         try:
-            _fund_retry = await asyncio.wait_for(
-                analyze_funding(domain, _gh_org), timeout=12
+            res = await asyncio.wait_for(
+                _deep_facebook_apify(_brand_lower, product_name, handle_hint=_facebook_hint), timeout=65
             )
-            if isinstance(_fund_retry, dict) and _fund_retry.get("found"):
-                job["results"]["funding"] = _fund_retry
+            soc = job["results"].setdefault("social", {})
+            soc.setdefault("channels", {})["facebook"] = res if isinstance(res, dict) else {"platform": "Facebook", "detected": False}
         except Exception:
             pass
+
+    async def _retry_github():
+        if not _gh_result.get("found"):
+            try:
+                _gh_retry = await asyncio.wait_for(
+                    analyze_github_oss(domain, product_name, _ws_social or {}), timeout=20
+                )
+                if isinstance(_gh_retry, dict) and _gh_retry.get("found"):
+                    job["results"]["github_oss"] = _gh_retry
+            except Exception:
+                pass
+
+    async def _retry_funding():
+        if (not job["results"].get("funding", {}).get("found")
+                and _gh_org and _gh_org.lower() != _brand_lower):
+            try:
+                _fund_retry = await asyncio.wait_for(
+                    analyze_funding(domain, _gh_org), timeout=12
+                )
+                if isinstance(_fund_retry, dict) and _fund_retry.get("found"):
+                    job["results"]["funding"] = _fund_retry
+            except Exception:
+                pass
+
+    await asyncio.gather(
+        _slow_tiktok(), _slow_facebook(), _retry_github(), _retry_funding(),
+        return_exceptions=True,
+    )
 
     # Phase 1.7: Reconcile social handles — update website social_links with
     # Brave/Apify-verified handles from the social module (fixes handle mismatches)

@@ -5,7 +5,8 @@ function _renderKeywordTable(keywords, extraClass = '') {
     for (const k of keywords) {
         const posColor = k.position <= 3 ? 'text-green-400' : k.position <= 10 ? 'text-blue-400' : 'text-gray-400';
         const contentBadge = k.is_content_only ? ' <span class="ml-1 text-[9px] text-gray-600 bg-gray-800 px-1 rounded">内容页</span>' : '';
-        html += `<tr class="border-t border-gray-800"><td class="px-2 py-1.5">${esc(k.keyword)}${contentBadge}</td><td class="px-2 py-1.5 text-right ${posColor} font-mono">#${k.position}</td><td class="px-2 py-1.5 text-right font-mono">${(k.search_volume||0).toLocaleString()}</td><td class="px-2 py-1.5 text-right">$${(k.cpc||0).toFixed(2)}</td><td class="px-2 py-1.5">${esc(k.competition||'—')}</td></tr>`;
+        const firstPageBadge = (!k.is_content_only && k.position <= 10) ? ' <span class="ml-1 text-[9px] text-green-400 bg-green-900/30 px-1 rounded font-medium">首页</span>' : '';
+        html += `<tr class="border-t border-gray-800"><td class="px-2 py-1.5">${esc(k.keyword)}${firstPageBadge}${contentBadge}</td><td class="px-2 py-1.5 text-right ${posColor} font-mono">#${k.position}</td><td class="px-2 py-1.5 text-right font-mono">${(k.search_volume||0).toLocaleString()}</td><td class="px-2 py-1.5 text-right">$${(k.cpc||0).toFixed(2)}</td><td class="px-2 py-1.5">${esc(k.competition||'—')}</td></tr>`;
     }
     html += `</tbody></table></div>`;
     return html;

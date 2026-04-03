@@ -14,10 +14,10 @@ async def analyze_website(url: str) -> dict:
     if not domain:
         domain = url.replace("https://", "").replace("http://", "").split("/")[0]
 
-    # Step 0: Follow redirects to find the REAL domain
+    # Step 0: Follow redirects to find the REAL domain (quick check, 5s max)
     real_domain = domain
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
             resp = await client.head(url, headers={"User-Agent": "Mozilla/5.0"})
             redirected = urlparse(str(resp.url)).netloc
             if redirected and redirected != domain:
@@ -25,37 +25,51 @@ async def analyze_website(url: str) -> dict:
     except Exception:
         pass
 
-    # Step 1: Get Wayback timeline (try multiple domain variants)
-    domains_to_try = list(dict.fromkeys([real_domain, domain, f"www.{domain}",
+    # Step 1: Get Wayback timeline — try top 3 domain variants IN PARALLEL for speed
+    domains_to_try = list(dict.fromkeys([real_domain, domain,
         real_domain.replace("www.", ""), domain.replace("www.", "")]))
-    
+    domains_to_try = [d for d in domains_to_try if d][:3]
+
+    async def _try_domain(d: str):
+        meta = await _fetch_wayback_timeline(d)
+        return d, meta
+
+    variant_results = await asyncio.gather(*[_try_domain(d) for d in domains_to_try], return_exceptions=True)
+
     wayback_meta = {"all_timestamps": [], "total_count": 0}
-    for d in domains_to_try:
-        if not d:
-            continue
-        wayback_meta = await _fetch_wayback_timeline(d)
-        if wayback_meta.get("all_timestamps"):
-            domain = d
+    for vr in variant_results:
+        if isinstance(vr, tuple) and vr[1].get("all_timestamps"):
+            domain, wayback_meta = vr[0], vr[1]
             break
     
     # Step 2: Select key snapshots (6-8 spread across project lifetime)
     key_timestamps = _select_key_snapshots(wayback_meta.get("all_timestamps", []))
     
-    # Step 3: Fetch and analyze each snapshot + current site IN PARALLEL
+    # Step 3: Fetch and analyze each snapshot + current site IN PARALLEL (capped at 20s)
     snapshot_tasks = [_analyze_snapshot(domain, ts) for ts in key_timestamps]
     current_task = _analyze_current_site(url)
-    
+
     all_tasks = snapshot_tasks + [current_task]
-    results = await asyncio.gather(*all_tasks, return_exceptions=True)  # All run concurrently
-    
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(*all_tasks, return_exceptions=True),
+            timeout=20,
+        )
+    except asyncio.TimeoutError:
+        results = [{"error": "snapshot fetch timeout"}] * len(all_tasks)
+
     snapshots = []
     for i, r in enumerate(results[:-1]):
         if isinstance(r, Exception):
             snapshots.append({"timestamp": key_timestamps[i], "error": str(r)[:100]})
-        else:
+        elif isinstance(r, dict):
             snapshots.append(r)
-    
-    current = results[-1] if not isinstance(results[-1], Exception) else {"error": str(results[-1])}
+        else:
+            snapshots.append({"timestamp": key_timestamps[i], "error": "unexpected result"})
+
+    current = results[-1] if (isinstance(results[-1], dict) and "error" not in results[-1]) else (
+        results[-1] if isinstance(results[-1], dict) else {"error": str(results[-1])}
+    )
     
     # Step 4: Detect changes between snapshots
     changes = _detect_changes(snapshots, current)
@@ -128,7 +142,7 @@ async def _try_memento(domain: str) -> dict:
     """Memento Time Travel API — 聚合多个存档源（Wayback、Archive.today 等）"""
     url = f"https://timetravel.mementoweb.org/timemap/json/https://{domain}/"
     try:
-        async with httpx.AsyncClient(timeout=12) as client:
+        async with httpx.AsyncClient(timeout=7) as client:
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             if resp.status_code != 200:
                 return {"all_timestamps": []}
@@ -169,7 +183,7 @@ async def _try_cdx(domain: str) -> dict:
         f"&filter=statuscode:200&collapse=timestamp:6&limit=30"
     )
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=6) as client:
             resp = await client.get(api_url)
             if resp.status_code != 200:
                 return {"all_timestamps": []}
@@ -194,7 +208,7 @@ async def _try_timemap(domain: str) -> dict:
     """Timemap API — fallback，更稳定但不去重"""
     api_url = f"https://web.archive.org/web/timemap/json?url={domain}&fl=timestamp,original&limit=50&output=json"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=6) as client:
             resp = await client.get(api_url)
             if resp.status_code != 200:
                 return {"all_timestamps": []}
@@ -278,7 +292,7 @@ async def _analyze_snapshot(domain: str, timestamp: str) -> dict:
     html = None
     source_url = display_url
     try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
             resp = await client.get(archive_url, headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
             })
@@ -309,10 +323,10 @@ async def _analyze_snapshot(domain: str, timestamp: str) -> dict:
 async def _analyze_current_site(url: str) -> dict:
     """抓取并分析当前官网（带重试）"""
     from datetime import datetime
-    
+
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
                 resp = await client.get(url, headers={
                     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
                 })

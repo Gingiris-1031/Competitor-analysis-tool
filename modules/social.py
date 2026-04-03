@@ -69,26 +69,30 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     tiktok_hint    = hints.get("tiktok", {}).get("handle")
     facebook_hint  = hints.get("facebook", {}).get("handle")
 
+    # Store hints for Phase 1.5 slow-channel callers (TikTok/Facebook run separately)
+    results["_tiktok_hint"] = tiktok_hint
+    results["_facebook_hint"] = facebook_hint
+    # Placeholders — will be filled by app.py Phase 1.5
+    results["channels"]["tiktok"]   = {"platform": "TikTok",    "detected": False, "note": "🔄 采集中…"}
+    results["channels"]["facebook"] = {"platform": "Facebook",  "detected": False, "note": "🔄 采集中…"}
+
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
     }) as client:
-        # Run all channel checks in parallel for speed
+        # Fast channels only (≤20s each) — TikTok/Facebook use Apify and need 45-55s, run separately
         import asyncio as _aio
         twitter_task   = _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
         reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
         github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint)
         instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
-        tiktok_task    = _deep_tiktok_apify(brand, product_name, handle_hint=tiktok_hint)
-        facebook_task  = _deep_facebook_apify(brand, product_name, handle_hint=facebook_hint)
 
         channel_results = await _aio.gather(
             twitter_task, youtube_task, reddit_task, github_task, instagram_task,
-            tiktok_task, facebook_task,
             return_exceptions=True,
         )
 
-        channel_names = ["twitter", "youtube", "reddit", "github", "instagram", "tiktok", "facebook"]
+        channel_names = ["twitter", "youtube", "reddit", "github", "instagram"]
         for ch_name, res in zip(channel_names, channel_results):
             if isinstance(res, Exception):
                 log.warning("Channel %s failed: %s", ch_name, res)
