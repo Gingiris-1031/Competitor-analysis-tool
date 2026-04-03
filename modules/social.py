@@ -51,7 +51,7 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     brave_hints = {}
     if brave_find_social:
         try:
-            brave_hints = await brave_find_social(brand, product_name)
+            brave_hints = await brave_find_social(brand, product_name, domain=domain)
         except Exception:
             brave_hints = {}
 

@@ -8,13 +8,19 @@ import os
 async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None) -> dict:
     """调用 LLM 基于所有数据生成商业洞察"""
 
-    context = _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
-    wayback_insight = _build_wayback_insight(website)
-    ph_insight = _build_ph_insight(producthunt)
-    playbook_insight = _build_playbook_insight(growth_strategy)
-    social_insight = _build_social_insight(social)
-    growth_insight = _build_growth_insight(growth_analysis, traffic_peaks)
-    pricing_insight = _build_pricing_insight(pricing)
+    def _safe(fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            return f"[数据解析错误: {str(e)[:80]}]"
+
+    context        = _safe(_build_context, product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
+    wayback_insight = _safe(_build_wayback_insight, website)
+    ph_insight     = _safe(_build_ph_insight, producthunt)
+    playbook_insight = _safe(_build_playbook_insight, growth_strategy)
+    social_insight = _safe(_build_social_insight, social)
+    growth_insight = _safe(_build_growth_insight, growth_analysis, traffic_peaks)
+    pricing_insight = _safe(_build_pricing_insight, pricing)
 
     prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
@@ -321,10 +327,11 @@ def _build_growth_insight(growth_analysis: dict, traffic_peaks: dict) -> str:
             followers = ch.get("followers", 0)
             parts.append(f"  · {name}: {pct}%" + (f"，{followers:,} 粉丝" if followers else ""))
 
-    peaks = tp.get("peaks", [])
-    if peaks:
+    peaks = tp.get("peaks") if isinstance(tp, dict) else None
+    if isinstance(peaks, list) and peaks:
         parts.append("**流量爆发节点：**")
         for p in peaks[:4]:
+            if not isinstance(p, dict): continue
             date = p.get("date", "")
             cause = p.get("cause", "")
             multiplier = p.get("traffic_multiplier", 0)
@@ -392,10 +399,15 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
             parts.append(f"  {h['date']}: {h.get('organic_traffic',0):,} 有机 / {h.get('keywords',0):,} 关键词")
 
     kw = tr.get("top_keywords", {})
-    if kw.get("keywords"):
-        parts.append("**Top 关键词**:")
-        for k in kw["keywords"][:8]:
-            parts.append(f"  「{k['keyword']}」位置#{k['position']} 月搜索量{k.get('search_volume',0):,}")
+    kw_list = kw.get("keywords") if isinstance(kw, dict) else None
+    if isinstance(kw_list, list) and kw_list:
+        # Show non-branded keywords first (higher signal for competitor analysis)
+        nb = kw.get("non_branded_keywords") or []
+        display_kw = (nb[:5] + [k for k in kw_list if k not in nb])[:8] if nb else kw_list[:8]
+        parts.append("**Top 非品牌关键词**:")
+        for k in display_kw:
+            if isinstance(k, dict):
+                parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
 
     sm = social or {}
     ch = sm.get("channels", {})

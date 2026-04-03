@@ -34,14 +34,20 @@ async def brave_search(query: str, count: int = 5) -> list:
         return []
 
 
-async def brave_find_twitter(brand: str, product_name: str) -> str | None:
+async def brave_find_twitter(brand: str, product_name: str, domain: str = "") -> str | None:
     """Use Brave Search to find the official Twitter/X handle for a product."""
     _skip = {"intent", "search", "home", "share", "hashtag", "explore", "i", "compose", "messages"}
-    for query in [f'"{product_name}" site:x.com OR site:twitter.com', f'"{brand}" official twitter account']:
+    # Build queries from most specific to least — use domain as anchor when available
+    queries = []
+    if domain:
+        queries.append(f'"{domain}" site:x.com OR site:twitter.com')
+        queries.append(f'site:twitter.com "{domain}"')
+    queries.append(f'"{brand}" official twitter OR x.com')
+    for query in queries:
         results = await brave_search(query, count=5)
         found = []
         for r in results:
-            for url_field in [r.get("url", ""), r.get("description", "")]:
+            for url_field in [r.get("url", ""), r.get("description", ""), r.get("title", "")]:
                 m = _TWITTER_RE.search(url_field)
                 if m and m.group(1).lower() not in _skip:
                     found.append(m.group(1))
@@ -51,53 +57,60 @@ async def brave_find_twitter(brand: str, product_name: str) -> str | None:
     return None
 
 
-async def brave_find_ph_slug(brand: str, product_name: str) -> str | None:
+async def brave_find_ph_slug(brand: str, product_name: str, domain: str = "") -> str | None:
     """Use Brave Search to find the Product Hunt product slug."""
-    for query in [f'"{product_name}" site:producthunt.com', f'"{brand}" producthunt.com/products']:
+    _skip_slugs = {"coming-soon", "login", "posts", "leaderboard", "upcoming", "newsletter", "launch"}
+    queries = []
+    if domain:
+        queries.append(f'"{domain}" site:producthunt.com')
+    queries.append(f'"{brand}" site:producthunt.com/products')
+    queries.append(f'"{brand}" producthunt launch')
+    for query in queries:
         results = await brave_search(query, count=5)
         for r in results:
             url = r.get("url", "")
             m = _PH_PRODUCT_RE.search(url)
             if m:
                 slug = m.group(1)
-                if slug not in {"coming-soon", "login", "posts", "leaderboard"}:
+                if slug not in _skip_slugs:
                     return slug
             m2 = _PH_POST_RE.search(url)
-            if m2:
+            if m2 and m2.group(1) not in _skip_slugs:
                 return m2.group(1)
     return None
 
 
-async def brave_find_social(brand: str, product_name: str) -> dict:
+async def brave_find_social(brand: str, product_name: str, domain: str = "") -> dict:
     """Use Brave Search to find official social media handles for multiple platforms."""
-    handles = {}
-    tasks = []
     import asyncio
-    # Twitter
-    twitter_task = asyncio.create_task(brave_find_twitter(brand, product_name))
-    # Platform-specific searches
-    platform_tasks = {}
-    for platform, regex in _SOCIAL_PLATFORM_RE.items():
-        async def _find(p=platform, rx=regex):
-            results = await brave_search(f'"{product_name}" site:{p}.com', count=3)
-            _skip_yt = {"watch", "results", "channel", "user", "playlist", "shorts"}
-            for r in results:
-                m = rx.search(r.get("url", ""))
-                if m:
-                    h = m.group(1)
-                    if p == "youtube" and h.lower() in _skip_yt:
-                        continue
-                    return h
-            return None
-        platform_tasks[platform] = asyncio.create_task(_find())
 
-    twitter_handle = await twitter_task
+    async def _find_platform(p: str, rx) -> str | None:
+        _skip_yt = {"watch", "results", "channel", "user", "playlist", "shorts", "feed"}
+        q = f'"{domain}" site:{p}.com' if domain else f'"{brand}" site:{p}.com'
+        results = await brave_search(q, count=3)
+        for r in results:
+            m = rx.search(r.get("url", ""))
+            if m:
+                h = m.group(1)
+                if p == "youtube" and h.lower() in _skip_yt:
+                    continue
+                return h
+        return None
+
+    # Run Twitter + other platforms concurrently
+    twitter_coro = brave_find_twitter(brand, product_name, domain)
+    platform_coros = {p: _find_platform(p, rx) for p, rx in _SOCIAL_PLATFORM_RE.items()}
+    all_coros = [twitter_coro] + list(platform_coros.values())
+    results_all = await asyncio.gather(*all_coros, return_exceptions=True)
+
+    handles = {}
+    twitter_handle = results_all[0] if not isinstance(results_all[0], Exception) else None
     if twitter_handle:
         handles["twitter"] = {"handle": twitter_handle, "url": f"https://x.com/{twitter_handle}", "source": "brave"}
 
-    for platform, task in platform_tasks.items():
-        h = await task
-        if h:
+    for i, (platform, _) in enumerate(platform_coros.items()):
+        h = results_all[i + 1]
+        if h and not isinstance(h, Exception):
             handles[platform] = {"handle": h, "url": f"https://{platform}.com/{h}", "source": "brave"}
 
     return handles

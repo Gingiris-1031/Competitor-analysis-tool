@@ -124,7 +124,7 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
     brave_slug = None
     if brave_find_ph_slug:
         try:
-            brave_slug = await brave_find_ph_slug(brand, product_name)
+            brave_slug = await brave_find_ph_slug(brand, product_name, domain=domain)
             log.debug("Brave found PH slug: %s for %s", brave_slug, brand)
         except Exception:
             pass
@@ -140,8 +140,10 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        # Brave slug gets tried first — it's the most reliable pointer
-        seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug])))
+        # Brave slug + brand + common PH patterns tried first
+        # e.g. "affine-2" is the real post slug for AFFiNE's first PH launch
+        extra_slugs = [f"{brand}-2", f"{brand}-3", f"{brand}-ai", f"get-{brand}"]
+        seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug] + extra_slugs)))
 
         for slug in seed_slugs:
             hit = await _query_post(client, headers, slug)

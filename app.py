@@ -56,7 +56,10 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
     domain = urlparse(req.url if req.url.startswith("http") else f"https://{req.url}").netloc
     if not domain:
         domain = req.url.replace("https://", "").replace("http://", "").split("/")[0]
-    product_name = req.product_name or domain.replace(".com", "").replace(".io", "").replace(".dev", "").replace(".ai", "").capitalize()
+    import re as _re
+    _brand = _re.sub(r'^www\.', '', domain.lower())
+    _brand = _re.sub(r'\.[a-z]{2,6}$', '', _brand)   # strip any TLD (.pro, .com, .io, .ai, .dev…)
+    product_name = req.product_name or _brand.replace("-", " ").replace("_", " ").capitalize()
 
     # --- Domain cache: return cached result if available and fresh ---
     cache_key = domain.lower().replace("www.", "")
