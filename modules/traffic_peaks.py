@@ -488,42 +488,75 @@ def _correlate(peak_events: list, known_launches: list) -> tuple[list, list]:
 # Attribution — HN search
 # ---------------------------------------------------------------------------
 
-def _search_hn_sync(brand: str, start_ts: int, end_ts: int) -> list:
-    """同步版本 — 在 run_in_executor 线程中运行。"""
-    url = (
-        f"https://hn.algolia.com/api/v1/search"
-        f"?query={brand}"
-        f"&tags=story"
-        f"&numericFilters=created_at_i%3E{start_ts}%2Ccreated_at_i%3C{end_ts}"
-        f"&hitsPerPage=10"
-    )
-    try:
-        result = subprocess.run(
-            ["curl", "-s", "--max-time", "8", url],
-            capture_output=True, text=True, timeout=12,
-        )
-        data = json.loads(result.stdout)
-        hits = []
-        for h in data.get("hits", []):
-            if h.get("points", 0) >= 2:
-                hits.append({
-                    "title": h.get("title", ""),
-                    "points": h.get("points", 0),
-                    "comments": h.get("num_comments", 0),
-                    "date": h.get("created_at", "")[:10],
-                    "url": f"https://news.ycombinator.com/item?id={h.get('objectID', '')}",
-                })
-        return sorted(hits, key=lambda x: x["points"], reverse=True)[:5]
-    except Exception:
+def _search_hn_sync(brand: str, start_ts: int, end_ts: int, domain: str = "", first_seen_ts: int = 0) -> list:
+    """同步版本 — 在 run_in_executor 线程中运行。
+
+    Filters:
+    - Clamp start_ts to first_seen_ts (product launch date) to exclude pre-product noise
+    - Search by both brand name and domain for better recall
+    - Relevance check: title or story URL must mention brand/domain
+    """
+    # Clamp search window: never look before product existed
+    if first_seen_ts and start_ts < first_seen_ts:
+        start_ts = first_seen_ts
+
+    # If the clamped window is invalid, skip
+    if start_ts >= end_ts:
         return []
 
+    # Search with brand name + domain for better recall
+    all_hits = {}
+    for query in [brand, domain] if domain and domain != brand else [brand]:
+        url = (
+            f"https://hn.algolia.com/api/v1/search"
+            f"?query={query}"
+            f"&tags=story"
+            f"&numericFilters=created_at_i%3E{start_ts}%2Ccreated_at_i%3C{end_ts}"
+            f"&hitsPerPage=10"
+        )
+        try:
+            result = subprocess.run(
+                ["curl", "-s", "--max-time", "8", url],
+                capture_output=True, text=True, timeout=12,
+            )
+            data = json.loads(result.stdout)
+            for h in data.get("hits", []):
+                oid = h.get("objectID", "")
+                if oid and oid not in all_hits and h.get("points", 0) >= 2:
+                    title = h.get("title", "")
+                    story_url = h.get("url", "") or ""
+                    # Relevance check: title or story URL should relate to the product
+                    text_combined = (title + " " + story_url).lower()
+                    brand_lower = brand.lower()
+                    domain_lower = domain.lower().replace("www.", "")
+                    is_relevant = (
+                        brand_lower in text_combined
+                        or domain_lower in text_combined
+                    )
+                    if not is_relevant:
+                        continue
+                    all_hits[oid] = {
+                        "title": title,
+                        "points": h.get("points", 0),
+                        "comments": h.get("num_comments", 0),
+                        "date": h.get("created_at", "")[:10],
+                        "url": f"https://news.ycombinator.com/item?id={oid}",
+                    }
+        except Exception:
+            continue
 
-async def _search_hn(brand: str, start_ts: int, end_ts: int) -> list:
+    hits = list(all_hits.values())
+    return sorted(hits, key=lambda x: x["points"], reverse=True)[:5]
+
+
+async def _search_hn(brand: str, start_ts: int, end_ts: int, domain: str = "", first_seen_ts: int = 0) -> list:
     """异步包装：在线程池中运行，不阻塞事件循环。"""
     loop = asyncio.get_event_loop()
     try:
         return await asyncio.wait_for(
-            loop.run_in_executor(None, _search_hn_sync, brand, start_ts, end_ts),
+            loop.run_in_executor(
+                None, _search_hn_sync, brand, start_ts, end_ts, domain, first_seen_ts
+            ),
             timeout=15,
         )
     except Exception:
@@ -686,6 +719,7 @@ async def _attribute_peak(
     domain: str,
     producthunt: dict,
     social: dict,
+    first_seen_ts: int = 0,
 ) -> dict:
     """对单个峰值进行归因分析。"""
     window_start = peak["peak_timestamp"] - 14 * 86400  # -2 weeks
@@ -696,7 +730,7 @@ async def _attribute_peak(
     # 1. HN Search (live API call, ±3 weeks to catch upstream causes)
     hn_window_start = peak["peak_timestamp"] - 21 * 86400
     hn_window_end = peak["peak_timestamp"] + 14 * 86400
-    hn_results = await _search_hn(brand, hn_window_start, hn_window_end)
+    hn_results = await _search_hn(brand, hn_window_start, hn_window_end, domain=domain, first_seen_ts=first_seen_ts)
     if hn_results:
         # Classify: direct driver vs derivative discussion
         for h in hn_results:
@@ -844,6 +878,7 @@ async def analyze_traffic_peaks(
     domain: str,
     producthunt: dict = None,
     social: dict = None,
+    first_seen: str = "",
 ) -> dict:
     """
     通过 Google Trends 检测品牌搜索热度峰值，交叉关联已知 launch 事件，
@@ -928,9 +963,18 @@ async def analyze_traffic_peaks(
     all_peaks_annotated = correlated + unmatched
 
     # --- Step 7: attribution (HN + PH + Twitter + Reddit per peak) ---
+    # Convert first_seen date (e.g. "2022-08-01") to unix timestamp for HN filtering
+    first_seen_ts = 0
+    if first_seen:
+        try:
+            first_seen_ts = int(datetime.strptime(first_seen[:10], "%Y-%m-%d").timestamp())
+        except Exception:
+            pass
+
     for peak in all_peaks_annotated:
         attribution = await _attribute_peak(
-            peak, brand_name, domain_query, producthunt or {}, social or {}
+            peak, brand_name, domain_query, producthunt or {}, social or {},
+            first_seen_ts=first_seen_ts,
         )
         peak["attribution"] = attribution
 

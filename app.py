@@ -502,10 +502,13 @@ async def _run_analysis(job_id: str):
 
     async def _run_traffic_peaks():
         job["progress"]["traffic_peaks"] = "running"
+        # Pass first_seen from website analysis to filter HN results before product launch
+        website_first_seen = job["results"].get("website", {}).get("first_seen", "")
         peaks = await analyze_traffic_peaks(
             product_name, domain,
             producthunt=job["results"].get("producthunt", {}),
             social=job["results"].get("social", {}),
+            first_seen=website_first_seen,
         )
         job["results"]["traffic_peaks"] = peaks
         job["progress"]["traffic_peaks"] = "done"

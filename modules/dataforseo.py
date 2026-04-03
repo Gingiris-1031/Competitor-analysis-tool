@@ -2,9 +2,14 @@
 import httpx
 import os
 import base64
+import asyncio
+import logging
 
+logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.dataforseo.com/v3"
+MAX_RETRIES = 3
+RETRYABLE_STATUS = {402, 429, 500, 502, 503, 504}
 
 
 def _get_auth_header() -> str:
@@ -15,6 +20,31 @@ def _get_auth_header() -> str:
         except FileNotFoundError:
             pass
     return f"Basic {b64}" if b64 else ""
+
+
+async def _post_with_retry(client, url: str, headers: dict, json_body, max_retries: int = MAX_RETRIES):
+    """POST with exponential backoff for retryable errors (402/429/5xx/timeout)."""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            resp = await client.post(url, headers=headers, json=json_body)
+            if resp.status_code == 200:
+                return resp
+            if resp.status_code in RETRYABLE_STATUS and attempt < max_retries - 1:
+                wait = 2 ** attempt  # 1s, 2s, 4s
+                logger.warning(f"DataForSEO {resp.status_code} on {url}, retry {attempt+1}/{max_retries} in {wait}s")
+                await asyncio.sleep(wait)
+                continue
+            return resp  # Non-retryable error, return as-is
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                wait = 2 ** attempt
+                logger.warning(f"DataForSEO timeout/connect error, retry {attempt+1}/{max_retries} in {wait}s: {e}")
+                await asyncio.sleep(wait)
+            else:
+                raise
+    raise last_error
 
 
 async def analyze_domain(domain: str) -> dict:
@@ -56,10 +86,9 @@ async def analyze_domain(domain: str) -> dict:
 
 async def _domain_rank(client, headers, domain) -> dict:
     """域名排名概览"""
-    resp = await client.post(
-        f"{API_BASE}/dataforseo_labs/google/domain_rank_overview/live",
-        headers=headers,
-        json=[{"target": domain, "language_code": "en", "location_code": 2840}],
+    resp = await _post_with_retry(
+        client, f"{API_BASE}/dataforseo_labs/google/domain_rank_overview/live",
+        headers, [{"target": domain, "language_code": "en", "location_code": 2840}],
     )
     data = resp.json()
     cost = data.get("cost", 0)
@@ -83,10 +112,9 @@ async def _domain_rank(client, headers, domain) -> dict:
 
 async def _backlinks_summary(client, headers, domain) -> dict:
     """反链概览"""
-    resp = await client.post(
-        f"{API_BASE}/backlinks/summary/live",
-        headers=headers,
-        json=[{"target": domain}],
+    resp = await _post_with_retry(
+        client, f"{API_BASE}/backlinks/summary/live",
+        headers, [{"target": domain}],
     )
     data = resp.json()
     cost = data.get("cost", 0)
@@ -107,10 +135,9 @@ async def _backlinks_summary(client, headers, domain) -> dict:
 async def _top_keywords(client, headers, domain) -> dict:
     """Top 排名关键词 — 分品牌词 vs 非品牌词"""
     # Fetch more keywords to ensure enough non-branded ones
-    resp = await client.post(
-        f"{API_BASE}/dataforseo_labs/google/ranked_keywords/live",
-        headers=headers,
-        json=[{
+    resp = await _post_with_retry(
+        client, f"{API_BASE}/dataforseo_labs/google/ranked_keywords/live",
+        headers, [{
             "target": domain,
             "language_code": "en",
             "location_code": 2840,
@@ -225,10 +252,9 @@ async def _top_keywords(client, headers, domain) -> dict:
 
 async def _historical_rank(client, headers, domain) -> dict:
     """历史排名趋势"""
-    resp = await client.post(
-        f"{API_BASE}/dataforseo_labs/google/historical_rank_overview/live",
-        headers=headers,
-        json=[{"target": domain, "language_code": "en", "location_code": 2840}],
+    resp = await _post_with_retry(
+        client, f"{API_BASE}/dataforseo_labs/google/historical_rank_overview/live",
+        headers, [{"target": domain, "language_code": "en", "location_code": 2840}],
     )
     data = resp.json()
     cost = data.get("cost", 0)

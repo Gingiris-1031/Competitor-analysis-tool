@@ -456,10 +456,20 @@ def _extract_page_structure(html: str, timestamp: str, url: str) -> dict:
     if has_testimonials or has_case_study:
         structure_parts.append("📝 用户案例/评价")
     
+    # Construct Wayback iframe-safe preview URL from timestamp + original domain
+    preview_url = ""
+    if "web.archive.org" in url:
+        # Extract original URL from archive URL: .../web/{ts}id_/https://domain/
+        orig_match = re.search(r"/web/\d+(?:id_)?/(.+)$", url)
+        if orig_match:
+            original_url = orig_match.group(1)
+            preview_url = f"https://web.archive.org/web/{timestamp}if_/{original_url}"
+
     return {
         "timestamp": timestamp,
         "date": date_str,
         "archive_url": url,
+        "preview_url": preview_url,
         "slogan": slogan[:100],
         "title": title[:100],
         "meta_description": meta_desc,
