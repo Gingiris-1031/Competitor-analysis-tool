@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>竞品调研工具 — Gingiris</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        table { border-spacing: 0; }
+        pre { white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+    <header class="border-b border-gray-800 py-4">
+        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-white">🔍 竞品调研工具</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Powered by Gingiris · MVP v0.3</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Input -->
+        <div id="input-section" class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-8">
+            <h2 class="text-lg font-semibold mb-4">输入竞品信息</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">竞品网址 *</label>
+                    <input type="text" id="url-input" placeholder="例如：lovable.dev"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">产品名称（可选）</label>
+                    <input type="text" id="name-input" placeholder="自动识别"
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+            </div>
+            <button id="start-btn" onclick="startAnalysis()"
+                class="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-2.5 rounded-lg transition-colors">
+                🚀 开始调研
+            </button>
+        </div>
+
+        <!-- Progress -->
+        <div id="progress-section" class="hidden mb-8">
+            <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
+                <h2 class="text-lg font-semibold mb-4">调研进度</h2>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3" id="prog-website"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 1: 官网深度分析（Wayback Machine 多快照抓取）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-social"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 2: 社交媒体渠道检测（Twitter/Reddit/GitHub/YouTube）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-propagation"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 2b: 传播深度分析（Launch 帖四阶段 · KOL 影响力）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-traffic"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 3: 流量与 SEO 分析（DataForSEO + Product Hunt）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-traffic_peaks"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 3b: Google Trends 流量峰值分析（品牌热度 · 增长阶段）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-growth_analysis"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 4: 增长深度分析（渠道拆解 · 0→1 故事线 · 多波 Launch）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="flex items-center gap-3" id="prog-report"><span class="status-icon text-lg">⏳</span><span class="flex-1"><div class="text-sm">Step 5: AI 商业洞察分析（TeamoRouter）</div><div class="prog-bar mt-1.5 h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-blue-500 rounded-full transition-all duration-500" style="width:0%"></div></div></span></div>
+                    <div class="mt-4 text-center">
+                        <div id="prog-timer" class="text-xs text-gray-500">已用时 0 秒 · 预计 40-50 秒完成</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report -->
+        <div id="report-section" class="hidden">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold">📊 调研报告</h2>
+                <div class="flex gap-2">
+                    <button onclick="shareReport()" class="bg-blue-900 hover:bg-blue-800 text-sm px-4 py-2 rounded-lg border border-blue-700" id="share-btn">🔗 分享报告</button>
+                    <button onclick="exportMarkdown()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700">📄 导出 Markdown</button>
+                    <button onclick="location.reload()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-gray-700">🔄 新调研</button>
+                </div>
+            </div>
+            <div class="space-y-6">
+                <div id="section-website" class="fade-in"></div>
+                <div id="section-producthunt" class="fade-in"></div>
+                <div id="section-social" class="fade-in"></div>
+                <div id="section-propagation" class="fade-in"></div>
+                <div id="section-traffic" class="fade-in"></div>
+                <div id="section-peaks" class="fade-in"></div>
+                <div id="section-growth" class="fade-in"></div>
+                <div id="section-insights" class="fade-in"></div>
+                <div id="section-summary" class="fade-in"></div>
+                <div id="section-strategy" class="fade-in"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/render-producthunt.js"></script>
+    <script src="/js/render-insights.js"></script>
+    <script src="/js/render-website.js"></script>
+    <script src="/js/render-social.js"></script>
+    <script src="/js/render-traffic.js"></script>
+    <script src="/js/render-growth.js"></script>
+    <script src="/js/render-peaks.js"></script>
+    <script src="/js/render-propagation.js"></script>
+    <script src="/js/render-strategy.js"></script>
+</body>
+</html>
