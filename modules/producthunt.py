@@ -138,9 +138,15 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         if not product_slug:
             product_slug = brand
 
-        # ── Step 2: Discover all launch slugs via HTTP scrape + API ──
-        launch_slugs = await _discover_launches_via_http(product_slug, client)
-        api_slugs = await _discover_launches_via_api(product_slug, brand, client, headers)
+        # ── Step 2: Discover all launch slugs via HTTP scrape + API in parallel ──
+        import asyncio as _aio
+        http_slugs_task = _discover_launches_via_http(product_slug, client)
+        api_slugs_task = _discover_launches_via_api(product_slug, brand, client, headers)
+        http_slugs_result, api_slugs_result = await _aio.gather(
+            http_slugs_task, api_slugs_task, return_exceptions=True,
+        )
+        launch_slugs = http_slugs_result if isinstance(http_slugs_result, list) else []
+        api_slugs = api_slugs_result if isinstance(api_slugs_result, list) else []
         # Merge: HTTP results first, then API results, deduped
         for s in api_slugs:
             if s not in launch_slugs:

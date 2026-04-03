@@ -2,6 +2,7 @@
 import asyncio
 import json as _json
 import os
+import time
 import uuid
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +27,13 @@ app = FastAPI(title="竞品调研工具 MVP")
 # In-memory store for analysis jobs
 jobs: dict = {}
 
+# ---------------------------------------------------------------------------
+# Domain-level result cache (in-memory, single-instance)
+# key = domain string, value = {"timestamp": float, "job": dict}
+# ---------------------------------------------------------------------------
+DOMAIN_CACHE_TTL = 30 * 60  # 30 minutes
+_domain_cache: dict = {}
+
 
 class AnalyzeRequest(BaseModel):
     url: str
@@ -41,6 +49,25 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
     if not domain:
         domain = req.url.replace("https://", "").replace("http://", "").split("/")[0]
     product_name = req.product_name or domain.replace(".com", "").replace(".io", "").replace(".dev", "").replace(".ai", "").capitalize()
+
+    # --- Domain cache: return cached result if available and fresh ---
+    cache_key = domain.lower().replace("www.", "")
+    cached = _domain_cache.get(cache_key)
+    if cached and (time.time() - cached["timestamp"]) < DOMAIN_CACHE_TTL:
+        # Clone cached job under new job_id
+        cached_job = cached["job"]
+        jobs[job_id] = {
+            "status": "completed",
+            "product_name": product_name,
+            "url": req.url if req.url.startswith("http") else f"https://{req.url}",
+            "progress": {k: "done" for k in cached_job.get("progress", {})},
+            "results": cached_job.get("results", {}),
+            "report": cached_job.get("report"),
+            "markdown": cached_job.get("markdown"),
+            "_cached": True,
+        }
+        _persist_report(job_id, jobs[job_id])
+        return {"job_id": job_id, "status": "started", "cached": True}
     
     jobs[job_id] = {
         "status": "running",
@@ -70,18 +97,25 @@ async def _run_analysis(job_id: str):
     domain = urlparse(url).netloc
     product_name = job["product_name"]
 
-    # Step 1: Website + Traffic + PH in parallel (social needs website hints)
+    # ================================================================
+    # Phase 1: Website + Traffic/SEO + ProductHunt + Social (all parallel)
+    # Social runs without website hints first; handles are accurate enough
+    # via Apify/Caravo bio-matching. Website hints improve precision but
+    # the speed gain from full parallelism (~30-60s saved) outweighs the
+    # occasional miss.
+    # ================================================================
     import asyncio as _aio
     job["progress"]["website"] = "running"
-    job["progress"]["social"] = "pending"
+    job["progress"]["social"] = "running"
     job["progress"]["traffic"] = "running"
 
     website_task = analyze_website(url)
     traffic_task = analyze_domain(domain)
     ph_task = analyze_producthunt(domain, product_name)
+    social_task = analyze_social(domain, product_name, website_social_links={})
 
     results_phase1 = await _aio.gather(
-        website_task, traffic_task, ph_task,
+        website_task, traffic_task, ph_task, social_task,
         return_exceptions=True,
     )
 
@@ -93,38 +127,23 @@ async def _run_analysis(job_id: str):
 
     job["results"]["producthunt"] = results_phase1[2] if not isinstance(results_phase1[2], Exception) else {"error": str(results_phase1[2])}
 
-    # Step 2: Social — use website's social_links as hints for accurate handles
-    job["progress"]["social"] = "running"
-    website_social_links = {}
-    try:
-        website_social_links = job["results"]["website"].get("current_site", {}).get("social_links", {})
-    except Exception:
-        pass
+    job["results"]["social"] = results_phase1[3] if not isinstance(results_phase1[3], Exception) else {"error": str(results_phase1[3])}
+    job["progress"]["social"] = "error" if isinstance(results_phase1[3], Exception) else "done"
 
-    try:
-        social_result = await analyze_social(domain, product_name, website_social_links=website_social_links)
-        job["results"]["social"] = social_result
-        job["progress"]["social"] = "done"
-    except Exception as e:
-        job["results"]["social"] = {"error": str(e)}
-        job["progress"]["social"] = "error"
-
-    # Step 2b: Propagation analysis (after social, before growth)
-    if job["results"].get("social", {}).get("_propagation_available"):
-        try:
+    # ================================================================
+    # Phase 2: Propagation + Traffic Peaks (parallel, both depend on Phase 1)
+    # ================================================================
+    async def _run_propagation():
+        if job["results"].get("social", {}).get("_propagation_available"):
             job["progress"]["propagation"] = "running"
             propagation = await run_launch_propagation(job["results"]["social"])
             job["results"]["propagation"] = propagation
             job["progress"]["propagation"] = "done"
-        except Exception as e:
-            job["results"]["propagation"] = {"error": str(e)}
-            job["progress"]["propagation"] = "error"
-    else:
-        job["results"]["propagation"] = {}
-        job["progress"]["propagation"] = "done"
+        else:
+            job["results"]["propagation"] = {}
+            job["progress"]["propagation"] = "done"
 
-    # Step 2c: Traffic peaks analysis (after traffic + PH are done)
-    try:
+    async def _run_traffic_peaks():
         job["progress"]["traffic_peaks"] = "running"
         peaks = await analyze_traffic_peaks(
             product_name, domain,
@@ -133,12 +152,24 @@ async def _run_analysis(job_id: str):
         )
         job["results"]["traffic_peaks"] = peaks
         job["progress"]["traffic_peaks"] = "done"
-    except Exception as e:
-        job["results"]["traffic_peaks"] = {"error": str(e)}
+
+    phase2_results = await _aio.gather(
+        _run_propagation(), _run_traffic_peaks(),
+        return_exceptions=True,
+    )
+    # Handle propagation errors
+    if isinstance(phase2_results[0], Exception):
+        job["results"]["propagation"] = {"error": str(phase2_results[0])}
+        job["progress"]["propagation"] = "error"
+    # Handle traffic_peaks errors
+    if isinstance(phase2_results[1], Exception):
+        job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
         job["progress"]["traffic_peaks"] = "error"
 
-    # Step 3b: Growth deep analysis
-    try:
+    # ================================================================
+    # Phase 3: Growth analysis + AI summary (parallel — both read-only on Phase 1+2 data)
+    # ================================================================
+    async def _run_growth():
         job["progress"]["growth_analysis"] = "running"
         growth_deep = analyze_growth_deep(
             product_name, url,
@@ -150,16 +181,8 @@ async def _run_analysis(job_id: str):
         )
         job["results"]["growth_analysis"] = growth_deep
         job["progress"]["growth_analysis"] = "done"
-    except Exception as e:
-        job["results"]["growth_analysis"] = {"error": str(e)}
-        job["progress"]["growth_analysis"] = "error"
 
-    # Step 4: AI Summary + Generate report
-    job["progress"]["report"] = "running"
-
-    # 4a: AI insights (non-fatal — report can still generate without AI)
-    ai = {}
-    try:
+    async def _run_ai_summary():
         ai = await generate_ai_summary(
             product_name, url,
             job["results"].get("website", {}),
@@ -168,11 +191,26 @@ async def _run_analysis(job_id: str):
             job["results"].get("producthunt", {}),
         )
         job["results"]["ai_summary"] = ai
-    except Exception as e:
-        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(e)[:100]}", "source": "error"}
-        job["results"]["ai_summary"] = ai
+        return ai
 
-    # 4b: Generate report structure
+    phase3_results = await _aio.gather(
+        _run_growth(), _run_ai_summary(),
+        return_exceptions=True,
+    )
+    if isinstance(phase3_results[0], Exception):
+        job["results"]["growth_analysis"] = {"error": str(phase3_results[0])}
+        job["progress"]["growth_analysis"] = "error"
+    ai = {}
+    if isinstance(phase3_results[1], Exception):
+        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(phase3_results[1])[:100]}", "source": "error"}
+        job["results"]["ai_summary"] = ai
+    else:
+        ai = job["results"].get("ai_summary", {})
+
+    # ================================================================
+    # Phase 4: Report generation (depends on everything above)
+    # ================================================================
+    job["progress"]["report"] = "running"
     try:
         report = generate_report(
             product_name, url,
@@ -186,7 +224,7 @@ async def _run_analysis(job_id: str):
             propagation=job["results"].get("propagation", {}),
         )
 
-        # Step 5: Growth strategy Playbook matching (pure rule engine, no LLM)
+        # Growth strategy Playbook matching (pure rule engine, no LLM)
         try:
             growth_strategy = recommend_playbooks({
                 "sections": report["sections"],
@@ -211,6 +249,10 @@ async def _run_analysis(job_id: str):
 
     # Persist report to disk so shared links survive server restarts
     _persist_report(job_id, job)
+
+    # Cache completed results by domain (for repeat queries)
+    cache_key = domain.lower().replace("www.", "")
+    _domain_cache[cache_key] = {"timestamp": time.time(), "job": job}
 
 
 REPORTS_DIR = os.path.join(os.path.dirname(__file__), "reports")

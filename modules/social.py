@@ -50,13 +50,30 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
     }) as client:
-        results["channels"]["twitter"] = await _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
-        results["channels"]["youtube"] = await _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
-        results["channels"]["reddit"] = await _deep_reddit(client, brand, product_name, domain=domain)
+        # Run all channel checks in parallel for speed
+        import asyncio as _aio
+        twitter_task = _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
+        youtube_task = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
+        reddit_task = _deep_reddit(client, brand, product_name, domain=domain)
+        github_task = _deep_github(client, brand, product_name, handle_hint=github_hint)
+        instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
+
+        channel_results = await _aio.gather(
+            twitter_task, youtube_task, reddit_task, github_task, instagram_task,
+            return_exceptions=True,
+        )
+
+        channel_names = ["twitter", "youtube", "reddit", "github", "instagram"]
+        for name, res in zip(channel_names, channel_results):
+            if isinstance(res, Exception):
+                log.warning("Channel %s failed: %s", name, res)
+                results["channels"][name] = {"platform": name, "detected": False, "error": str(res)[:100]}
+            else:
+                results["channels"][name] = res
+
+        # Sync checks (no I/O, instant)
         results["channels"]["linkedin"] = _check_linkedin(brand)
-        results["channels"]["github"] = await _deep_github(client, brand, product_name, handle_hint=github_hint)
         results["channels"]["tiktok"] = _check_tiktok(brand)
-        results["channels"]["instagram"] = await _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
 
     # Aggregate propagation metrics
     results["propagation_metrics"] = _calc_propagation_metrics(results)
