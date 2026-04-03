@@ -214,6 +214,8 @@ async def _run_analysis(job_id: str):
             job["results"].get("traffic", {}),
             job["results"].get("producthunt", {}),
             growth_strategy=early_strategy,
+            growth_analysis=job["results"].get("growth_analysis", {}),
+            traffic_peaks=job["results"].get("traffic_peaks", {}),
         )
         job["results"]["ai_summary"] = ai
     except Exception as ai_err:
