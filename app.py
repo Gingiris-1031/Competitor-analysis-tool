@@ -22,6 +22,7 @@ from modules.report import generate_report, report_to_markdown
 from modules.traffic_peaks import analyze_traffic_peaks
 from modules.growth_strategy import recommend_playbooks, build_qa_playbook_context
 from modules.pricing import analyze_pricing
+from modules.github_oss import analyze_github_oss
 
 app = FastAPI(title="Analook — 竞品情报分析")
 
@@ -314,8 +315,18 @@ async def _run_analysis(job_id: str):
 
     if _cancelled(): return
 
+    async def _run_github_oss():
+        website_social_links = job["results"].get("website", {}).get("social_links", {})
+        try:
+            github_data = await asyncio.wait_for(
+                analyze_github_oss(domain, product_name, website_social_links), timeout=18
+            )
+        except Exception:
+            github_data = {}
+        job["results"]["github_oss"] = github_data if isinstance(github_data, dict) else {}
+
     phase2_results = await asyncio.gather(
-        _run_propagation(), _run_traffic_peaks(),
+        _run_propagation(), _run_traffic_peaks(), _run_github_oss(),
         return_exceptions=True,
     )
     if isinstance(phase2_results[0], Exception):
@@ -324,6 +335,8 @@ async def _run_analysis(job_id: str):
     if isinstance(phase2_results[1], Exception):
         job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
         job["progress"]["traffic_peaks"] = "error"
+    if isinstance(phase2_results[2], Exception):
+        job["results"]["github_oss"] = {}
 
     if _cancelled(): return
 
@@ -376,6 +389,7 @@ async def _run_analysis(job_id: str):
             growth_analysis=job["results"].get("growth_analysis", {}),
             traffic_peaks=job["results"].get("traffic_peaks", {}),
             pricing=job["results"].get("pricing", {}),
+            github_oss=job["results"].get("github_oss", {}),
         )
         job["results"]["ai_summary"] = ai
     except Exception as ai_err:
@@ -402,6 +416,7 @@ async def _run_analysis(job_id: str):
         growth_strategy = job["results"].get("growth_strategy", {})
         report["sections"]["growth_strategy"] = growth_strategy
         report["sections"]["pricing"] = job["results"].get("pricing", {})
+        report["sections"]["github_oss"] = job["results"].get("github_oss", {})
 
         job["report"] = report
         try:

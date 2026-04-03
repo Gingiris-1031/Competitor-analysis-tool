@@ -5,7 +5,7 @@ import json
 import os
 
 
-async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None) -> dict:
+async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None, github_oss: dict = None) -> dict:
     """调用 LLM 基于所有数据生成商业洞察"""
 
     def _safe(fn, *args, **kwargs):
@@ -21,6 +21,7 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     social_insight = _safe(_build_social_insight, social)
     growth_insight = _safe(_build_growth_insight, growth_analysis, traffic_peaks)
     pricing_insight = _safe(_build_pricing_insight, pricing)
+    github_insight  = _safe(_build_github_insight, github_oss)
 
     prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
@@ -53,6 +54,10 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 ## 定价结构分析
 
 {pricing_insight}
+
+## GitHub 开源数据
+
+{github_insight}
 
 ## Gingiris Playbook 匹配
 
@@ -455,6 +460,59 @@ def _build_pricing_insight(pricing: dict) -> str:
             lines.append(f"  • {ins}")
 
     return "\n".join(lines)
+
+
+def _build_github_insight(github_oss: dict) -> str:
+    """生成 GitHub 开源数据洞察文本，供 AI 提示词使用"""
+    g = github_oss or {}
+    if not g.get("found"):
+        return "该产品无 GitHub 开源数据，或非开源项目。"
+
+    parts = []
+    stars = g.get("stars", 0)
+    forks = g.get("forks", 0)
+    contributors = g.get("contributors", 0)
+    created = g.get("created_at", "")
+    license_ = g.get("license", "")
+    language = g.get("language", "")
+    repo_url = g.get("repo_url", "")
+
+    parts.append(f"- 仓库：{repo_url}（创建于 {created}，主语言 {language}，协议 {license_ or '未知'}）")
+    parts.append(f"- **{stars:,} Stars** | {forks:,} Forks | {contributors:,} 贡献者")
+
+    # Star milestones
+    milestones = g.get("milestones", [])
+    if milestones:
+        parts.append("- Star 里程碑时间轴：")
+        for m in milestones:
+            parts.append(f"  · {m['label']} stars：{m['month']}")
+
+    # Peak growth
+    star_history = g.get("star_history", [])
+    if star_history:
+        peaks = sorted(
+            [(h["month"], h["gain"]) for h in star_history if h.get("gain", 0) > 200],
+            key=lambda x: x[1], reverse=True
+        )
+        if peaks:
+            top = peaks[:3]
+            parts.append("- 增长峰值月份（对应重大发布节点）：")
+            for month, gain in top:
+                parts.append(f"  · {month} 单月新增 {gain:,} stars")
+
+    # Latest release
+    rel = g.get("latest_release")
+    if rel:
+        parts.append(f"- 最新发布：{rel.get('tag', '')} ({rel.get('date', '')})  {rel.get('name', '')}")
+
+    # Auto insights
+    insights = g.get("insights", [])
+    if insights:
+        parts.append("- 自动洞察：")
+        for ins in insights[:5]:
+            parts.append(f"  · {ins}")
+
+    return "\n".join(parts)
 
 
 async def _call_llm(prompt: str) -> dict:

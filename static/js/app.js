@@ -326,6 +326,7 @@ async function loadReport() {
 
         // Render all sections
         renderWebsite(report.sections.website_analysis || {});
+        if (typeof renderGithub === 'function') renderGithub(report.sections.github_oss || {});
         renderProductHunt(report.sections.producthunt || {});
         renderSocial(report.sections.social_media || {});
         renderPropagation(report.sections.propagation || {});
