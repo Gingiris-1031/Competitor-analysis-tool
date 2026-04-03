@@ -132,7 +132,7 @@
   }
 
   function _setLoading(loading) {
-    ['auth-login-btn', 'auth-signup-btn', 'auth-google-btn'].forEach(id => {
+    ['auth-login-btn', 'auth-signup-btn', 'auth-google-btn', 'auth-github-btn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.disabled = loading;
     });
@@ -186,6 +186,16 @@
       _clearAuthError();
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) _setAuthError(error.message);
+    });
+
+    // GitHub OAuth
+    document.getElementById('auth-github-btn')?.addEventListener('click', async () => {
+      _clearAuthError();
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'github',
         options: { redirectTo: window.location.origin },
       });
       if (error) _setAuthError(error.message);
