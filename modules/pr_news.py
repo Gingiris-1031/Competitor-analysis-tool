@@ -14,7 +14,7 @@ async def analyze_pr_news(domain: str, product_name: str) -> dict:
     """分析产品在 HackerNews、Google News、主流科技媒体的曝光记录"""
     brand = _extract_brand(domain)
 
-    hn_task    = _fetch_hn(product_name, brand)
+    hn_task    = _fetch_hn(product_name, brand, domain)
     news_task  = _fetch_google_news(product_name)
     brave_task = _fetch_brave_press(product_name, brand, domain)
 
@@ -38,11 +38,19 @@ async def analyze_pr_news(domain: str, product_name: str) -> dict:
     }
 
 
-async def _fetch_hn(product_name: str, brand: str) -> list:
-    """HackerNews Algolia API — 免费无需 API key"""
+async def _fetch_hn(product_name: str, brand: str, domain: str = "") -> list:
+    """HackerNews Algolia API — 免费无需 API key。
+
+    Uses domain as primary identity anchor: posts whose article URL contains
+    the product domain are always relevant. Posts without a domain match must
+    pass stricter relevance checks to avoid false positives for common-word
+    brand names (e.g. "affine", "linear").
+    """
     results = []
     seen_ids = set()
-    queries = list(dict.fromkeys([product_name, brand]))  # deduplicate
+    # Also search by domain for better recall
+    domain_clean = re.sub(r'^www\.', '', (domain or '').lower().strip())
+    queries = list(dict.fromkeys([product_name, brand] + ([domain_clean] if domain_clean else [])))
 
     async with httpx.AsyncClient(timeout=8) as client:
         for query in queries:
@@ -60,37 +68,40 @@ async def _fetch_hn(product_name: str, brand: str) -> list:
                         continue
                     title = (h.get("title") or "").lower()
                     article_url = (h.get("url") or "").lower()
-                    date_str = (h.get("created_at") or "")[:10]
-                    year = int(date_str[:4]) if len(date_str) >= 4 else 9999
 
-                    # Must mention brand or product name in title
-                    if brand.lower() not in title and product_name.lower() not in title:
+                    # Must mention brand/product/domain somewhere
+                    if (brand.lower() not in title
+                            and product_name.lower() not in title
+                            and domain_clean not in article_url):
                         continue
 
-                    # Filter out academic/math/science domains — common false positive
-                    # for brands that are also common words (e.g. "affine", "arc", "linear")
+                    # --- Domain anchor: article URL points to product domain → always relevant ---
+                    domain_match = domain_clean and domain_clean in article_url
+
+                    # Filter out academic/math/science domains
                     _bad_domains = {
                         "math.stackexchange.com", "mathworld.wolfram.com", "arxiv.org",
                         "en.wikipedia.org", "researchgate.net", "academia.edu",
                         "semanticscholar.org", "sciencedirect.com", "springer.com",
-                        "mathoverflow.net", "math.stackexchange.com",
+                        "mathoverflow.net",
                     }
-                    if any(d in article_url for d in _bad_domains):
+                    if not domain_match and any(d in article_url for d in _bad_domains):
                         continue
 
-                    # Skip very old posts unless URL explicitly matches the product domain
-                    if year < 2019 and brand.lower() not in article_url:
-                        continue
-
-                    # For short/common-word brands, require tech product context in title
-                    _common_words = {"affine", "linear", "notion", "arc", "base", "flow",
-                                     "core", "loop", "mesh", "wave", "plane", "shift"}
-                    if brand.lower() in _common_words:
-                        _tech_words = {"launch", "open source", "funding", "startup", "tool",
-                                       "app", "product", "github", "release", "saas", "api",
-                                       "software", "update", "raises", "announce", "show hn"}
-                        has_context = any(w in title for w in _tech_words) or brand.lower() in article_url
-                        if not has_context:
+                    # For non-domain-match posts, require product context in title
+                    # to filter out math/science uses of common brand names
+                    if not domain_match:
+                        _tech_product_words = {
+                            "launch", "open source", "open-source", "funding", "startup",
+                            "tool", "app", "product", "github", "release", "saas", "api",
+                            "software", "update", "raises", "announce", "show hn",
+                            "alternative", "notion", "miro", "knowledge base", "workspace",
+                            "collaboration", "editor", "whiteboard",
+                        }
+                        title_has_context = any(w in title for w in _tech_product_words)
+                        # Also accept if product_name (not just brand) appears as exact match
+                        product_exact = product_name.lower() in title
+                        if not title_has_context and not product_exact:
                             continue
 
                     seen_ids.add(obj_id)
@@ -179,7 +190,7 @@ async def _fetch_brave_press(product_name: str, brand: str, domain: str) -> list
     queries = [
         f'"{product_name}" (site:techcrunch.com OR site:theverge.com OR site:wired.com OR site:venturebeat.com OR site:prnewswire.com OR site:businesswire.com)',
         f'"{product_name}" (site:producthunt.com OR site:indiehackers.com OR site:dev.to OR site:medium.com)',
-        f'"{brand}" funding OR raises OR launch OR "open source" -site:{domain}',
+        f'"{product_name}" funding OR raises OR launch OR "open source" site:{domain}',
     ]
     for q in queries:
         try:

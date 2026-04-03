@@ -1,17 +1,25 @@
 """流量峰值分析模块 — Google Trends 周级别数据检测品牌搜索热度峰值"""
 import asyncio
+import httpx
+import json
+import os
 import re
+import subprocess
+import time
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
-# pytrends helpers（替代 Caravo Google Trends）
+# Google Trends: pytrends (primary) → Apify (fallback)
 # ---------------------------------------------------------------------------
 
 def _fetch_trends_sync(query: str, date_range: str = "today 12-m") -> Optional[list]:
     """
-    用 pytrends 获取 Google Trends 数据，返回与原 Caravo 格式兼容的 timeline 列表：
+    用 pytrends 获取 Google Trends 数据，返回统一格式的 timeline 列表：
     [{"timestamp": int, "date": str, "values": [{"query": str, "extracted_value": int}]}]
     """
     try:
@@ -33,20 +41,95 @@ def _fetch_trends_sync(query: str, date_range: str = "today 12-m") -> Optional[l
                 "values":    [{"query": query, "extracted_value": val}],
             })
         return timeline if timeline else None
-    except Exception:
+    except Exception as e:
+        logger.warning(f"pytrends failed for '{query}': {e}")
+        return None
+
+
+async def _fetch_trends_apify(query: str) -> Optional[list]:
+    """Apify Google Trends Scraper 作为 pytrends 的 fallback。
+
+    Uses the 'emastra/google-trends-scraper' actor on Apify.
+    Returns data in the same format as _fetch_trends_sync.
+    """
+    token = os.environ.get("APIFY_API_TOKEN", "").strip()
+    if not token:
+        return None
+
+    run_url = "https://api.apify.com/v2/acts/emastra~google-trends-scraper/run-sync-get-dataset-items"
+    params = {"token": token}
+    payload = {
+        "searchTerms": [query],
+        "timeRange": "past12Months",
+        "geo": "",
+        "isPublic": False,
+        "maxItems": 100,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(run_url, params=params, json=payload)
+            if resp.status_code != 200 and resp.status_code != 201:
+                logger.warning(f"Apify Trends HTTP {resp.status_code} for '{query}'")
+                return None
+            data = resp.json()
+
+        # Apify returns array of items, each with interestOverTime
+        if not data or not isinstance(data, list):
+            return None
+
+        timeline = []
+        for item in data:
+            iot = item.get("interestOverTime", [])
+            if not iot:
+                continue
+            for point in iot:
+                date_str = point.get("formattedAxisTime") or point.get("formattedTime", "")
+                value = point.get("value", [0])
+                val = value[0] if isinstance(value, list) and value else (value if isinstance(value, int) else 0)
+
+                # Parse date — Apify returns various formats
+                ts = 0
+                parsed_date = ""
+                for fmt in ["%b %d, %Y", "%Y-%m-%d", "%b %Y"]:
+                    try:
+                        dt = datetime.strptime(date_str, fmt)
+                        ts = int(dt.timestamp())
+                        parsed_date = dt.strftime("%Y-%m-%d")
+                        break
+                    except ValueError:
+                        continue
+
+                if ts and parsed_date:
+                    timeline.append({
+                        "timestamp": ts,
+                        "date": parsed_date,
+                        "values": [{"query": query, "extracted_value": val}],
+                    })
+
+        return timeline if timeline else None
+    except Exception as e:
+        logger.warning(f"Apify Trends failed for '{query}': {e}")
         return None
 
 
 async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """异步包装：在线程池中运行，不阻塞事件循环，最长等待 35 秒。"""
+    """获取 Google Trends 数据：pytrends (primary) → Apify (fallback)。"""
+    # Try pytrends first (free, fast)
     loop = asyncio.get_event_loop()
     try:
-        return await asyncio.wait_for(
+        result = await asyncio.wait_for(
             loop.run_in_executor(None, _fetch_trends_sync, query, date_range),
             timeout=35,
         )
+        if result:
+            return result
     except Exception:
-        return None
+        pass
+
+    # Fallback to Apify Google Trends Scraper
+    logger.info(f"pytrends failed, trying Apify fallback for '{query}'")
+    return await _fetch_trends_apify(query)
 
 
 def _parse_timeline(timeline: list, query: str) -> list:

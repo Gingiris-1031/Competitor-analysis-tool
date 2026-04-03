@@ -71,8 +71,15 @@ async def analyze_website(url: str) -> dict:
         results[-1] if isinstance(results[-1], dict) else {"error": str(results[-1])}
     )
     
-    # Step 4: Detect changes between snapshots
-    changes = _detect_changes(snapshots, current)
+    # Step 4: Mark and filter parked domain snapshots
+    for snap in snapshots:
+        snap["is_parked"] = _is_parked_page(snap)
+
+    # Only include real-content snapshots in the timeline
+    real_snapshots = [s for s in snapshots if not s.get("is_parked")]
+
+    # Step 5: Detect changes between real snapshots only
+    changes = _detect_changes(real_snapshots, current)
 
     # Refine first_seen: skip domain registrar / parked pages
     raw_first_seen = wayback_meta.get("first_seen", "N/A")
@@ -81,42 +88,43 @@ async def analyze_website(url: str) -> dict:
     return {
         "domain": domain,
         "first_seen": first_seen,
-        "first_seen_raw": raw_first_seen,  # keep original for reference
+        "first_seen_raw": raw_first_seen,
         "total_snapshots": wayback_meta.get("total_count", 0),
-        "deep_timeline": snapshots,
+        "deep_timeline": real_snapshots,
         "current_site": current,
         "key_changes": changes,
     }
 
 
+_REGISTRAR_PATTERNS = [
+    "registrado en", "dondominio", "godaddy", "namecheap", "domain for sale",
+    "parked domain", "coming soon", "under construction", "domain is registered",
+    "buy this domain", "this domain", "domain parking", "sedo.com",
+    "hugedomains", "dan.com", "afternic", "flippa",
+]
+
+
+def _is_parked_page(snap: dict) -> bool:
+    """Detect domain registrar / parked-page snapshots."""
+    if snap.get("error"):
+        return True
+    title = (snap.get("title") or "").lower()
+    slogan = (snap.get("slogan") or "").lower()
+    combined = title + " " + slogan
+    if any(p in combined for p in _REGISTRAR_PATTERNS):
+        return True
+    # Very short/empty title = likely parked or error page
+    if not title or len(title) <= 5:
+        return True
+    return False
+
+
 def _refine_first_seen(raw_first_seen: str, snapshots: list) -> str:
-    """Return the date of the first snapshot with real product content.
-
-    Skips domain registrar / parked-page snapshots (DonDominio, GoDaddy, etc.).
-    Falls back to raw_first_seen if no better date is found.
-    """
-    _REGISTRAR_PATTERNS = [
-        "registrado en", "dondominio", "godaddy", "namecheap", "domain for sale",
-        "parked domain", "coming soon", "under construction", "domain is registered",
-        "buy this domain", "this domain", "domain parking", "sedo.com",
-        "hugedomains", "dan.com", "afternic", "flippa",
-    ]
-
+    """Return the date of the first snapshot with real product content."""
     for snap in sorted(snapshots, key=lambda s: s.get("date", "") or ""):
         date = snap.get("date", "")
-        if not date:
-            continue
-        title = (snap.get("title") or "").lower()
-        slogan = (snap.get("slogan") or "").lower()
-        combined = title + " " + slogan
-
-        is_parked = any(p in combined for p in _REGISTRAR_PATTERNS)
-        # Also treat snapshots with very short/empty content as parked
-        has_content = bool(title and len(title) > 5 and not is_parked)
-        if has_content:
-            # Convert "YYYY-MM-DD" from snapshot date
+        if date and not _is_parked_page(snap):
             return date[:10] if len(date) >= 10 else date
-
     return raw_first_seen
 
 

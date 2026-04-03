@@ -641,7 +641,7 @@ async def analyze_launch_propagation(
     # ----------------------------------------------------------
     all_participants = rt_users + [
         {
-            **q.get("author", {}),
+            **(q.get("author", {}) if isinstance(q.get("author"), dict) else {}),
             "_ts": q.get("_ts"),
             "_hours_after_launch": q.get("_hours_after_launch"),
             "user_type": q.get("user_type", "regular_user"),
@@ -649,6 +649,7 @@ async def analyze_launch_propagation(
             "stage": q.get("stage", "stage_4_mass"),
         }
         for q in quote_items
+        if isinstance(q, dict)
     ]
 
     if all_participants:
