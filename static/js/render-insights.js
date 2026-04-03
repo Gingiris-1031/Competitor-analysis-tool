@@ -65,29 +65,85 @@ function formatMarkdown(text) {
     let html = '';
     const lines = text.split('\n');
     let inList = false;
+    let listType = null; // 'bullet' | 'number' | 'sub'
+
+    function closeList() {
+        if (inList) { html += '</div>'; inList = false; listType = null; }
+    }
 
     for (const line of lines) {
         const trimmed = line.trim();
+        const indented = line.startsWith('  ') || line.startsWith('\t');
+
         if (!trimmed) {
-            if (inList) { html += '</div>'; inList = false; }
+            closeList();
             continue;
         }
-        if (trimmed.startsWith('### ')) {
-            if (inList) { html += '</div>'; inList = false; }
-            html += `<h4 class="text-sm font-semibold text-blue-300 mt-5 mb-2">${esc(trimmed.slice(4))}</h4>`;
-        } else if (trimmed.startsWith('## ')) {
-            if (inList) { html += '</div>'; inList = false; }
-            html += `<h4 class="text-base font-semibold text-white mt-5 mb-2">${esc(trimmed.slice(3))}</h4>`;
-        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || /^\d+\.\s/.test(trimmed)) {
-            if (!inList) { html += '<div class="space-y-1.5">'; inList = true; }
-            const content = trimmed.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
+
+        // H2 (##) — major section
+        if (trimmed.startsWith('## ') && !trimmed.startsWith('### ')) {
+            closeList();
+            const title = trimmed.slice(3);
+            html += `<h3 class="text-base font-bold text-white mt-6 mb-2 pb-1.5 border-b border-gray-800">${formatInline(title)}</h3>`;
+
+        // H3 (###) — sub-section
+        } else if (trimmed.startsWith('### ')) {
+            closeList();
+            const title = trimmed.slice(4);
+            html += `<h4 class="text-sm font-semibold text-blue-300 mt-5 mb-1.5">${formatInline(title)}</h4>`;
+
+        // H4 (####) — sub-sub-section
+        } else if (trimmed.startsWith('#### ')) {
+            closeList();
+            const title = trimmed.slice(5);
+            html += `<h5 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-1">${esc(title)}</h5>`;
+
+        // Indented bullet (sub-item)
+        } else if (indented && (trimmed.startsWith('· ') || trimmed.startsWith('- ') || trimmed.startsWith('* '))) {
+            if (!inList || listType !== 'sub') {
+                if (inList && listType !== 'sub') { closeList(); }
+                if (!inList) { html += '<div class="space-y-1 ml-4">'; inList = true; listType = 'sub'; }
+            }
+            const content = trimmed.replace(/^[·\-\*]\s+/, '');
+            html += `<div class="text-xs text-gray-400 leading-relaxed pl-3 border-l border-gray-700">${formatInline(content)}</div>`;
+
+        // Top-level bullet
+        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('· ')) {
+            if (!inList || listType !== 'bullet') { closeList(); html += '<div class="space-y-2">'; inList = true; listType = 'bullet'; }
+            const content = trimmed.replace(/^[·\-\*]\s+/, '');
             html += `<div class="text-sm text-gray-300 leading-relaxed pl-3 border-l-2 border-gray-700">${formatInline(content)}</div>`;
+
+        // Numbered list
+        } else if (/^\d+\.\s/.test(trimmed)) {
+            if (!inList || listType !== 'number') { closeList(); html += '<div class="space-y-2">'; inList = true; listType = 'number'; }
+            const num = trimmed.match(/^(\d+)\./)[1];
+            const content = trimmed.replace(/^\d+\.\s+/, '');
+            html += `<div class="text-sm text-gray-300 leading-relaxed flex gap-2"><span class="text-blue-400 font-mono shrink-0">${num}.</span><span>${formatInline(content)}</span></div>`;
+
+        // Bold label paragraph: **Label**：content or **Label**: content
+        } else if (/^\*\*[^*]+\*\*[：:]/.test(trimmed)) {
+            closeList();
+            const match = trimmed.match(/^\*\*([^*]+)\*\*[：:]\s*(.*)/s);
+            if (match) {
+                const label = match[1];
+                const content = match[2];
+                html += `<div class="text-sm leading-relaxed mt-2"><span class="font-semibold text-white">${esc(label)}：</span><span class="text-gray-300">${formatInline(content)}</span></div>`;
+            } else {
+                html += `<div class="text-sm text-gray-300 leading-relaxed">${formatInline(trimmed)}</div>`;
+            }
+
+        // Horizontal rule
+        } else if (/^---+$/.test(trimmed)) {
+            closeList();
+            html += `<hr class="border-gray-800 my-4">`;
+
+        // Regular paragraph
         } else {
-            if (inList) { html += '</div>'; inList = false; }
+            closeList();
             html += `<div class="text-sm text-gray-300 leading-relaxed">${formatInline(trimmed)}</div>`;
         }
     }
-    if (inList) html += '</div>';
+    closeList();
     return html;
 }
 
