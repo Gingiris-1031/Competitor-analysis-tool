@@ -1,4 +1,5 @@
 """流量峰值分析模块 — Google Trends 周级别数据检测品牌搜索热度峰值"""
+import asyncio
 import json
 import re
 import subprocess
@@ -10,11 +11,8 @@ from typing import Optional
 # Caravo helpers
 # ---------------------------------------------------------------------------
 
-def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """
-    调用 Caravo Google Trends API，返回 timeline_data 列表。
-    失败时返回 None（优雅降级）。
-    """
+def _fetch_trends_sync(query: str, date_range: str = "today 12-m") -> Optional[list]:
+    """同步版本 — 在 run_in_executor 线程中运行，不阻塞事件循环。"""
     try:
         result = subprocess.run(
             [
@@ -24,7 +22,7 @@ def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
             ],
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=20,  # reduced from 60
         )
         if result.returncode != 0:
             return None
@@ -44,6 +42,18 @@ def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
             .get("timeline_data", [])
         )
         return timeline if timeline else None
+    except Exception:
+        return None
+
+
+async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
+    """异步包装：在线程池中运行，不阻塞事件循环，最长等待 25 秒。"""
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _fetch_trends_sync, query, date_range),
+            timeout=25,
+        )
     except Exception:
         return None
 
@@ -487,8 +497,8 @@ def _correlate(peak_events: list, known_launches: list) -> tuple[list, list]:
 # Attribution — HN search
 # ---------------------------------------------------------------------------
 
-def _search_hn(brand: str, start_ts: int, end_ts: int) -> list:
-    """Search Hacker News for brand mentions in time window via Algolia API."""
+def _search_hn_sync(brand: str, start_ts: int, end_ts: int) -> list:
+    """同步版本 — 在 run_in_executor 线程中运行。"""
     url = (
         f"https://hn.algolia.com/api/v1/search"
         f"?query={brand}"
@@ -498,13 +508,13 @@ def _search_hn(brand: str, start_ts: int, end_ts: int) -> list:
     )
     try:
         result = subprocess.run(
-            ["curl", "-s", "--max-time", "10", url],
-            capture_output=True, text=True, timeout=15,
+            ["curl", "-s", "--max-time", "8", url],
+            capture_output=True, text=True, timeout=12,
         )
         data = json.loads(result.stdout)
         hits = []
         for h in data.get("hits", []):
-            if h.get("points", 0) >= 2:  # Filter noise
+            if h.get("points", 0) >= 2:
                 hits.append({
                     "title": h.get("title", ""),
                     "points": h.get("points", 0),
@@ -513,6 +523,18 @@ def _search_hn(brand: str, start_ts: int, end_ts: int) -> list:
                     "url": f"https://news.ycombinator.com/item?id={h.get('objectID', '')}",
                 })
         return sorted(hits, key=lambda x: x["points"], reverse=True)[:5]
+    except Exception:
+        return []
+
+
+async def _search_hn(brand: str, start_ts: int, end_ts: int) -> list:
+    """异步包装：在线程池中运行，不阻塞事件循环。"""
+    loop = asyncio.get_event_loop()
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _search_hn_sync, brand, start_ts, end_ts),
+            timeout=15,
+        )
     except Exception:
         return []
 
@@ -683,7 +705,7 @@ async def _attribute_peak(
     # 1. HN Search (live API call, ±3 weeks to catch upstream causes)
     hn_window_start = peak["peak_timestamp"] - 21 * 86400
     hn_window_end = peak["peak_timestamp"] + 14 * 86400
-    hn_results = _search_hn(brand, hn_window_start, hn_window_end)
+    hn_results = await _search_hn(brand, hn_window_start, hn_window_end)
     if hn_results:
         # Classify: direct driver vs derivative discussion
         for h in hn_results:
@@ -856,18 +878,21 @@ async def analyze_traffic_peaks(
         "error": None,
     }
 
-    # --- Step 1: fetch Trends (domain query) ---
+    # --- Step 1 & 2: fetch Trends (domain + brand) IN PARALLEL ---
     domain_query = domain.lstrip("www.").strip()
-    timeline_domain = _fetch_trends(domain_query)
-
-    # --- Step 2: fetch Trends (brand name only) ---
-    # Strip TLD to get bare brand name, e.g. "lovable.dev" → "lovable"
     brand_name = re.sub(r"\.[a-z]{2,}$", "", domain_query.lower())
     if brand_name == domain_query.lower():
-        # domain had no recognised TLD — use provided brand param
         brand_name = brand.lower()
 
-    timeline_brand = _fetch_trends(brand_name)
+    timeline_domain, timeline_brand = await asyncio.gather(
+        _fetch_trends(domain_query),
+        _fetch_trends(brand_name),
+        return_exceptions=True,
+    )
+    if isinstance(timeline_domain, Exception):
+        timeline_domain = None
+    if isinstance(timeline_brand, Exception):
+        timeline_brand = None
 
     # Prefer whichever has more non-zero values; fall back gracefully
     def _nonzero_count(tl):
