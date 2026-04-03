@@ -91,28 +91,33 @@ async def _fetch_hn(product_name: str, brand: str, domain: str = "") -> list:
                     # For non-domain-match posts, require strong product relevance
                     # to filter out math/science uses of common brand names
                     if not domain_match:
-                        # Check if article URL points to the product's GitHub
-                        github_match = domain_clean and (
-                            f"github.com/{brand.lower()}" in article_url
-                            or f"github.com/toeverything" in article_url  # AFFiNE specific
+                        raw_title = h.get("title") or ""
+
+                        # Case-sensitive brand match: "AFFiNE" != "Affine"
+                        product_exact_case = product_name in raw_title
+
+                        # GitHub link that mentions brand name in URL path
+                        github_brand_match = (
+                            "github.com/" in article_url
+                            and brand.lower() in article_url
                         )
-                        if github_match:
-                            pass  # Accept GitHub links to product
+
+                        # Domain mentioned in title
+                        domain_in_title = domain_clean and domain_clean in title
+
+                        # If any strong signal matches, accept immediately
+                        if product_exact_case or github_brand_match or domain_in_title:
+                            pass  # Accept
                         else:
+                            # Require tech product context words
                             _tech_product_words = {
                                 "launch", "open source", "open-source", "funding", "startup",
                                 "tool", "app", "product", "release", "saas", "api",
                                 "software", "update", "raises", "announce", "show hn",
-                                "alternative", "knowledge base", "workspace", "notion alternative",
+                                "alternative", "knowledge base", "workspace",
                                 "collaboration", "editor", "whiteboard",
                             }
-                            title_has_context = any(w in title for w in _tech_product_words)
-                            # Case-sensitive match: "AFFiNE" != "Affine"
-                            # Accept product_name OR domain in title (case-insensitive for domain)
-                            raw_title = h.get("title") or ""
-                            product_exact_case = product_name in raw_title
-                            domain_in_title = domain_clean and domain_clean in title
-                            if not title_has_context and not product_exact_case and not domain_in_title:
+                            if not any(w in title for w in _tech_product_words):
                                 continue
 
                     seen_ids.add(obj_id)
