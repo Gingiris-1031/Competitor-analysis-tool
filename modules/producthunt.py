@@ -3,11 +3,12 @@ import httpx
 import os
 import re
 import json
-import subprocess
+import logging
 
 PH_API = "https://api.producthunt.com/v2/api/graphql"
-NODE_BIN = "/Users/iriscarrot/.ship/bin/node"
-PLAYWRIGHT_PATH = "/Applications/Cola.app/Contents/Resources/server/node_modules/playwright-core"
+PH_PRODUCT_URL = "https://www.producthunt.com/products/{slug}"
+
+log = logging.getLogger(__name__)
 
 
 def _get_token() -> str:
@@ -31,86 +32,79 @@ def _extract_brand(domain: str) -> str:
     return brand
 
 
-def _discover_launches_via_browser(product_slug: str) -> list:
+async def _discover_launches_via_http(product_slug: str, client: httpx.AsyncClient) -> list:
     """
-    Use Playwright (via CDP) to scrape the PH product page and return all launch slugs.
-    Writes the Node.js script to a temp file to avoid shell/inline escaping issues.
+    Fetch the PH product page over plain HTTP and extract launch slugs from the HTML.
+    PH uses SSR so launch links are usually present without JS rendering.
     Returns a list of launch slug strings, or [] on failure.
     """
-    import tempfile
-
-    script_content = (
-        "const { chromium } = require('" + PLAYWRIGHT_PATH + "');\n"
-        "(async () => {\n"
-        "    let browser;\n"
-        "    let page;\n"
-        "    try {\n"
-        "        browser = await chromium.connectOverCDP('http://localhost:19542');\n"
-        "        const contexts = browser.contexts();\n"
-        "        const ctx = contexts[0];\n"
-        "        page = await ctx.newPage();\n"
-        "\n"
-        "        const productSlug = process.argv[2];\n"
-        "        const url = `https://www.producthunt.com/products/${productSlug}`;\n"
-        "        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });\n"
-        "\n"
-        "        // Wait for JS to render launch links\n"
-        "        await page.waitForTimeout(3000);\n"
-        "\n"
-        "        // Click 'More' / 'Show more' buttons if present (up to 3 times)\n"
-        "        for (let i = 0; i < 3; i++) {\n"
-        "            try {\n"
-        "                const moreBtn = await page.$('button:has-text(\"More\"), a:has-text(\"More launches\"), button:has-text(\"Show more\")');\n"
-        "                if (moreBtn) { await moreBtn.click(); await page.waitForTimeout(1500); } else { break; }\n"
-        "            } catch (e) { break; }\n"
-        "        }\n"
-        "\n"
-        "        // Extract all /products/{slug}/launches/{launchSlug} hrefs\n"
-        "        const hrefs = await page.$$eval('a[href]', (anchors, ps) => {\n"
-        "            const pattern = new RegExp(`/products/${ps}/launches/([^/?#]+)`);\n"
-        "            const found = [];\n"
-        "            for (const a of anchors) {\n"
-        "                const href = a.getAttribute('href') || '';\n"
-        "                const m = href.match(pattern);\n"
-        "                if (m && !found.includes(m[1])) found.push(m[1]);\n"
-        "            }\n"
-        "            return found;\n"
-        "        }, productSlug);\n"
-        "\n"
-        "        await page.close();\n"
-        "        console.log(JSON.stringify(hrefs));\n"
-        "    } catch (err) {\n"
-        "        if (page) { try { await page.close(); } catch(_) {} }\n"
-        "        console.error(err.message);\n"
-        "        console.log(JSON.stringify([]));\n"
-        "    }\n"
-        "    // Do NOT close the browser — connected over CDP to existing instance\n"
-        "    process.exit(0);\n"
-        "})();\n"
-    )
-
+    url = PH_PRODUCT_URL.format(slug=product_slug)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
     try:
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.js', delete=False, prefix='ph_scrape_'
-        ) as f:
-            f.write(script_content)
-            tmp_path = f.name
-
-        result = subprocess.run(
-            [NODE_BIN, tmp_path, product_slug],
-            capture_output=True, text=True, timeout=35
-        )
-        # Clean up temp file
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass
-
-        if not result.stdout.strip():
+        resp = await client.get(url, headers=headers, follow_redirects=True, timeout=15)
+        if resp.status_code != 200:
+            log.debug("PH product page HTTP %s for slug=%s", resp.status_code, product_slug)
             return []
-        return json.loads(result.stdout.strip())
-    except Exception:
+        html = resp.text
+        # Extract launch slugs from /products/{slug}/launches/{launchSlug}
+        pattern = re.compile(
+            r'/products/' + re.escape(product_slug) + r'/launches/([A-Za-z0-9_-]+)',
+            re.IGNORECASE,
+        )
+        slugs = list(dict.fromkeys(pattern.findall(html)))
+        log.debug("HTTP discovery found %d launch slugs for %s", len(slugs), product_slug)
+        return slugs
+    except Exception as exc:
+        log.debug("HTTP discovery failed for %s: %s", product_slug, exc)
         return []
+
+
+async def _discover_launches_via_api(
+    product_slug: str, brand: str, client: httpx.AsyncClient, headers: dict,
+) -> list:
+    """
+    Use PH GraphQL API to discover post slugs belonging to this product.
+    Strategy: query posts by website URL variants, then deduplicate.
+    """
+    launch_slugs: list[str] = []
+
+    # Query by multiple website URL variants to find all related posts
+    url_variants = [
+        f"https://{brand}.com", f"https://{brand}.io", f"https://{brand}.ai",
+        f"https://{brand}.pro", f"https://{brand}.dev", f"https://{brand}.co",
+        f"https://{brand}.app", f"https://{brand}.so", f"https://{brand}.org",
+        f"https://www.{brand}.com", f"https://www.{brand}.pro",
+        f"https://get{brand}.com", f"https://use{brand}.com",
+    ]
+    query = """query($url: String!) {
+        posts(url: $url, first: 10, order: VOTES) {
+            edges { node { slug url } }
+        }
+    }"""
+    for url_var in url_variants:
+        try:
+            resp = await client.post(
+                PH_API, headers=headers,
+                json={"query": query, "variables": {"url": url_var}},
+            )
+            data = resp.json()
+            edges = (data.get("data") or {}).get("posts", {}).get("edges", [])
+            for edge in edges:
+                s = edge.get("node", {}).get("slug", "")
+                if s and s not in launch_slugs:
+                    launch_slugs.append(s)
+        except Exception:
+            continue
+
+    log.debug("API discovery found %d launch slugs for brand=%s", len(launch_slugs), brand)
+    return launch_slugs
 
 
 async def analyze_producthunt(domain: str, product_name: str) -> dict:
@@ -144,8 +138,13 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         if not product_slug:
             product_slug = brand
 
-        # ── Step 2: Discover all launch slugs via browser ──
-        launch_slugs = _discover_launches_via_browser(product_slug)
+        # ── Step 2: Discover all launch slugs via HTTP scrape + API ──
+        launch_slugs = await _discover_launches_via_http(product_slug, client)
+        api_slugs = await _discover_launches_via_api(product_slug, brand, client, headers)
+        # Merge: HTTP results first, then API results, deduped
+        for s in api_slugs:
+            if s not in launch_slugs:
+                launch_slugs.append(s)
 
         # Also add the product_slug itself (sometimes the post slug == product slug)
         if product_slug not in launch_slugs:
@@ -201,21 +200,32 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
 
 
 def _build_slug_list(brand: str, name_slug: str) -> list:
-    """Build the full fallback slug enumeration list."""
+    """Build the full fallback slug enumeration list.
+
+    Covers common PH slug patterns:
+      base, base-ai, base-2..base-10, base-{tld}, get-/use- prefixes,
+      and stripped-hyphen variants (e.g. "notion-ai" -> "notionai").
+    """
     base_names = list(dict.fromkeys([brand, name_slug]))
     slugs = []
     for base in base_names:
         slugs.append(base)
     for base in base_names:
         slugs.append(f"{base}-ai")
-    for suffix in range(2, 7):
+    # Numeric suffixes — PH appends -2, -3 … for repeated launches
+    for suffix in range(2, 11):
         for base in base_names:
             slugs.append(f"{base}-{suffix}")
     for base in base_names:
-        for variant in ["dev", "app", "io", "pro", "hq"]:
+        for variant in ["dev", "app", "io", "pro", "hq", "so", "xyz", "co"]:
             slugs.append(f"{base}-{variant}")
     for base in base_names:
-        slugs.extend([f"get-{base}", f"use-{base}"])
+        slugs.extend([f"get-{base}", f"use-{base}", f"try-{base}", f"hey-{base}"])
+    # Hyphen-stripped variants: "my-tool" -> "mytool"
+    for base in base_names:
+        no_hyphen = base.replace("-", "")
+        if no_hyphen != base:
+            slugs.append(no_hyphen)
     return list(dict.fromkeys(slugs))
 
 
