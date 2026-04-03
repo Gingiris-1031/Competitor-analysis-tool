@@ -332,6 +332,9 @@ async function loadReport() {
         renderPropagation(report.sections.propagation || {});
         renderTraffic(report.sections.traffic_analysis || {});
         if (typeof renderPricing === 'function') renderPricing(report.sections.pricing || {});
+        if (typeof renderBizmodel === 'function') renderBizmodel(report.sections.bizmodel || {});
+        if (typeof renderFunding === 'function') renderFunding(report.sections.funding || {});
+        if (typeof renderPR === 'function') renderPR(report.sections.pr_news || {});
         renderPeaks(report.sections.traffic_peaks || {});
         renderGrowth(report.sections.growth_analysis || {});
         renderInsights(report.sections.ai_insights || report.sections.ai_summary || {});

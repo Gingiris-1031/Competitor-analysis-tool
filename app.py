@@ -23,6 +23,9 @@ from modules.traffic_peaks import analyze_traffic_peaks
 from modules.growth_strategy import recommend_playbooks, build_qa_playbook_context
 from modules.pricing import analyze_pricing
 from modules.github_oss import analyze_github_oss
+from modules.pr_news import analyze_pr_news
+from modules.funding import analyze_funding
+from modules.bizmodel import analyze_bizmodel
 
 app = FastAPI(title="Analook — 竞品情报分析")
 
@@ -94,6 +97,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
             "traffic_peaks": "pending",
             "growth_analysis": "pending",
             "report": "pending",
+            "pr_news": "pending",
         },
         "results": {},
         "report": None,
@@ -265,12 +269,17 @@ async def _run_analysis(job_id: str):
         except asyncio.TimeoutError:
             return {"error": f"timeout after {timeout}s", "_timed_out": True}
 
+    # Phase 1: all modules run in parallel
+    job["progress"]["pr_news"] = "running"
     results_phase1 = await asyncio.gather(
-        _t(analyze_website(url), 40),
+        _t(analyze_website(url), 28),                                           # was 40s
         _t(analyze_domain(domain), 20),
         _t(analyze_producthunt(domain, product_name), 25),
-        _t(analyze_social(domain, product_name, website_social_links={}), 35),
+        _t(analyze_social(domain, product_name, website_social_links={}), 22),  # was 35s
         _t(analyze_pricing(url, product_name), 20),
+        _t(analyze_github_oss(domain, product_name, {}), 20),                  # Phase 1, no website hints
+        _t(analyze_pr_news(domain, product_name), 18),
+        _t(analyze_funding(domain, product_name), 15),
         return_exceptions=True,
     )
 
@@ -290,8 +299,13 @@ async def _run_analysis(job_id: str):
     job["results"]["pricing"] = results_phase1[4] if not isinstance(results_phase1[4], Exception) else {"error": str(results_phase1[4])}
     job["progress"]["pricing"] = "error" if isinstance(results_phase1[4], Exception) else "done"
 
+    job["results"]["github_oss"] = results_phase1[5] if isinstance(results_phase1[5], dict) else {}
+    job["results"]["pr_news"]   = results_phase1[6] if isinstance(results_phase1[6], dict) else {}
+    job["progress"]["pr_news"]  = "done"
+    job["results"]["funding"]   = results_phase1[7] if isinstance(results_phase1[7], dict) else {}
+
     # ================================================================
-    # Phase 2: Propagation + Traffic Peaks (parallel)
+    # Phase 2: Propagation + Traffic Peaks (parallel, ~10s)
     # ================================================================
     async def _run_propagation():
         if job["results"].get("social", {}).get("_propagation_available"):
@@ -315,18 +329,8 @@ async def _run_analysis(job_id: str):
 
     if _cancelled(): return
 
-    async def _run_github_oss():
-        website_social_links = job["results"].get("website", {}).get("social_links", {})
-        try:
-            github_data = await asyncio.wait_for(
-                analyze_github_oss(domain, product_name, website_social_links), timeout=18
-            )
-        except Exception:
-            github_data = {}
-        job["results"]["github_oss"] = github_data if isinstance(github_data, dict) else {}
-
     phase2_results = await asyncio.gather(
-        _run_propagation(), _run_traffic_peaks(), _run_github_oss(),
+        _run_propagation(), _run_traffic_peaks(),
         return_exceptions=True,
     )
     if isinstance(phase2_results[0], Exception):
@@ -335,14 +339,25 @@ async def _run_analysis(job_id: str):
     if isinstance(phase2_results[1], Exception):
         job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
         job["progress"]["traffic_peaks"] = "error"
-    if isinstance(phase2_results[2], Exception):
-        job["results"]["github_oss"] = {}
 
     if _cancelled(): return
 
     # ================================================================
     # Phase 3: Growth analysis + AI summary
     # ================================================================
+    # Bizmodel is synchronous — runs instantly using already-collected data
+    try:
+        job["results"]["bizmodel"] = analyze_bizmodel(
+            domain, product_name,
+            pricing=job["results"].get("pricing", {}),
+            traffic=job["results"].get("traffic", {}),
+            github_oss=job["results"].get("github_oss", {}),
+            producthunt=job["results"].get("producthunt", {}),
+            funding=job["results"].get("funding", {}),
+        )
+    except Exception:
+        job["results"]["bizmodel"] = {"found": False}
+
     job["progress"]["growth_analysis"] = "running"
     try:
         growth_deep = analyze_growth_deep(
@@ -417,6 +432,9 @@ async def _run_analysis(job_id: str):
         report["sections"]["growth_strategy"] = growth_strategy
         report["sections"]["pricing"] = job["results"].get("pricing", {})
         report["sections"]["github_oss"] = job["results"].get("github_oss", {})
+        report["sections"]["pr_news"]    = job["results"].get("pr_news", {})
+        report["sections"]["funding"]    = job["results"].get("funding", {})
+        report["sections"]["bizmodel"]   = job["results"].get("bizmodel", {})
 
         job["report"] = report
         try:

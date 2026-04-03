@@ -207,7 +207,7 @@ async def _fetch_archive_today(url: str) -> dict:
     """从 Archive.today 获取最新存档快照内容（Wayback 失败时的 fallback）"""
     target = f"https://archive.ph/newest/{url}"
     try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=6, follow_redirects=True) as client:
             resp = await client.get(target, headers={
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
             })

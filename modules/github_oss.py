@@ -77,14 +77,19 @@ async def analyze_github_oss(domain: str, product_name: str,
 
 async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
     """Return (owner, repo) or (None, None)."""
-    # 1. Website hint (github social link)
+    brand = re.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
+
+    # 1. Website hint (github social link) — most reliable
     gh_hint = hints.get("github", {}).get("url", "")
     if gh_hint:
         owner, repo = _parse_gh_url(gh_hint)
         if owner and repo:
-            return owner, repo
-        if owner and not repo:
-            # Org URL → find most starred repo
+            # Validate: skip obvious non-main repos (awesome-lists, docs, etc.)
+            low = repo.lower()
+            if not any(skip in low for skip in ("awesome", "docs", "wiki", "example", "template", "demo")):
+                return owner, repo
+            # Might be secondary repo → still try top-starred under same org
+        if owner:
             repo = await _find_top_repo(owner)
             if repo:
                 return owner, repo
@@ -99,18 +104,57 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
             brave_search = None
 
     if brave_search:
-        brand = re.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
+        candidates = []  # list of (owner, repo) to validate
         for query in [
             f'"{domain}" site:github.com',
             f'"{product_name}" site:github.com',
-            f'"{brand}" open source github',
+            f'"{brand}" open source github repository',
         ]:
             results = await brave_search(query, count=5)
             for r in results:
                 o, rep = _parse_gh_url(r.get("url", ""))
-                if o and rep and o.lower() not in {"topics", "orgs", "sponsors", "trending"}:
+                skip_orgs = {"topics", "orgs", "sponsors", "trending", "marketplace"}
+                if o and rep and o.lower() not in skip_orgs:
+                    low_rep = rep.lower()
+                    # Deprioritize obvious secondary repos
+                    if any(skip in low_rep for skip in ("awesome", "docs", "wiki", "example", "template")):
+                        candidates.append((o, rep, "secondary"))
+                    else:
+                        candidates.append((o, rep, "primary"))
+
+        # Try primary candidates first, then secondary
+        seen = set()
+        for priority in ("primary", "secondary"):
+            for o, rep, prio in candidates:
+                if prio != priority or (o, rep) in seen:
+                    continue
+                seen.add((o, rep))
+                # Quick star check: reject if < 200 stars (likely wrong repo)
+                stars = await _get_repo_stars(o, rep)
+                if stars is None or stars >= 200:
+                    # If low stars but we have an owner, try top repo under that org
+                    if stars is not None and stars < 200:
+                        top = await _find_top_repo(o)
+                        if top:
+                            return o, top
                     return o, rep
+
     return None, None
+
+
+async def _get_repo_stars(owner: str, repo: str) -> int | None:
+    """Quick check: fetch star count for a repo. Returns None on error."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as c:
+            resp = await c.get(
+                f"{_GH_API}/repos/{owner}/{repo}",
+                headers=_gh_headers(),
+            )
+            if resp.status_code == 200:
+                return resp.json().get("stargazers_count", 0)
+    except Exception:
+        pass
+    return None
 
 
 def _parse_gh_url(url: str) -> tuple:
