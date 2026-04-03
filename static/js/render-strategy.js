@@ -14,9 +14,13 @@ function renderStrategy(gs) {
     const gt = gs.growth_tools || null;
     const productName = gs.product_name || '竞品';
 
-    let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-1">📋 定制增长策略</h3>
-        <p class="text-xs text-gray-500 mb-6">基于竞品分析数据，自动匹配最适合的 Gingiris Playbook 组合</p>`;
+    let html = `<div class="bg-gray-900 rounded-xl border border-emerald-700/30 p-6">
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-lg font-semibold">📋 定制增长策略</h3>
+            <span class="text-[10px] bg-emerald-900/40 text-emerald-300 border border-emerald-700/40 px-2.5 py-1 rounded-full font-medium">💡 Gingiris Playbook 独家推荐</span>
+        </div>
+        <p class="text-xs text-gray-500 mb-2">基于 Wayback 历史演变 + PH Launch 记录 + 社交传播数据的交叉分析，自动匹配最适合的增长 Playbook</p>
+        <p class="text-[10px] text-emerald-400/60 mb-6">⚡ 这些定制建议融合了多个独家数据源，是 GPT/Claude 对话无法提供的深度分析</p>`;
 
     // ── Primary Playbook ────────────────────────────────────────────────────
     if (primary) {
@@ -57,40 +61,43 @@ function renderStrategy(gs) {
 
 function _renderPrimaryCard(pb, productName) {
     const reasonsHtml = (pb.reasons || []).slice(0, 3)
-        .map(r => `<li class="flex gap-2"><span class="text-green-400 shrink-0">✓</span><span>${esc(r)}</span></li>`)
+        .map(r => `<li class="flex gap-2 items-start"><span class="text-emerald-400 shrink-0 mt-0.5">✓</span><span>${esc(r)}</span></li>`)
         .join('');
 
     const tipsHtml = (pb.custom_tips || []).slice(0, 3).map((tip, i) => `
-        <div class="flex gap-3 p-3 bg-gray-800 rounded-lg border-l-2 border-blue-500">
-            <span class="text-blue-400 font-bold text-sm shrink-0">${i + 1}</span>
+        <div class="flex gap-3 p-3 bg-gray-900/80 rounded-lg border-l-2 border-emerald-500">
+            <span class="text-emerald-400 font-bold text-sm shrink-0">Step ${i + 1}</span>
             <p class="text-xs text-gray-300 leading-relaxed">${esc(tip)}</p>
         </div>`).join('');
 
-    return `<div class="bg-gray-800 rounded-xl border border-blue-500/30 p-5">
+    const scoreStars = '★'.repeat(Math.min(pb.score || 0, 4)) + '☆'.repeat(Math.max(0, 4 - (pb.score || 0)));
+
+    return `<div class="bg-gray-800 rounded-xl border border-emerald-500/30 p-5">
         <div class="flex items-start justify-between mb-3">
-            <div class="flex items-center gap-2">
-                <span class="text-2xl">${esc(pb.emoji || '📘')}</span>
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">${esc(pb.emoji || '📘')}</span>
                 <div>
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-semibold text-white">${esc(pb.label)}</span>
-                        <span class="text-[10px] bg-blue-600 text-white rounded-full px-2 py-0.5">主推</span>
+                        <span class="text-[10px] bg-emerald-600 text-white rounded-full px-2 py-0.5 font-medium">主推</span>
+                        <span class="text-[10px] text-emerald-400/70 font-mono">${scoreStars}</span>
                     </div>
                     <div class="text-[10px] text-gray-500 mt-0.5">${esc(pb.description || '')}</div>
                 </div>
             </div>
             <a href="${esc(pb.url)}" target="_blank" rel="noopener"
-               class="shrink-0 text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg transition-colors">
+               class="shrink-0 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
                 查看 Playbook →
             </a>
         </div>
 
-        ${reasonsHtml ? `<div class="mb-4">
-            <div class="text-[10px] text-gray-500 mb-1.5">匹配原因</div>
-            <ul class="space-y-1 text-xs text-gray-300">${reasonsHtml}</ul>
+        ${reasonsHtml ? `<div class="mb-4 bg-gray-900/50 rounded-lg p-3">
+            <div class="text-[10px] text-emerald-400/80 font-medium mb-2">📌 为什么推荐这个 Playbook（基于竞品实际数据）</div>
+            <ul class="space-y-1.5 text-xs text-gray-300">${reasonsHtml}</ul>
         </div>` : ''}
 
         ${tipsHtml ? `<div>
-            <div class="text-[10px] text-gray-500 mb-2">🎯 基于竞品数据的定制建议</div>
+            <div class="text-[10px] text-emerald-400/80 font-medium mb-2">🎯 基于 ${esc(productName)} 数据的定制行动建议</div>
             <div class="space-y-2">${tipsHtml}</div>
         </div>` : ''}
     </div>`;
@@ -98,22 +105,24 @@ function _renderPrimaryCard(pb, productName) {
 
 function _renderSecondaryCard(pb) {
     const reasonsHtml = (pb.reasons || []).slice(0, 2)
-        .map(r => `<li class="flex gap-1.5 text-[11px] text-gray-400"><span class="text-green-500 shrink-0">✓</span><span>${esc(r)}</span></li>`)
+        .map(r => `<li class="flex gap-1.5 text-[11px] text-gray-400"><span class="text-emerald-500 shrink-0">✓</span><span>${esc(r)}</span></li>`)
         .join('');
 
     const tip = (pb.custom_tips || [])[0];
+    const scoreStars = '★'.repeat(Math.min(pb.score || 0, 4)) + '☆'.repeat(Math.max(0, 4 - (pb.score || 0)));
 
     return `<div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
         <div class="flex items-start justify-between mb-2">
             <div class="flex items-center gap-2">
                 <span class="text-lg">${esc(pb.emoji || '📘')}</span>
                 <span class="text-xs font-semibold text-gray-200">${esc(pb.label)}</span>
+                <span class="text-[9px] text-gray-500 font-mono">${scoreStars}</span>
             </div>
             <a href="${esc(pb.url)}" target="_blank" rel="noopener"
-               class="text-[10px] text-blue-400 hover:text-blue-300 shrink-0">查看 →</a>
+               class="text-[10px] text-emerald-400 hover:text-emerald-300 shrink-0">查看 →</a>
         </div>
         ${reasonsHtml ? `<ul class="space-y-1 mb-2">${reasonsHtml}</ul>` : ''}
-        ${tip ? `<p class="text-[10px] text-gray-500 mt-2 leading-relaxed border-t border-gray-700 pt-2">${esc(tip)}</p>` : ''}
+        ${tip ? `<div class="text-[10px] text-gray-400 mt-2 leading-relaxed border-t border-gray-700 pt-2"><span class="text-emerald-400/70">💡</span> ${esc(tip)}</div>` : ''}
     </div>`;
 }
 

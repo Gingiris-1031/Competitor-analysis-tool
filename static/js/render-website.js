@@ -5,7 +5,10 @@ function renderWebsite(ws) {
     const allPoints = [...timeline.filter(t => !t.error && t.date), ...(current && !current.error ? [current] : [])];
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-4">🌐 官网演变分析</h3>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">🌐 官网演变分析</h3>
+            <span class="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium">🔍 Wayback Machine 独家数据</span>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">域名</div><div class="text-sm font-mono mt-1">${esc(ws.domain)}</div></div>
             <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">首次出现</div><div class="text-sm font-mono mt-1">${esc(ws.first_seen)}</div></div>

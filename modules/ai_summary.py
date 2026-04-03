@@ -4,19 +4,44 @@ import json
 import os
 
 
-async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict) -> dict:
+async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None) -> dict:
     """调用 LLM 基于所有数据生成商业洞察"""
 
     # Compile all data into a concise context
     context = _build_context(product_name, url, website, social, traffic, producthunt)
 
+    # Build enriched sections for cross-source analysis
+    wayback_insight = _build_wayback_insight(website)
+    ph_insight = _build_ph_insight(producthunt)
+    playbook_insight = _build_playbook_insight(growth_strategy)
+
     prompt = f"""你是一位资深的出海产品增长顾问（拥有帮助产品从 0 到 60K GitHub stars 的实战经验）。
 
-以下是对竞品 **{product_name}** ({url}) 的自动化调研数据。请基于这些数据，站在"想做类似产品的创业者"角度，输出一份精炼的竞品分析总结。
+以下是对竞品 **{product_name}** ({url}) 的自动化调研数据。这些数据来自多个独家数据源的交叉分析——包括 Wayback Machine 多年历史快照、Product Hunt 完整 Launch 记录、以及 Gingiris 增长 Playbook 的智能匹配。请基于这些数据，站在"想做类似产品的创业者"角度，输出一份精炼的竞品分析总结。
 
 ## 调研数据
 
 {context}
+
+## 🔍 Wayback Machine 独家历史洞察
+
+以下是基于多年网站演变数据提取的深层信号——这些洞察只有通过对比不同时期的官网快照才能获得，普通竞品分析工具和 AI 对话无法提供：
+
+{wayback_insight}
+
+请在分析中重点关注官网演变轨迹揭示的战略意图：Slogan 变化反映定位调整、功能模块的增减反映产品策略、社媒外链的变化反映渠道重心转移。
+
+## 🚀 Product Hunt 深度分析
+
+{ph_insight}
+
+请深度分析 PH 数据背后的 Launch 策略：多次发布的节奏规律、每次 Launch 的定位差异、投票和评论数据反映的市场反馈。
+
+## 💡 Gingiris Playbook 匹配分析
+
+{playbook_insight}
+
+请在建议部分自然融入 Playbook 推荐，说明为什么这个 Playbook 适合后来者参考，并给出具体的章节建议。
 
 ## 请输出以下内容（中文，精炼、实战、可落地）：
 
@@ -24,16 +49,16 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 用一句话概括这个产品是什么、做对了什么。
 
 ### 2. 关键里程碑时间线
-基于数据推断出 3-5 个关键时间节点（域名注册、首次 launch、爆发增长点、重要转型等），每个节点用一句话说明发生了什么。
+基于数据推断出 3-5 个关键时间节点（域名注册、首次 launch、爆发增长点、重要转型等），每个节点用一句话说明发生了什么。特别注意利用 Wayback 快照的时间戳来锚定真实的产品演变节点。
 
 ### 3. 增长密码（做对了什么）
-提炼 3-5 个这个产品增长的核心策略/决策，每条要具体、有数据支撑，不要泛泛而谈。
+提炼 3-5 个这个产品增长的核心策略/决策，每条要具体、有数据支撑，不要泛泛而谈。至少包含一条基于 Wayback 历史对比得出的策略洞察，一条基于 PH Launch 数据的策略分析。
 
 ### 4. 给竞品/后来者的建议
-如果你要做一个类似的产品，基于这份数据，给出 3-5 条最重要的建议。要具体到可执行的层面。
+如果你要做一个类似的产品，基于这份数据，给出 3-5 条最重要的建议。要具体到可执行的层面。引用匹配的 Gingiris Playbook 作为行动框架。
 
 ### 5. 风险与机会
-指出 1-2 个这个产品的潜在弱点或市场机会。
+指出 1-2 个这个产品的潜在弱点或市场机会。结合 Wayback 演变趋势和 PH 社区反馈来论证。
 
 ## ⚠️ 严格约束（必须遵守）：
 - **只基于上面提供的实际数据做分析**。如果某个维度的数据为空或不足，直接写"数据不足，无法判断"，严禁推断或编造。
@@ -48,6 +73,119 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     # Try to call an LLM
     result = await _call_llm(prompt)
     return result
+
+
+def _build_wayback_insight(website: dict) -> str:
+    """从 Wayback 数据提取独家历史洞察供 prompt 使用"""
+    ws = website or {}
+    parts = []
+
+    timeline = ws.get("deep_timeline", [])
+    valid = [t for t in timeline if not t.get("error") and t.get("date")]
+    changes = ws.get("key_changes", [])
+    first_seen = ws.get("first_seen", "N/A")
+
+    if not valid and not changes:
+        return "Wayback Machine 无历史快照数据，无法进行历史演变分析。"
+
+    parts.append(f"- 域名首次被 Wayback Machine 收录于 **{first_seen}**，共采集到 **{len(valid)}** 个深度分析快照")
+
+    # Slogan evolution
+    slogans = [(t.get("date", ""), t.get("slogan", "")) for t in valid if t.get("slogan")]
+    if len(slogans) >= 2:
+        parts.append(f"- Slogan 演变轨迹（反映定位调整）：")
+        for date, slogan in slogans:
+            parts.append(f"  · {date}: 「{slogan[:60]}」")
+
+    # Feature additions/removals over time
+    if len(valid) >= 2:
+        first_features = set(k for k, v in valid[0].get("features", {}).items() if v)
+        last_features = set(k for k, v in valid[-1].get("features", {}).items() if v)
+        added = last_features - first_features
+        removed = first_features - last_features
+        if added:
+            parts.append(f"- 新增功能模块：{', '.join(added)}（从 {valid[0].get('date', '?')} 到 {valid[-1].get('date', '?')}）")
+        if removed:
+            parts.append(f"- 移除的功能模块：{', '.join(removed)}")
+
+    # Key changes
+    if changes:
+        parts.append(f"- 检测到 **{len(changes)}** 次关键官网变化：")
+        for c in changes[:5]:
+            parts.append(f"  · {c['from_date']}→{c['to_date']}: {'; '.join(c['changes'][:3])}")
+
+    return "\n".join(parts) if parts else "Wayback 数据量不足，无法提取深层历史洞察。"
+
+
+def _build_ph_insight(producthunt: dict) -> str:
+    """从 Product Hunt 数据提取深度分析上下文"""
+    ph = producthunt or {}
+    if not ph.get("found"):
+        return "该产品未在 Product Hunt 上发布过，无 PH 数据可供分析。"
+
+    parts = []
+    launch_count = 1 + len(ph.get("other_launches", []))
+    votes = ph.get("votes", 0)
+    comments = ph.get("comments", 0)
+    rating = ph.get("reviews_rating", 0)
+
+    parts.append(f"- 该产品曾 **{launch_count} 次**在 Product Hunt 上线，最高一次获得 **{votes:,} votes** 和 **{comments:,} comments**")
+
+    if rating:
+        parts.append(f"- PH 用户评分 **{rating:.1f}** 分（{ph.get('reviews_count', 0)} 条评价），反映市场对产品的真实态度")
+
+    if ph.get("tagline"):
+        parts.append(f"- 主 Launch Tagline: 「{ph['tagline']}」— 这个定位语拿到了 {votes:,} votes，说明市场认可这个切入角度")
+
+    other = ph.get("other_launches", [])
+    if other:
+        parts.append(f"- 多波 Launch 策略分析（{launch_count} 次发布）：")
+        all_launches = [{"name": ph.get("name", ""), "votes": votes, "launch_date": ph.get("launch_date", ""), "tagline": ph.get("tagline", "")}]
+        all_launches.extend(other)
+        all_launches.sort(key=lambda x: x.get("launch_date", ""))
+        for i, l in enumerate(all_launches, 1):
+            tag = f"「{l.get('tagline', '')[:50]}」" if l.get("tagline") else ""
+            parts.append(f"  · 第{i}次 ({l.get('launch_date', '?')}): {l.get('name', '')} ⬆{l.get('votes', 0):,} {tag}")
+
+        if len(all_launches) >= 2:
+            dates = [l.get("launch_date", "") for l in all_launches if l.get("launch_date")]
+            if len(dates) >= 2:
+                parts.append(f"  · Launch 节奏：从 {dates[0]} 到 {dates[-1]}，共 {len(dates)} 次，可分析每次 Launch 之间的间隔和策略调整")
+
+    if ph.get("makers"):
+        parts.append(f"- Maker 团队 {len(ph['makers'])} 人，团队规模对 Launch 执行力有直接影响")
+
+    return "\n".join(parts)
+
+
+def _build_playbook_insight(growth_strategy: dict) -> str:
+    """从 Gingiris Playbook 匹配结果提取 prompt 上下文"""
+    gs = growth_strategy or {}
+    primary = gs.get("primary")
+    if not primary:
+        return "暂未进行 Playbook 匹配（增长策略模块数据不足）。在建议部分可以根据产品类型给出通用方向。"
+
+    parts = []
+    parts.append(f"系统已基于竞品数据自动匹配到最适合的增长 Playbook：")
+    parts.append(f"- **主推 Playbook**: {primary.get('emoji', '')} {primary.get('label', '')}（匹配得分: {primary.get('score', 0)}/4）")
+    parts.append(f"  描述: {primary.get('description', '')}")
+    parts.append(f"  链接: {primary.get('url', '')}")
+    if primary.get("reasons"):
+        parts.append(f"  匹配原因:")
+        for r in primary["reasons"][:3]:
+            parts.append(f"    · {r}")
+    if primary.get("custom_tips"):
+        parts.append(f"  定制建议:")
+        for tip in primary["custom_tips"][:3]:
+            parts.append(f"    · {tip}")
+
+    secondary = gs.get("secondary", [])
+    for s in secondary[:2]:
+        parts.append(f"- **辅助 Playbook**: {s.get('emoji', '')} {s.get('label', '')}（得分: {s.get('score', 0)}/4）")
+        if s.get("reasons"):
+            parts.append(f"  原因: {s['reasons'][0]}")
+
+    return "\n".join(parts)
 
 
 def _build_context(product_name, url, website, social, traffic, producthunt) -> str:

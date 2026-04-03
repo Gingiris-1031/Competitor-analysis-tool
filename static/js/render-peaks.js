@@ -12,7 +12,10 @@ function renderPeaks(tp) {
     const trendsData = tp.trends_data || [];
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-1">📈 Google Trends 流量峰值分析</h3>
+        <div class="flex items-center justify-between mb-1">
+            <h3 class="text-lg font-semibold">📈 Google Trends 流量峰值分析</h3>
+            <span class="text-[10px] bg-purple-900/40 text-purple-300 border border-purple-700/40 px-2.5 py-1 rounded-full font-medium">📊 多源交叉归因分析</span>
+        </div>
         <p class="text-xs text-gray-500 mb-5">品牌搜索热度 · 增长阶段 · Launch 关联</p>`;
 
     // ── Summary stats strip ──────────────────────────────────────────────────

@@ -167,10 +167,12 @@ async def _run_analysis(job_id: str):
         job["progress"]["traffic_peaks"] = "error"
 
     # ================================================================
-    # Phase 3: Growth analysis + AI summary (parallel — both read-only on Phase 1+2 data)
+    # Phase 3: Growth analysis + AI summary
+    # Growth analysis runs first (sync, instant), then Playbook matching
+    # (pure rules), then AI summary gets the full context including Playbook.
     # ================================================================
-    async def _run_growth():
-        job["progress"]["growth_analysis"] = "running"
+    job["progress"]["growth_analysis"] = "running"
+    try:
         growth_deep = analyze_growth_deep(
             product_name, url,
             job["results"].get("website", {}),
@@ -181,31 +183,42 @@ async def _run_analysis(job_id: str):
         )
         job["results"]["growth_analysis"] = growth_deep
         job["progress"]["growth_analysis"] = "done"
+    except Exception as growth_err:
+        job["results"]["growth_analysis"] = {"error": str(growth_err)}
+        job["progress"]["growth_analysis"] = "error"
 
-    async def _run_ai_summary():
+    # Early Playbook matching (pure rule engine, no LLM — instant)
+    try:
+        early_strategy = recommend_playbooks({
+            "sections": {
+                "website_analysis": job["results"].get("website", {}),
+                "social_media": job["results"].get("social", {}),
+                "traffic_analysis": job["results"].get("traffic", {}),
+                "producthunt": job["results"].get("producthunt", {}),
+                "growth_analysis": job["results"].get("growth_analysis", {}),
+                "traffic_peaks": job["results"].get("traffic_peaks", {}),
+            },
+            "meta": {"product_name": product_name, "url": url},
+        })
+        job["results"]["growth_strategy"] = early_strategy
+    except Exception:
+        early_strategy = {}
+        job["results"]["growth_strategy"] = {}
+
+    # AI summary now gets Playbook context for richer insights
+    try:
         ai = await generate_ai_summary(
             product_name, url,
             job["results"].get("website", {}),
             job["results"].get("social", {}),
             job["results"].get("traffic", {}),
             job["results"].get("producthunt", {}),
+            growth_strategy=early_strategy,
         )
         job["results"]["ai_summary"] = ai
-        return ai
-
-    phase3_results = await _aio.gather(
-        _run_growth(), _run_ai_summary(),
-        return_exceptions=True,
-    )
-    if isinstance(phase3_results[0], Exception):
-        job["results"]["growth_analysis"] = {"error": str(phase3_results[0])}
-        job["progress"]["growth_analysis"] = "error"
-    ai = {}
-    if isinstance(phase3_results[1], Exception):
-        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(phase3_results[1])[:100]}", "source": "error"}
+    except Exception as ai_err:
+        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(ai_err)[:100]}", "source": "error"}
         job["results"]["ai_summary"] = ai
-    else:
-        ai = job["results"].get("ai_summary", {})
 
     # ================================================================
     # Phase 4: Report generation (depends on everything above)
@@ -224,17 +237,9 @@ async def _run_analysis(job_id: str):
             propagation=job["results"].get("propagation", {}),
         )
 
-        # Growth strategy Playbook matching (pure rule engine, no LLM)
-        try:
-            growth_strategy = recommend_playbooks({
-                "sections": report["sections"],
-                "meta": report["meta"],
-            })
-            job["results"]["growth_strategy"] = growth_strategy
-            report["sections"]["growth_strategy"] = growth_strategy
-        except Exception as gs_err:
-            job["results"]["growth_strategy"] = {"error": str(gs_err)}
-            report["sections"]["growth_strategy"] = {}
+        # Reuse early Playbook matching from Phase 3 (already computed)
+        growth_strategy = job["results"].get("growth_strategy", {})
+        report["sections"]["growth_strategy"] = growth_strategy
 
         job["report"] = report
         try:

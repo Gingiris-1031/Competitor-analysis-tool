@@ -9,7 +9,10 @@ function renderProductHunt(ph) {
     }
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-4">🏆 Product Hunt 表现</h3>
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">🏆 Product Hunt 表现</h3>
+            <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">🚀 Product Hunt 深度分析</span>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Launch 日期</div><div class="text-sm font-mono text-blue-300 mt-1">${esc(ph.launch_date)}</div></div>
             <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Upvotes</div><div class="text-sm font-mono text-orange-300 mt-1">⬆ ${(ph.votes||0).toLocaleString()}</div></div>

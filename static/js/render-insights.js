@@ -3,7 +3,10 @@ function renderInsights(ai) {
     if (!ai || (typeof ai === 'object' && Object.keys(ai).length === 0)) { container.innerHTML = ''; return; }
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-4">🧠 AI 商业洞察</h3>`;
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">🧠 AI 商业洞察</h3>
+            <span class="text-[10px] bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 px-2.5 py-1 rounded-full font-medium">🔮 Wayback + PH + Playbook 交叉分析</span>
+        </div>`;
 
     if (ai.success && ai.content) {
         html += `<div class="ai-content">${formatMarkdown(ai.content)}</div>`;

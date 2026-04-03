@@ -9,7 +9,7 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
             "product_name": product_name,
             "url": url,
             "generated_at": datetime.now().isoformat(),
-            "version": "MVP v0.3",
+            "version": "MVP v0.4",
         },
         "sections": {
             "website_analysis": _format_website(website),
@@ -130,7 +130,9 @@ def report_to_markdown(report: dict) -> str:
 
 ---
 
-## 1. 官网演变分析
+## 1. 官网演变分析 🔍
+
+> 🔍 **Wayback Machine 独家数据** — 基于多年历史快照的深度演变分析
 
 """
     ws = s["website_analysis"]
@@ -191,6 +193,7 @@ def report_to_markdown(report: dict) -> str:
 
     # Social Media
     md += "## 2. 社交媒体渠道分析\n\n"
+    md += "> 多平台渠道检测与传播指标分析\n\n"
     sm = s["social_media"]
     channels = sm.get("channels", {})
     
@@ -330,6 +333,7 @@ def report_to_markdown(report: dict) -> str:
     ga = s.get("growth_analysis", {})
     if ga and not ga.get("error"):
         md += "## 4. 增长深度分析\n\n"
+        md += "> 📊 多渠道交叉增长分析 — 渠道拆解 · 0→1 故事线 · 多波 Launch\n\n"
 
         # --- Channel Breakdown ---
         cb = ga.get("channel_breakdown", {})
@@ -454,6 +458,7 @@ def report_to_markdown(report: dict) -> str:
     tp = s.get("traffic_peaks", {})
     if tp and not tp.get("error") and tp.get("summary"):
         md += "## 5. Google Trends 流量峰值分析\n\n"
+        md += "> 📊 **多源交叉归因分析** — Google Trends 热度数据 × PH/HN/Twitter 事件归因\n\n"
         tps = tp["summary"]
         md += f"**查询词**：{tps.get('primary_query', '')}  \n"
         md += f"**数据周数**：{tps.get('total_weeks', 0)}  \n"
@@ -623,6 +628,7 @@ def report_to_markdown(report: dict) -> str:
     gs = s.get("growth_strategy", {})
     if gs and not gs.get("error") and gs.get("primary"):
         md += "\n## 8. 定制增长策略（Gingiris Playbook 推荐）\n\n"
+        md += "> 💡 **Gingiris Playbook 独家推荐** — 基于 Wayback 历史 + PH Launch + 社交传播的交叉分析自动匹配\n\n"
         primary = gs["primary"]
         secondary = gs.get("secondary", [])
         gt = gs.get("growth_tools")
