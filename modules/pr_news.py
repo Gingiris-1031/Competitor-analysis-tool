@@ -59,9 +59,40 @@ async def _fetch_hn(product_name: str, brand: str) -> list:
                     if obj_id in seen_ids:
                         continue
                     title = (h.get("title") or "").lower()
-                    # Only include if brand/product name actually appears in title
+                    article_url = (h.get("url") or "").lower()
+                    date_str = (h.get("created_at") or "")[:10]
+                    year = int(date_str[:4]) if len(date_str) >= 4 else 9999
+
+                    # Must mention brand or product name in title
                     if brand.lower() not in title and product_name.lower() not in title:
                         continue
+
+                    # Filter out academic/math/science domains — common false positive
+                    # for brands that are also common words (e.g. "affine", "arc", "linear")
+                    _bad_domains = {
+                        "math.stackexchange.com", "mathworld.wolfram.com", "arxiv.org",
+                        "en.wikipedia.org", "researchgate.net", "academia.edu",
+                        "semanticscholar.org", "sciencedirect.com", "springer.com",
+                        "mathoverflow.net", "math.stackexchange.com",
+                    }
+                    if any(d in article_url for d in _bad_domains):
+                        continue
+
+                    # Skip very old posts unless URL explicitly matches the product domain
+                    if year < 2019 and brand.lower() not in article_url:
+                        continue
+
+                    # For short/common-word brands, require tech product context in title
+                    _common_words = {"affine", "linear", "notion", "arc", "base", "flow",
+                                     "core", "loop", "mesh", "wave", "plane", "shift"}
+                    if brand.lower() in _common_words:
+                        _tech_words = {"launch", "open source", "funding", "startup", "tool",
+                                       "app", "product", "github", "release", "saas", "api",
+                                       "software", "update", "raises", "announce", "show hn"}
+                        has_context = any(w in title for w in _tech_words) or brand.lower() in article_url
+                        if not has_context:
+                            continue
+
                     seen_ids.add(obj_id)
                     hn_url = f"https://news.ycombinator.com/item?id={obj_id}"
                     results.append({
@@ -80,7 +111,7 @@ async def _fetch_hn(product_name: str, brand: str) -> list:
 
 
 async def _fetch_google_news(product_name: str) -> list:
-    """DataForSEO Google News API"""
+    """DataForSEO Google News API — 多查询变体"""
     b64 = os.environ.get("DATAFORSEO_B64", "").strip()
     if not b64:
         try:
@@ -90,28 +121,45 @@ async def _fetch_google_news(product_name: str) -> list:
     if not b64:
         return []
 
+    # Try multiple query variations to maximize news coverage
+    queries = [
+        product_name,
+        f"{product_name} open source",
+        f"{product_name} funding",
+    ]
+    seen_urls = set()
+    all_items = []
+
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
+            payload = [
+                {"keyword": q, "location_code": 2840, "language_code": "en", "depth": 10}
+                for q in queries
+            ]
             resp = await client.post(
                 "https://api.dataforseo.com/v3/serp/google/news/live/advanced",
                 headers={"Authorization": f"Basic {b64}", "Content-Type": "application/json"},
-                json=[{"keyword": product_name, "location_code": 2840,
-                       "language_code": "en", "depth": 10}],
+                json=payload,
             )
         data = resp.json()
-        task = (data.get("tasks") or [{}])[0]
-        items = []
-        if task.get("result"):
+        for task in (data.get("tasks") or []):
+            if not task.get("result"):
+                continue
             for r in (task["result"][0] or {}).get("items", []):
-                if r.get("type") == "news":
-                    items.append({
-                        "source":  r.get("source", ""),
-                        "title":   r.get("title", ""),
-                        "url":     r.get("url", ""),
-                        "snippet": (r.get("snippet") or "")[:200],
-                        "date":    (r.get("timestamp") or "")[:10],
-                    })
-        return items
+                if r.get("type") != "news":
+                    continue
+                url = r.get("url", "")
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                all_items.append({
+                    "source":  r.get("source", ""),
+                    "title":   r.get("title", ""),
+                    "url":     url,
+                    "snippet": (r.get("snippet") or "")[:200],
+                    "date":    (r.get("timestamp") or "")[:10],
+                })
+        return all_items
     except Exception:
         return []
 
@@ -129,8 +177,9 @@ async def _fetch_brave_press(product_name: str, brand: str, domain: str) -> list
     results = []
     seen_urls = set()
     queries = [
-        f'"{product_name}" (site:techcrunch.com OR site:theverge.com OR site:wired.com OR site:venturebeat.com OR site:producthunt.com OR site:indiehackers.com)',
-        f'"{brand}" funding OR launch OR "open source" -site:{domain}',
+        f'"{product_name}" (site:techcrunch.com OR site:theverge.com OR site:wired.com OR site:venturebeat.com OR site:prnewswire.com OR site:businesswire.com)',
+        f'"{product_name}" (site:producthunt.com OR site:indiehackers.com OR site:dev.to OR site:medium.com)',
+        f'"{brand}" funding OR raises OR launch OR "open source" -site:{domain}',
     ]
     for q in queries:
         try:

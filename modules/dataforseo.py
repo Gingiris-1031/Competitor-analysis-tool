@@ -114,9 +114,9 @@ async def _top_keywords(client, headers, domain) -> dict:
             "target": domain,
             "language_code": "en",
             "location_code": 2840,
-            "limit": 100,
-            "order_by": ["ranked_serp_element.serp_item.rank_absolute,asc"],
-            "filters": ["ranked_serp_element.serp_item.rank_absolute","<",21],
+            "limit": 200,
+            "order_by": ["keyword_data.keyword_info.search_volume,desc"],
+            "filters": ["ranked_serp_element.serp_item.rank_absolute","<",51],
         }],
     )
     data = resp.json()

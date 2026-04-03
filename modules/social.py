@@ -652,9 +652,16 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             break
 
     if not result["detected"]:
-        tried_str = ", ".join(handles_to_try[:3])
-        sources = "Apify + Caravo" if apify_token else "Caravo"
-        result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}...）。可能需要充值或手动确认。"
+        # Fallback: if Brave Search gave us a handle_hint, show it even without API data
+        if handle_hint:
+            result["detected"] = True
+            result["handle"] = f"@{handle_hint}" if not handle_hint.startswith("@") else handle_hint
+            result["url"] = f"https://x.com/{handle_hint.lstrip('@')}"
+            result["note"] = "受 API 限制，仅显示账号信息（粉丝数/推文需 Apify/Caravo 支持）"
+        else:
+            tried_str = ", ".join(handles_to_try[:3])
+            sources = "Apify + Caravo" if apify_token else "Caravo"
+            result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}...）。可能需要充值或手动确认。"
         result["key_posts_framework"] = {
             "note": "🔍 需 API 充值或手动补充",
             "needed_data": [

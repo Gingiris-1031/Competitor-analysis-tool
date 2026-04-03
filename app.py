@@ -277,7 +277,7 @@ async def _run_analysis(job_id: str):
         _t(analyze_producthunt(domain, product_name), 25),
         _t(analyze_social(domain, product_name, website_social_links={}), 22),  # was 35s
         _t(analyze_pricing(url, product_name), 20),
-        _t(analyze_github_oss(domain, product_name, {}), 20),                  # Phase 1, no website hints
+        _t(analyze_github_oss(domain, product_name, {}), 25),                  # Phase 1, no website hints
         _t(analyze_pr_news(domain, product_name), 18),
         _t(analyze_funding(domain, product_name), 15),
         return_exceptions=True,

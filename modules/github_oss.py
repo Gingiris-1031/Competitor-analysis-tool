@@ -122,13 +122,17 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
                     else:
                         candidates.append((o, rep, "primary"))
 
-        # Try primary candidates first, then secondary
+        # Try primary candidates first (max 3 to avoid timeout), then secondary
         seen = set()
         for priority in ("primary", "secondary"):
+            checked = 0
             for o, rep, prio in candidates:
                 if prio != priority or (o, rep) in seen:
                     continue
+                if checked >= 3:  # Limit star-validation calls to avoid timeout
+                    break
                 seen.add((o, rep))
+                checked += 1
                 # Quick star check: reject if < 200 stars (likely wrong repo)
                 stars = await _get_repo_stars(o, rep)
                 if stars is None or stars >= 200:

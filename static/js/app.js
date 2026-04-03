@@ -340,6 +340,7 @@ async function loadReport() {
         renderInsights(report.sections.ai_insights || report.sections.ai_summary || {});
         if (typeof renderSummary === 'function') renderSummary(report.sections.summary || {});
         renderStrategy(report.sections.growth_strategy || {});
+        if (typeof renderPlaybooks === 'function') renderPlaybooks(report);
 
         document.getElementById('hero-section')?.classList.add('hidden');
 
