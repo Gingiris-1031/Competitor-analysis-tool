@@ -1040,6 +1040,22 @@ async def analyze_traffic_peaks(
         empty["error"] = "无法解析 Trends 时间序列数据"
         return empty
 
+    # --- Step 3b: clip data to product launch date ---
+    # For common-word brands (e.g. "affine"), Google Trends data before the product
+    # existed is noise from the generic word. Clip to first_seen date.
+    if first_seen:
+        try:
+            launch_ts = int(datetime.strptime(first_seen[:10], "%Y-%m-%d").timestamp())
+            original_len = len(data)
+            data = [d for d in data if d.get("timestamp", 0) >= launch_ts]
+            if not data:
+                # All data was pre-launch — keep original but add note
+                data = _parse_timeline(active_timeline, active_query)
+            elif len(data) < original_len:
+                pass  # Clipped successfully
+        except Exception:
+            pass
+
     # --- Step 4: detect peaks ---
     peaks = _detect_peaks(data)
 

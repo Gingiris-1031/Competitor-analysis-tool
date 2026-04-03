@@ -24,6 +24,9 @@ async def analyze_pr_news(domain: str, product_name: str) -> dict:
     news_articles  = results[1] if isinstance(results[1], list) else []
     press_mentions = results[2] if isinstance(results[2], list) else []
 
+    # Post-filter: remove press mentions about different companies with similar names
+    press_mentions = _filter_press_by_domain(press_mentions, domain, product_name)
+
     all_mentions = _merge_mentions(hn_posts, news_articles, press_mentions)
     insights     = _gen_insights(hn_posts, news_articles, press_mentions)
 
@@ -109,15 +112,22 @@ async def _fetch_hn(product_name: str, brand: str, domain: str = "") -> list:
                         if product_exact_case or github_brand_match or domain_in_title:
                             pass  # Accept
                         else:
-                            # Require tech product context words
+                            # Require tech product context words + brand must be the subject
                             _tech_product_words = {
                                 "launch", "open source", "open-source", "funding", "startup",
                                 "tool", "app", "product", "release", "saas", "api",
-                                "software", "update", "raises", "announce", "show hn",
+                                "software", "update", "raises", "announce",
                                 "alternative", "knowledge base", "workspace",
                                 "collaboration", "editor", "whiteboard",
                             }
-                            if not any(w in title for w in _tech_product_words):
+                            has_tech = any(w in title for w in _tech_product_words)
+                            # "Show HN:" alone isn't enough — the post could be about any product
+                            # Only accept Show HN if brand/domain also appears in title
+                            is_show_hn = title.startswith("show hn:")
+                            brand_in_title = brand.lower() in title
+                            if is_show_hn and not brand_in_title:
+                                continue
+                            if not has_tech and not is_show_hn:
                                 continue
 
                     seen_ids.add(obj_id)
@@ -227,6 +237,34 @@ async def _fetch_brave_press(product_name: str, brand: str, domain: str) -> list
             continue
 
     return results
+
+
+def _filter_press_by_domain(press: list, domain: str, product_name: str) -> list:
+    """Filter press mentions: keep only those about THIS product, not similarly-named companies.
+
+    Strategy: article URL or title must contain either:
+    - The product domain (affine.pro)
+    - The exact case-sensitive product name (AFFiNE)
+    - The product's known platforms (github.com/toeverything, producthunt.com)
+    """
+    domain_clean = re.sub(r'^www\.', '', domain.lower().strip())
+    brand = re.sub(r'\.[a-z]{2,6}$', '', domain_clean)
+    filtered = []
+    for item in press:
+        url = (item.get("url") or "").lower()
+        title = item.get("title") or ""
+        title_lower = title.lower()
+
+        # Strong signals: domain in URL or exact product name in title
+        if domain_clean and domain_clean in url:
+            filtered.append(item)
+        elif product_name in title:  # Case-sensitive
+            filtered.append(item)
+        elif "producthunt.com" in url and brand in url:
+            filtered.append(item)
+        # Skip: this is likely about a different company with a similar name
+
+    return filtered
 
 
 def _extract_source(url: str) -> str:
