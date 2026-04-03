@@ -56,27 +56,29 @@
 
   // ── UI 更新 ───────────────────────────────────────────────────────────────
   function _updateUI(user) {
-    const btn    = document.getElementById('auth-btn');
-    const avatar = document.getElementById('auth-avatar');
-    const credit = document.getElementById('credits-display');
+    const btn      = document.getElementById('auth-btn');
+    const userArea = document.getElementById('auth-user-area');
+    const avatar   = document.getElementById('auth-avatar');
+    const credit   = document.getElementById('credits-display');
+    const emailEl  = document.getElementById('auth-dropdown-email');
 
     if (!btn) return;
 
     if (user) {
-      // 已登录：显示头像 + 积分
+      // 已登录：隐藏登录按钮，显示用户区域
       btn.classList.add('hidden');
+      if (userArea) userArea.classList.remove('hidden');
       if (avatar) {
-        avatar.classList.remove('hidden');
         const initials = (user.email || '?')[0].toUpperCase();
         avatar.textContent = initials;
-        avatar.title = user.email;
       }
+      if (emailEl) emailEl.textContent = user.email;
       // 异步拉取积分
       _fetchCredits();
     } else {
       // 未登录：显示登录按钮
       btn.classList.remove('hidden');
-      if (avatar) avatar.classList.add('hidden');
+      if (userArea) userArea.classList.add('hidden');
       if (credit) credit.classList.add('hidden');
     }
   }
@@ -201,9 +203,22 @@
       if (error) _setAuthError(error.message);
     });
 
-    // 登出（头像点击）
-    document.getElementById('auth-avatar')?.addEventListener('click', async () => {
-      if (confirm('确定要登出吗？')) await sb.auth.signOut();
+    // 头像点击：切换下拉菜单
+    document.getElementById('auth-avatar')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dropdown = document.getElementById('auth-dropdown');
+      if (dropdown) dropdown.classList.toggle('hidden');
+    });
+
+    // 点击页面其他区域关闭下拉
+    document.addEventListener('click', () => {
+      document.getElementById('auth-dropdown')?.classList.add('hidden');
+    });
+
+    // 登出按钮
+    document.getElementById('auth-logout-btn')?.addEventListener('click', async () => {
+      await sb.auth.signOut();
+      document.getElementById('auth-dropdown')?.classList.add('hidden');
     });
   }
 

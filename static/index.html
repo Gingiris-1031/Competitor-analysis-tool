@@ -31,21 +31,32 @@
             </div>
             <!-- Auth 区域 -->
             <div class="flex items-center gap-3">
-                <!-- 积分显示（登录后可见） -->
-                <span id="credits-display"
-                      class="hidden text-xs bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium cursor-default">
-                    ⚡ — 积分
-                </span>
                 <!-- 未登录：显示登录按钮 -->
                 <button id="auth-btn"
                         class="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium transition-colors">
                     登录 / 注册
                 </button>
-                <!-- 已登录：显示头像（点击登出） -->
-                <button id="auth-avatar"
-                        class="hidden w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center hover:bg-blue-500 transition-colors"
-                        title="点击登出">
-                </button>
+                <!-- 已登录：积分 + 头像下拉 -->
+                <div id="auth-user-area" class="hidden flex items-center gap-2 relative">
+                    <!-- 积分显示 -->
+                    <span id="credits-display"
+                          class="hidden text-xs bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium cursor-default">
+                        ⚡ — 积分
+                    </span>
+                    <!-- 头像按钮 -->
+                    <button id="auth-avatar"
+                            class="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center hover:bg-blue-500 transition-colors focus:outline-none">
+                    </button>
+                    <!-- 下拉菜单 -->
+                    <div id="auth-dropdown"
+                         class="hidden absolute right-0 top-10 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1">
+                        <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-gray-400 border-b border-gray-700 truncate"></div>
+                        <button id="auth-logout-btn"
+                                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition-colors">
+                            退出登录
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
