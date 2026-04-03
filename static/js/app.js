@@ -316,14 +316,27 @@ async function loadReport() {
         document.getElementById('report-section').classList.remove('hidden');
         document.getElementById('input-section').classList.add('hidden');
 
+        // Save to history
+        const meta = report.meta || {};
+        const urlForHistory = meta.url || document.getElementById('url-input')?.value || '';
+        if (urlForHistory && urlForHistory !== '—') saveToHistory(currentJobId, urlForHistory, meta.product_name);
+
         // Render summary card
         renderSummaryCard(report);
 
-        // Render sections
-        const container = document.getElementById('report-sections-container');
-        if (container && window.renderReport) {
-            window.renderReport(report, container);
-        }
+        // Render all sections
+        renderWebsite(report.sections.website_analysis || {});
+        renderProductHunt(report.sections.producthunt || {});
+        renderSocial(report.sections.social_media || {});
+        renderPropagation(report.sections.propagation || {});
+        renderTraffic(report.sections.traffic_analysis || {});
+        renderPeaks(report.sections.traffic_peaks || {});
+        renderGrowth(report.sections.growth_analysis || {});
+        renderInsights(report.sections.ai_insights || report.sections.ai_summary || {});
+        if (typeof renderSummary === 'function') renderSummary(report.sections.summary || {});
+        renderStrategy(report.sections.growth_strategy || {});
+
+        document.getElementById('hero-section')?.classList.add('hidden');
 
         const btn = document.getElementById('start-btn');
         if (btn) { btn.disabled = false; btn.innerHTML = '🚀 开始调研'; }
