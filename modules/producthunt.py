@@ -315,15 +315,9 @@ def _build_result(all_hits: list, product_slug: str, brand: str, product_name: s
         else:
             product_groups.setdefault("_unknown", []).append(hit)
 
-    # Pick the best matching group
-    best_group = None
-    target_slugs = {product_slug, brand, product_name.lower().replace(" ", "-")}
-    for ps, hits in product_groups.items():
-        if ps in target_slugs:
-            best_group = hits
-            break
-    if not best_group:
-        best_group = max(product_groups.values(), key=lambda g: max(h.get("votes", 0) for h in g))
+    # Pick the best group — always prefer highest total votes when multiple groups exist
+    # (e.g., "notion" 76 votes vs "notion-2" 2027 votes — pick the bigger one)
+    best_group = max(product_groups.values(), key=lambda g: sum(h.get("votes", 0) for h in g))
 
     # Sort by votes descending
     best_group_sorted = sorted(best_group, key=lambda r: r.get("votes", 0), reverse=True)
