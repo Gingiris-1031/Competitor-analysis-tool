@@ -267,7 +267,7 @@ async def _run_analysis(job_id: str):
     results_phase1 = await asyncio.gather(
         _t(analyze_website(url), 40),
         _t(analyze_domain(domain), 20),
-        _t(analyze_producthunt(domain, product_name), 15),
+        _t(analyze_producthunt(domain, product_name), 25),
         _t(analyze_social(domain, product_name, website_social_links={}), 35),
         _t(analyze_pricing(url, product_name), 20),
         return_exceptions=True,

@@ -140,54 +140,58 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        # Brave slug + brand + common PH patterns tried first
-        # e.g. "affine-2" is the real post slug for AFFiNE's first PH launch
-        extra_slugs = [f"{brand}-2", f"{brand}-3", f"{brand}-ai", f"get-{brand}"]
+        # Brave slug + brand + known PH post slug patterns (numbered -2/-3, -ai, etc.)
+        extra_slugs = [f"{brand}-2", f"{brand}-3", f"{brand}-4", f"{brand}-ai",
+                       f"{brand}-open-source", f"get-{brand}"]
         seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug] + extra_slugs)))
 
+        all_hits = []
         for slug in seed_slugs:
             hit = await _query_post(client, headers, slug)
             if hit.get("found"):
-                seed_hit = hit
-                # Extract product_slug from PH url  e.g. /products/lovable/launches/lovable
-                m = re.search(r'/products/([^/]+)/', hit.get("url", ""))
-                if m:
-                    product_slug = m.group(1).lower()
-                break
+                all_hits.append(hit)
+                if seed_hit is None:
+                    seed_hit = hit
+                    m = re.search(r'/products/([^/]+)/', hit.get("url", ""))
+                    if m:
+                        product_slug = m.group(1).lower()
+
+        # If we already found launches via slug enumeration, return immediately
+        # (skip slow _discover_launches_via_api which makes 12+ sequential API calls)
+        if all_hits:
+            if not product_slug:
+                product_slug = brave_slug or brand
+            return _build_result(all_hits, product_slug, brand, product_name)
 
         # If API gave nothing, use brave_slug or brand as product_slug
         if not product_slug:
             product_slug = brave_slug or brand
 
-        # ── Step 2: Discover all launch slugs via HTTP scrape + API in parallel ──
+        # ── Step 2: HTTP scrape only (skip slow _discover_launches_via_api) ──
         import asyncio as _aio
-        http_slugs_task = _discover_launches_via_http(product_slug, client)
-        api_slugs_task = _discover_launches_via_api(product_slug, brand, client, headers)
-        http_slugs_result, api_slugs_result = await _aio.gather(
-            http_slugs_task, api_slugs_task, return_exceptions=True,
-        )
+        http_slugs_result = await _discover_launches_via_http(product_slug, client)
         launch_slugs = http_slugs_result if isinstance(http_slugs_result, list) else []
-        api_slugs = api_slugs_result if isinstance(api_slugs_result, list) else []
-        # Merge: HTTP results first, then API results, deduped
-        for s in api_slugs:
-            if s not in launch_slugs:
-                launch_slugs.append(s)
 
-        # Also add the product_slug itself (sometimes the post slug == product slug)
-        if product_slug not in launch_slugs:
+        # Also try URL-based search with just the actual domain (fast, 2 calls)
+        for url_variant in [f"https://{domain}", f"https://www.{domain}"]:
+            try:
+                result = await _query_by_url(client, headers, url_variant)
+                if result.get("found"):
+                    return result
+            except Exception:
+                pass
+
+        if not product_slug not in launch_slugs:
             launch_slugs.insert(0, product_slug)
-        # And deduplicate
         launch_slugs = list(dict.fromkeys(launch_slugs))
 
         if launch_slugs:
             # ── Step 3: Query API for each launch slug ──
-            all_hits = []
             for ls in launch_slugs:
                 hit = await _query_post(client, headers, ls)
                 if hit.get("found"):
                     all_hits.append(hit)
 
-            # Include seed_hit if not already captured
             if seed_hit and seed_hit.get("found"):
                 existing_slugs = {h.get("slug") for h in all_hits}
                 if seed_hit.get("slug") not in existing_slugs:
