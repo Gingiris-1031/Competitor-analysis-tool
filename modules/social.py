@@ -230,7 +230,7 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             result["note"] = "✅ 通过 Twitter API 获取到完整数据"
 
             # Search for top tweets
-            search_data = _call_caravo("twitter241/search-v3", {"query": f"from:{handle}", "type": "top", "count": 10})
+            search_data = _call_caravo("twitter241/search-v3", {"query": f"from:{handle}", "type": "Top", "count": "10"})
             if search_data.get("success") and search_data.get("data"):
                 tweets_raw = search_data["data"]
                 tweets = tweets_raw if isinstance(tweets_raw, list) else tweets_raw.get("tweets", tweets_raw.get("results", []))

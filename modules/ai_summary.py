@@ -218,6 +218,6 @@ def _fallback_summary(prompt: str) -> dict:
     return {
         "success": False,
         "content": "",
-        "note": "🔍 AI 分析需要配置 OPENAI_API_KEY 环境变量。当前展示基于规则的数据总结。",
+        "note": "🔍 AI 分析需要配置 TeamoRouter API Key（~/.cola/secrets/teamorouter_api_key）或 DeepSeek API Key。当前展示基于规则的数据总结。",
         "source": "fallback",
     }

@@ -228,14 +228,103 @@ def report_to_markdown(report: dict) -> str:
             md += f"\n> {pm['note']}\n\n"
 
     # Traffic
-    md += "## 3. 流量来源分析\n\n"
+    md += "## 3. 流量与 SEO 分析\n\n"
     tr = s["traffic_analysis"]
     if tr.get("need_topup"):
         md += "> ⚠️ Caravo 余额不足。充值: https://www.caravo.ai/dashboard\n\n"
-    elif tr.get("semrush_available") and tr.get("traffic_data"):
-        md += f"```json\n{json.dumps(tr['traffic_data'], indent=2, ensure_ascii=False)[:2000]}\n```\n\n"
     else:
-        md += f"> {'⚠️ ' + tr['error'] if tr.get('error') else '暂无流量数据'}\n\n"
+        rank = tr.get("domain_rank", {})
+        bl = tr.get("backlinks", {})
+        kw = tr.get("top_keywords", {})
+        hist = tr.get("historical", {})
+        growth = tr.get("growth_analysis", {})
+
+        has_data = rank.get("organic_traffic") or bl.get("backlinks")
+        if has_data:
+            md += "数据来源: DataForSEO\n\n"
+
+            # Core metrics
+            md += "### 核心指标\n\n"
+            md += "| 指标 | 数值 |\n|------|------|\n"
+            if rank.get("organic_traffic") is not None:
+                md += f"| 有机流量/月 | {rank['organic_traffic']:,} |\n"
+            if rank.get("total_keywords") is not None:
+                md += f"| 排名关键词 | {rank['total_keywords']:,} |\n"
+            if rank.get("keywords_top10") is not None:
+                md += f"| Top 10 关键词 | {rank['keywords_top10']:,} |\n"
+            if rank.get("estimated_paid_cost") is not None:
+                md += f"| 等效付费成本 | ${rank['estimated_paid_cost']:,}/月 |\n"
+            if bl.get("backlinks") is not None:
+                md += f"| 反向链接 | {bl['backlinks']:,} |\n"
+            if bl.get("referring_domains") is not None:
+                md += f"| 引用域名 | {bl['referring_domains']:,} |\n"
+            if bl.get("domain_rank") is not None:
+                md += f"| 域名排名 | {bl['domain_rank']} |\n"
+            if bl.get("referring_ips") is not None:
+                md += f"| 引用 IP | {bl['referring_ips']:,} |\n"
+            md += "\n"
+
+            # Historical trend
+            hist_data = hist.get("history", [])
+            if hist_data:
+                md += "### 有机流量趋势\n\n"
+                md += "| 月份 | 有机流量 | 关键词数 | Top10 | 新增 | 丢失 |\n"
+                md += "|------|----------|----------|-------|------|------|\n"
+                for h in hist_data:
+                    md += f"| {h['date']} | {h.get('organic_traffic', 0):,} | {h.get('keywords', 0):,} | {h.get('top10', 0)} | +{h.get('new', 0):,} | -{h.get('lost', 0):,} |\n"
+                md += "\n"
+
+            # Growth phases
+            if growth.get("phases"):
+                md += "### 增长阶段分析\n\n"
+                for p in growth["phases"]:
+                    md += f"**{p['name']}**（{p['period']}）\n"
+                    md += f"- {p['description']}\n\n"
+
+            # Milestones
+            if growth.get("milestones"):
+                md += "### 关键里程碑\n\n"
+                for m in growth["milestones"]:
+                    md += f"- {m}\n"
+                md += "\n"
+
+            # Growth insights
+            if growth.get("insights"):
+                md += "### 增长洞察\n\n"
+                for i in growth["insights"]:
+                    md += f"- {i}\n"
+                md += "\n"
+
+            # Top keywords — branded
+            branded_kw = kw.get("branded_keywords", [])
+            non_branded_kw = kw.get("non_branded_keywords", [])
+            legacy_kw = kw.get("keywords", [])
+
+            if branded_kw:
+                md += f"### 品牌词排名（{kw.get('branded_count', len(branded_kw))} 个）\n\n"
+                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                for k_item in branded_kw:
+                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                md += "\n"
+
+            if non_branded_kw:
+                md += f"### 非品牌词 · 首页高曝光（{kw.get('non_branded_count', len(non_branded_kw))} 个，按搜索量排序）\n\n"
+                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                for k_item in non_branded_kw:
+                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                md += "\n"
+            elif not branded_kw and legacy_kw:
+                md += f"### Top 排名关键词（共 {kw.get('total', 0):,} 个）\n\n"
+                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                for k_item in legacy_kw:
+                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                md += "\n"
+
+            # Error in rank data
+            if rank.get("error") and not rank.get("organic_traffic"):
+                md += f"> ⚠️ {rank['error']}\n\n"
+        else:
+            md += f"> {'⚠️ ' + tr.get('error', '') if tr.get('error') else '暂无流量数据'}\n\n"
 
     # Growth Analysis
     ga = s.get("growth_analysis", {})

@@ -179,7 +179,7 @@ async def _historical_rank(client, headers, domain) -> dict:
     cost = data.get("cost", 0)
     task = data.get("tasks", [{}])[0]
     history = []
-    if task.get("result") and task["result"][0].get("items"):
+    if task.get("result") and task["result"][0] and task["result"][0].get("items"):
         for item in task["result"][0]["items"]:
             org = item.get("metrics", {}).get("organic", {})
             history.append({
