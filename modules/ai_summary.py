@@ -4,299 +4,362 @@ import json
 import os
 
 
-async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None) -> dict:
+async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None) -> dict:
     """调用 LLM 基于所有数据生成商业洞察"""
 
-    # Compile all data into a concise context
-    context = _build_context(product_name, url, website, social, traffic, producthunt)
-
-    # Build enriched sections for cross-source analysis
+    context = _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
     wayback_insight = _build_wayback_insight(website)
     ph_insight = _build_ph_insight(producthunt)
     playbook_insight = _build_playbook_insight(growth_strategy)
+    social_insight = _build_social_insight(social)
+    growth_insight = _build_growth_insight(growth_analysis, traffic_peaks)
 
-    prompt = f"""你是一位资深的出海产品增长顾问（拥有帮助产品从 0 到 60K GitHub stars 的实战经验）。
+    prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
-以下是对竞品 **{product_name}** ({url}) 的自动化调研数据。这些数据来自多个独家数据源的交叉分析——包括 Wayback Machine 多年历史快照、Product Hunt 完整 Launch 记录、以及 Gingiris 增长 Playbook 的智能匹配。请基于这些数据，站在"想做类似产品的创业者"角度，输出一份精炼的竞品分析总结。
+以下是对竞品 **{product_name}** ({url}) 的系统化调研数据，来源包括 Wayback Machine 历史快照、Product Hunt 发布记录、DataForSEO 流量数据、社交媒体数据以及 Gingiris Playbook 智能匹配。
 
-## 调研数据
+请基于这些真实数据，输出一份能够直接指导后来者的深度竞品分析报告。
+
+---
+
+## 原始调研数据
 
 {context}
 
-## 🔍 Wayback Machine 独家历史洞察
-
-以下是基于多年网站演变数据提取的深层信号——这些洞察只有通过对比不同时期的官网快照才能获得，普通竞品分析工具和 AI 对话无法提供：
+## Wayback Machine 历史洞察（独家时序信号）
 
 {wayback_insight}
 
-请在分析中重点关注官网演变轨迹揭示的战略意图：Slogan 变化反映定位调整、功能模块的增减反映产品策略、社媒外链的变化反映渠道重心转移。
-
-## 🚀 Product Hunt 深度分析
+## Product Hunt 发布分析
 
 {ph_insight}
 
-请深度分析 PH 数据背后的 Launch 策略：多次发布的节奏规律、每次 Launch 的定位差异、投票和评论数据反映的市场反馈。
+## 社交媒体渠道深度
 
-## 💡 Gingiris Playbook 匹配分析
+{social_insight}
+
+## 增长与峰值分析
+
+{growth_insight}
+
+## Gingiris Playbook 匹配
 
 {playbook_insight}
 
-请在建议部分自然融入 Playbook 推荐，说明为什么这个 Playbook 适合后来者参考，并给出具体的章节建议。
+---
 
-## 请输出以下内容（中文，精炼、实战、可落地）：
+## 请输出以下完整分析（中文，要求：每个结论必须有数据支撑，严禁空泛表述）：
 
-### 1. 一句话定位总结
-用一句话概括这个产品是什么、做对了什么。
+### 一、产品定位与目标用户（ICP）
 
-### 2. 关键里程碑时间线
-基于数据推断出 3-5 个关键时间节点（域名注册、首次 launch、爆发增长点、重要转型等），每个节点用一句话说明发生了什么。特别注意利用 Wayback 快照的时间戳来锚定真实的产品演变节点。
+**核心用户画像**：基于数据（Slogan演变、关键词、PH评论主题、社区讨论内容），描述这个产品的理想客户是谁。具体到职业、痛点、使用场景。如果数据足够，区分 2-3 个用户层级（如：核心用户、次级用户、企业用户）。
 
-### 3. 增长密码（做对了什么）
-提炼 3-5 个这个产品增长的核心策略/决策，每条要具体、有数据支撑，不要泛泛而谈。至少包含一条基于 Wayback 历史对比得出的策略洞察，一条基于 PH Launch 数据的策略分析。
+**市场定位策略**：这个产品在市场上如何差异化？是抢了谁的市场？回避了哪些竞争？用数据说明。
 
-### 4. 给竞品/后来者的建议
-如果你要做一个类似的产品，基于这份数据，给出 3-5 条最重要的建议。要具体到可执行的层面。引用匹配的 Gingiris Playbook 作为行动框架。
+### 二、商业模式拆解
 
-### 5. 风险与机会
-指出 1-2 个这个产品的潜在弱点或市场机会。结合 Wayback 演变趋势和 PH 社区反馈来论证。
+**定价模型**：基于官网数据，描述其定价结构（免费/付费比例设计、付费墙触发点、定价层级）。如果没有定价数据，根据官网结构推断并标注"推断"。
 
-## ⚠️ 严格约束（必须遵守）：
-- **只基于上面提供的实际数据做分析**。如果某个维度的数据为空或不足，直接写"数据不足，无法判断"，严禁推断或编造。
-- **严禁编造时间线**。只有在数据中明确出现的日期才能写入时间线，禁止使用"推断""可能""大概"等词语来猜测时间节点。
-- **社交数据可能存在误匹配**（品牌名是通用词时，找到的社交账号可能不是目标产品的）。如果社交账号的描述/内容与产品定位明显不符，请明确标注"⚠️ 此账号可能不属于目标产品"。
-- 没有数据支撑的结论不要写。宁可说"数据不足"也不要瞎编。
-- 所有结论必须有数据支撑，引用具体数字
-- 不要写空泛的理论，每条建议都要可落地
-- 当前真实日期是 2026 年 3 月底，请勿将未来日期当作已发生的事件
-- 语言风格：专业但直接，像一个军师在给你做战略分析"""
+**变现策略**：免费用户如何转化为付费用户？核心升级触发点是什么？
 
-    # Try to call an LLM
+**收入规模估算**：基于流量数据和行业平均转化率，给出保守的月收入范围估算（需标注假设条件）。
+
+### 三、增长密码（做对了什么）
+
+提炼 4-6 个核心增长策略，每条必须：
+- 有具体数据支撑（数字、时间节点、比较基准）
+- 说明"为什么有效"而不只是"做了什么"
+- 至少 1 条基于 Wayback 历史对比
+- 至少 1 条基于 PH/社区数据
+- 至少 1 条关于内容/传播策略
+
+### 四、增长飞轮
+
+用一个简洁的逻辑链描述这个产品的增长正循环（A → B → C → 回到 A）。必须是这个产品特有的飞轮，不能套用通用模板。
+
+### 五、内容与传播策略
+
+基于社交媒体数据、流量峰值、PH发布节奏，分析：
+- 哪些渠道是核心获客渠道？
+- 爆发期的内容是什么类型？（Demo视频？用户故事？技术帖？）
+- 关键 Launch 节点的传播路径
+- 创始人/团队的个人品牌是否发挥了作用？
+
+### 六、给后来者的战术建议
+
+如果你要做一个类似产品，基于这份数据给出 5 条最重要的建议。要求：
+- 具体到可以今天就开始执行的行动
+- 排序：按影响力从高到低
+- 引用 Gingiris Playbook 作为行动框架
+- 每条建议说明"不这样做的代价是什么"
+
+### 七、风险与机会
+
+**主要风险**（2-3 条，有数据支撑）：这个产品目前的增长隐患或结构性弱点是什么？
+
+**市场机会**（1-2 条）：作为后来者，哪里有机会超越它？
+
+---
+
+## ⚠️ 必须遵守的约束：
+
+1. **只基于提供的数据做分析**。数据为空的维度，写"数据不足"，不推断。
+2. **严禁编造时间节点**。只有数据中出现的日期才能用，禁止"可能""推断""大约"修饰时间。
+3. **社交账号可能误匹配**。如账号描述与产品不符，标注"⚠️ 此账号可能不属于目标产品"并跳过该数据。
+4. **数字要精确**。不写"大量用户"，写"X 万月访问"；不写"快速增长"，写"6个月增长 X 倍"。
+5. **当前日期是 2026 年 4 月**。不要将未来事件当作已发生。
+6. 语言风格：像军师，直接，不废话，每段不超过 150 字。"""
+
     result = await _call_llm(prompt)
     return result
 
 
 def _build_wayback_insight(website: dict) -> str:
-    """从 Wayback 数据提取独家历史洞察供 prompt 使用"""
     ws = website or {}
     parts = []
-
     timeline = ws.get("deep_timeline", [])
     valid = [t for t in timeline if not t.get("error") and t.get("date")]
     changes = ws.get("key_changes", [])
     first_seen = ws.get("first_seen", "N/A")
 
     if not valid and not changes:
-        return "Wayback Machine 无历史快照数据，无法进行历史演变分析。"
+        return "Wayback Machine 无历史快照数据。"
 
-    parts.append(f"- 域名首次被 Wayback Machine 收录于 **{first_seen}**，共采集到 **{len(valid)}** 个深度分析快照")
+    parts.append(f"- 首次收录：**{first_seen}**，分析快照：**{len(valid)}** 个")
 
-    # Slogan evolution
     slogans = [(t.get("date", ""), t.get("slogan", "")) for t in valid if t.get("slogan")]
     if len(slogans) >= 2:
-        parts.append(f"- Slogan 演变轨迹（反映定位调整）：")
+        parts.append("- Slogan 演变轨迹：")
         for date, slogan in slogans:
-            parts.append(f"  · {date}: 「{slogan[:60]}」")
+            parts.append(f"  · {date}: 「{slogan[:80]}」")
 
-    # Feature additions/removals over time
     if len(valid) >= 2:
-        first_features = set(k for k, v in valid[0].get("features", {}).items() if v)
-        last_features = set(k for k, v in valid[-1].get("features", {}).items() if v)
-        added = last_features - first_features
-        removed = first_features - last_features
+        first_f = set(k for k, v in valid[0].get("features", {}).items() if v)
+        last_f = set(k for k, v in valid[-1].get("features", {}).items() if v)
+        added = last_f - first_f
+        removed = first_f - last_f
         if added:
-            parts.append(f"- 新增功能模块：{', '.join(added)}（从 {valid[0].get('date', '?')} 到 {valid[-1].get('date', '?')}）")
+            parts.append(f"- 新增功能模块（{valid[0].get('date','?')}→{valid[-1].get('date','?')}）：{', '.join(added)}")
         if removed:
-            parts.append(f"- 移除的功能模块：{', '.join(removed)}")
+            parts.append(f"- 移除功能模块：{', '.join(removed)}")
 
-    # Key changes
+    if len(valid) >= 2:
+        first_struct = valid[0].get("structure_summary", [])
+        last_struct = valid[-1].get("structure_summary", [])
+        if first_struct and last_struct:
+            parts.append(f"- 页面结构演变：{valid[0].get('date','?')} 共 {len(first_struct)} 个模块 → {valid[-1].get('date','?')} 共 {len(last_struct)} 个模块")
+
     if changes:
-        parts.append(f"- 检测到 **{len(changes)}** 次关键官网变化：")
-        for c in changes[:5]:
-            parts.append(f"  · {c['from_date']}→{c['to_date']}: {'; '.join(c['changes'][:3])}")
+        parts.append(f"- 关键变化节点（{len(changes)} 次）：")
+        for c in changes[:6]:
+            parts.append(f"  · {c['from_date']}→{c['to_date']}: {'; '.join(c['changes'][:4])}")
 
-    return "\n".join(parts) if parts else "Wayback 数据量不足，无法提取深层历史洞察。"
+    return "\n".join(parts)
 
 
 def _build_ph_insight(producthunt: dict) -> str:
-    """从 Product Hunt 数据提取深度分析上下文"""
     ph = producthunt or {}
     if not ph.get("found"):
-        return "该产品未在 Product Hunt 上发布过，无 PH 数据可供分析。"
+        return "该产品未在 Product Hunt 上发布，无 PH 数据。"
 
     parts = []
     launch_count = 1 + len(ph.get("other_launches", []))
     votes = ph.get("votes", 0)
     comments = ph.get("comments", 0)
     rating = ph.get("reviews_rating", 0)
+    reviews_count = ph.get("reviews_count", 0)
 
-    parts.append(f"- 该产品曾 **{launch_count} 次**在 Product Hunt 上线，最高一次获得 **{votes:,} votes** 和 **{comments:,} comments**")
-
+    parts.append(f"- **{launch_count}** 次发布，最高 **{votes:,} votes**，**{comments:,} comments**")
     if rating:
-        parts.append(f"- PH 用户评分 **{rating:.1f}** 分（{ph.get('reviews_count', 0)} 条评价），反映市场对产品的真实态度")
-
+        parts.append(f"- 用户评分 **{rating:.1f}**（{reviews_count} 条评价）")
     if ph.get("tagline"):
-        parts.append(f"- 主 Launch Tagline: 「{ph['tagline']}」— 这个定位语拿到了 {votes:,} votes，说明市场认可这个切入角度")
+        parts.append(f"- 主 Launch Tagline：「{ph['tagline']}」")
+    if ph.get("launch_date"):
+        parts.append(f"- 首次发布时间：{ph['launch_date']}")
 
     other = ph.get("other_launches", [])
     if other:
-        parts.append(f"- 多波 Launch 策略分析（{launch_count} 次发布）：")
         all_launches = [{"name": ph.get("name", ""), "votes": votes, "launch_date": ph.get("launch_date", ""), "tagline": ph.get("tagline", "")}]
         all_launches.extend(other)
         all_launches.sort(key=lambda x: x.get("launch_date", ""))
+        parts.append(f"- 多波 Launch 详情：")
         for i, l in enumerate(all_launches, 1):
-            tag = f"「{l.get('tagline', '')[:50]}」" if l.get("tagline") else ""
-            parts.append(f"  · 第{i}次 ({l.get('launch_date', '?')}): {l.get('name', '')} ⬆{l.get('votes', 0):,} {tag}")
+            tag = f"「{l.get('tagline', '')[:60]}」" if l.get("tagline") else ""
+            parts.append(f"  · 第{i}次 ({l.get('launch_date', '?')}): ⬆{l.get('votes', 0):,} {tag}")
 
-        if len(all_launches) >= 2:
-            dates = [l.get("launch_date", "") for l in all_launches if l.get("launch_date")]
-            if len(dates) >= 2:
-                parts.append(f"  · Launch 节奏：从 {dates[0]} 到 {dates[-1]}，共 {len(dates)} 次，可分析每次 Launch 之间的间隔和策略调整")
-
-    if ph.get("makers"):
-        parts.append(f"- Maker 团队 {len(ph['makers'])} 人，团队规模对 Launch 执行力有直接影响")
+    if ph.get("top_comments"):
+        parts.append("- 高赞用户评论（反映真实市场声音）：")
+        for c in ph["top_comments"][:3]:
+            parts.append(f"  · {c.get('body', '')[:100]}")
 
     return "\n".join(parts)
+
+
+def _build_social_insight(social: dict) -> str:
+    sm = social or {}
+    channels = sm.get("channels", {})
+    parts = []
+
+    for platform, v in channels.items():
+        if not v.get("detected"):
+            continue
+        line = f"- **{v.get('platform', platform)}** {v.get('handle', '')}"
+        if v.get("followers"):
+            line += f"：{v['followers']:,} 粉丝"
+        if v.get("stars_total"):
+            line += f"：{v['stars_total']:,} stars"
+        if v.get("subreddit_members"):
+            line += f"：{v['subreddit_members']:,} 成员"
+        if v.get("subscribers"):
+            line += f"：{v['subscribers']:,} 订阅"
+        if v.get("note"):
+            line += f"（{v['note'][:60]}）"
+        parts.append(line)
+
+        # Top tweets / posts
+        top = v.get("top_tweets") or v.get("top_posts", [])
+        if top:
+            top_sorted = sorted(top, key=lambda x: x.get("likes", 0) + x.get("retweets", 0), reverse=True)
+            for tw in top_sorted[:2]:
+                txt = (tw.get("text") or tw.get("title", ""))[:100]
+                likes = tw.get("likes", 0)
+                retweets = tw.get("retweets", 0)
+                views = tw.get("views", 0)
+                if txt:
+                    parts.append(f"  · 热帖：「{txt}」❤{likes:,} 🔁{retweets:,}" + (f" 👁{views:,}" if views else ""))
+
+    pm = sm.get("propagation_metrics", {})
+    if pm.get("total_participants"):
+        parts.append(f"- 传播规模：{pm['total_participants']:,} 参与者，{pm.get('total_engagement', 0):,} 总互动")
+
+    return "\n".join(parts) if parts else "社交媒体数据不足。"
+
+
+def _build_growth_insight(growth_analysis: dict, traffic_peaks: dict) -> str:
+    parts = []
+    ga = growth_analysis or {}
+    tp = traffic_peaks or {}
+
+    story = ga.get("zero_to_one_story", {})
+    if story.get("milestones"):
+        parts.append("**0→1 关键里程碑：**")
+        for m in story["milestones"][:6]:
+            date = m.get("date", "")
+            event = m.get("event", "")
+            impact = m.get("traffic_impact", "")
+            parts.append(f"  · {date}: {event}" + (f"（{impact}）" if impact else ""))
+
+    channels = ga.get("channel_breakdown", [])
+    if channels:
+        parts.append("**渠道拆解：**")
+        for ch in channels[:5]:
+            pct = ch.get("percentage", 0)
+            name = ch.get("channel", "")
+            followers = ch.get("followers", 0)
+            parts.append(f"  · {name}: {pct}%" + (f"，{followers:,} 粉丝" if followers else ""))
+
+    peaks = tp.get("peaks", [])
+    if peaks:
+        parts.append("**流量爆发节点：**")
+        for p in peaks[:4]:
+            date = p.get("date", "")
+            cause = p.get("cause", "")
+            multiplier = p.get("traffic_multiplier", 0)
+            parts.append(f"  · {date}: {cause}" + (f"（流量 x{multiplier}）" if multiplier else ""))
+
+    return "\n".join(parts) if parts else "增长分析数据不足。"
 
 
 def _build_playbook_insight(growth_strategy: dict) -> str:
-    """从 Gingiris Playbook 匹配结果提取 prompt 上下文"""
     gs = growth_strategy or {}
     primary = gs.get("primary")
     if not primary:
-        return "暂未进行 Playbook 匹配（增长策略模块数据不足）。在建议部分可以根据产品类型给出通用方向。"
+        return "Playbook 匹配数据不足。"
 
-    parts = []
-    parts.append(f"系统已基于竞品数据自动匹配到最适合的增长 Playbook：")
-    parts.append(f"- **主推 Playbook**: {primary.get('emoji', '')} {primary.get('label', '')}（匹配得分: {primary.get('score', 0)}/4）")
-    parts.append(f"  描述: {primary.get('description', '')}")
-    parts.append(f"  链接: {primary.get('url', '')}")
+    parts = [f"- **主推 Playbook**: {primary.get('emoji','')} {primary.get('label','')}（匹配得分 {primary.get('score',0)}/4）"]
+    parts.append(f"  描述: {primary.get('description','')}")
+    if primary.get("url"):
+        parts.append(f"  链接: {primary['url']}")
     if primary.get("reasons"):
-        parts.append(f"  匹配原因:")
-        for r in primary["reasons"][:3]:
-            parts.append(f"    · {r}")
+        parts.append("  匹配原因: " + " / ".join(primary["reasons"][:3]))
     if primary.get("custom_tips"):
-        parts.append(f"  定制建议:")
+        parts.append("  定制建议:")
         for tip in primary["custom_tips"][:3]:
             parts.append(f"    · {tip}")
-
-    secondary = gs.get("secondary", [])
-    for s in secondary[:2]:
-        parts.append(f"- **辅助 Playbook**: {s.get('emoji', '')} {s.get('label', '')}（得分: {s.get('score', 0)}/4）")
-        if s.get("reasons"):
-            parts.append(f"  原因: {s['reasons'][0]}")
-
+    for s in (gs.get("secondary") or [])[:2]:
+        parts.append(f"- **辅助**: {s.get('emoji','')} {s.get('label','')}（得分 {s.get('score',0)}/4）")
     return "\n".join(parts)
 
 
-def _build_context(product_name, url, website, social, traffic, producthunt) -> str:
-    """将所有数据压缩成 LLM 可读的上下文"""
+def _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis=None, traffic_peaks=None) -> str:
     parts = []
-
-    # Website
     ws = website or {}
     cur = ws.get("current_site", {}) or ws.get("current", {})
-    parts.append(f"**域名**: {ws.get('domain', url)}")
-    parts.append(f"**首次出现**: {ws.get('first_seen', 'N/A')}")
+
+    parts.append(f"**产品**: {product_name} | **URL**: {url}")
+    parts.append(f"**域名首次出现**: {ws.get('first_seen', 'N/A')} | **历史快照数**: {ws.get('total_snapshots', 0)}")
     if cur.get("slogan"):
         parts.append(f"**当前 Slogan**: {cur['slogan']}")
     if cur.get("meta_description"):
-        parts.append(f"**描述**: {cur['meta_description']}")
+        parts.append(f"**Meta Description**: {cur['meta_description'][:200]}")
 
     features = cur.get("features", {})
     active = [k for k, v in features.items() if v]
     if active:
-        parts.append(f"**官网功能**: {', '.join(active)}")
+        parts.append(f"**官网已有功能**: {', '.join(active)}")
 
-    # Wayback timeline
-    timeline = ws.get("deep_timeline", [])
-    valid = [t for t in timeline if not t.get("error") and t.get("date")]
-    if valid:
-        parts.append(f"**Wayback 快照**: {len(valid)} 个")
-        for t in valid[:4]:
-            parts.append(f"  - {t['date']}: Slogan=\"{t.get('slogan', '?')[:50]}\" | 功能={[k for k, v in t.get('features', {}).items() if v][:5]}")
+    struct = cur.get("structure_summary", [])
+    if struct:
+        parts.append(f"**页面结构**: {' → '.join(struct[:8])}")
 
-    changes = ws.get("key_changes", [])
-    if changes:
-        parts.append("**关键变化**:")
-        for c in changes[:5]:
-            parts.append(f"  - {c['from_date']}→{c['to_date']}: {'; '.join(c['changes'][:3])}")
-
-    # Product Hunt
-    ph = producthunt or {}
-    if ph.get("found"):
-        parts.append(f"\n**Product Hunt**: {ph['launch_date']} launch, ⬆{ph['votes']} votes, 💬{ph['comments']} comments, ⭐{ph.get('reviews_rating', 0):.1f}")
-        parts.append(f"  Tagline: {ph.get('tagline', '')}")
-        if ph.get("makers"):
-            parts.append(f"  Makers: {len(ph['makers'])} 人")
-
-    # Social — with mismatch detection
-    sm = social or {}
-    channels = sm.get("channels", {})
-    product_desc = (cur.get("slogan", "") + " " + cur.get("meta_description", "")).lower().strip()
-    for k, v in channels.items():
-        if v.get("detected"):
-            extra = ""
-            if v.get("followers"): extra += f" {v['followers']} followers"
-            if v.get("stars_total"): extra += f" {v['stars_total']} stars"
-            if v.get("subreddit_members"): extra += f" {v['subreddit_members']} members"
-            # Check if account bio matches product
-            account_bio = (v.get("profile", {}).get("description", "") or v.get("note", "") or "").lower()
-            handle = v.get("handle", "")
-            mismatch_warning = ""
-            if account_bio and product_desc and k == "twitter":
-                # Simple relevance check: do they share any meaningful words?
-                bio_words = set(w for w in account_bio.split() if len(w) > 3)
-                desc_words = set(w for w in product_desc.split() if len(w) > 3)
-                overlap = bio_words & desc_words
-                if not overlap and len(bio_words) > 2 and len(desc_words) > 2:
-                    mismatch_warning = f" ⚠️ 账号描述「{account_bio[:60]}」与产品描述不符，可能不是目标产品的账号"
-            parts.append(f"**{v.get('platform', k)}**: ✅ {handle}{extra}{mismatch_warning}")
-
-    pm = sm.get("propagation_metrics", {})
-    if pm.get("total_participants"):
-        parts.append(f"**传播**: {pm['total_participants']:,} 参与者, {pm.get('total_engagement', 0):,} 互动")
-
-    # Traffic (DataForSEO)
+    # Traffic
     tr = traffic or {}
     rank = tr.get("domain_rank", {})
     if rank.get("organic_traffic"):
-        parts.append(f"\n**有机流量**: {rank['organic_traffic']:,}/月")
-        parts.append(f"**排名关键词**: {rank.get('total_keywords', 0):,} 个 (Top1: {rank.get('keywords_top1', 0)}, Top10: {rank.get('keywords_top10', 0)})")
-        parts.append(f"**等效付费成本**: ${rank.get('estimated_paid_cost', 0):,}/月")
-
+        parts.append(f"\n**月均有机流量**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}")
+        parts.append(f"**Top1 关键词**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}")
+        parts.append(f"**等效付费广告成本**: ${rank.get('estimated_paid_cost',0):,}/月")
     bl = tr.get("backlinks", {})
     if bl.get("backlinks"):
-        parts.append(f"**反链**: {bl['backlinks']:,} ({bl.get('referring_domains', 0):,} 引用域名)")
-        parts.append(f"**域名排名**: {bl.get('domain_rank', 0)}")
+        parts.append(f"**反链**: {bl['backlinks']:,} | **引用域名**: {bl.get('referring_domains',0):,} | **DR**: {bl.get('domain_rank',0)}")
 
     hist = tr.get("historical", {}).get("history", [])
     if hist:
-        parts.append("**流量趋势**:")
+        parts.append("**流量历史趋势**（近 6 个月）:")
         for h in hist[-6:]:
-            parts.append(f"  - {h['date']}: {h.get('organic_traffic', 0):,} 有机流量, {h.get('keywords', 0):,} 关键词")
-
-    growth = tr.get("growth_analysis", {})
-    for m in growth.get("milestones", []):
-        parts.append(f"  🏁 {m}")
+            parts.append(f"  {h['date']}: {h.get('organic_traffic',0):,} 有机 / {h.get('keywords',0):,} 关键词")
 
     kw = tr.get("top_keywords", {})
     if kw.get("keywords"):
         parts.append("**Top 关键词**:")
-        for k in kw["keywords"][:5]:
-            parts.append(f"  - \"{k['keyword']}\" #{k['position']} vol={k.get('search_volume', 0):,}")
+        for k in kw["keywords"][:8]:
+            parts.append(f"  「{k['keyword']}」位置#{k['position']} 月搜索量{k.get('search_volume',0):,}")
+
+    # Social summary
+    sm = social or {}
+    ch = sm.get("channels", {})
+    social_lines = []
+    for pf, v in ch.items():
+        if v.get("detected") and (v.get("followers") or v.get("stars_total") or v.get("subreddit_members")):
+            n = v.get("followers") or v.get("stars_total") or v.get("subreddit_members") or 0
+            social_lines.append(f"{v.get('platform', pf)} {v.get('handle','')} {n:,}")
+    if social_lines:
+        parts.append(f"\n**社交媒体**: {' | '.join(social_lines)}")
+
+    # PH
+    ph = producthunt or {}
+    if ph.get("found"):
+        parts.append(f"**Product Hunt**: {ph.get('launch_date','')} ⬆{ph.get('votes',0):,} votes ⭐{ph.get('reviews_rating',0):.1f}({ph.get('reviews_count',0)}条)")
 
     return "\n".join(parts)
 
 
 async def _call_llm(prompt: str) -> dict:
-    """调用 LLM 生成总结 — 优先 TeamoRouter，fallback DeepSeek"""
-    
-    # Priority 1: TeamoRouter (supports GPT-5, Claude, Gemini, etc.)
+    """调用 LLM — 优先 TeamoRouter，fallback DeepSeek"""
     teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
     if not teamo_key:
-        teamo_key_path = os.path.expanduser("~/.cola/secrets/teamorouter_api_key")
         try:
-            teamo_key = open(teamo_key_path).read().strip()
+            teamo_key = open(os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
         except FileNotFoundError:
             pass
 
@@ -310,8 +373,8 @@ async def _call_llm(prompt: str) -> dict:
                     json={
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.7,
-                        "max_tokens": 3000,
+                        "temperature": 0.6,
+                        "max_tokens": 4000,
                     },
                 )
                 data = resp.json()
@@ -319,10 +382,9 @@ async def _call_llm(prompt: str) -> dict:
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 if content:
                     return {"success": True, "content": content, "source": f"TeamoRouter ({actual_model})"}
-        except Exception as e:
-            pass  # Fall through to DeepSeek
+        except Exception:
+            pass
 
-    # Priority 2: DeepSeek direct
     api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not api_key:
         try:
@@ -330,7 +392,7 @@ async def _call_llm(prompt: str) -> dict:
         except FileNotFoundError:
             pass
     if not api_key:
-        return _fallback_summary(prompt)
+        return _fallback_summary()
 
     try:
         async with httpx.AsyncClient(timeout=90) as client:
@@ -340,8 +402,8 @@ async def _call_llm(prompt: str) -> dict:
                 json={
                     "model": "deepseek-chat",
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7,
-                    "max_tokens": 3000,
+                    "temperature": 0.6,
+                    "max_tokens": 4000,
                 },
             )
             data = resp.json()
@@ -351,14 +413,13 @@ async def _call_llm(prompt: str) -> dict:
     except Exception as e:
         return {"success": False, "content": "", "note": f"LLM 调用失败: {str(e)[:100]}", "source": "error"}
 
-    return _fallback_summary(prompt)
+    return _fallback_summary()
 
 
-def _fallback_summary(prompt: str) -> dict:
-    """无 LLM API 时的规则化总结"""
+def _fallback_summary() -> dict:
     return {
         "success": False,
         "content": "",
-        "note": "🔍 AI 分析需要配置 TeamoRouter API Key（~/.cola/secrets/teamorouter_api_key）或 DeepSeek API Key。当前展示基于规则的数据总结。",
+        "note": "⚙️ AI 分析需配置 TEAMOROUTER_API_KEY 或 DEEPSEEK_API_KEY 环境变量。",
         "source": "fallback",
     }
