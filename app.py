@@ -253,13 +253,17 @@ async def _run_analysis(job_id: str):
     job["progress"]["social"] = "running"
     job["progress"]["traffic"] = "running"
 
-    website_task = analyze_website(url)
-    traffic_task = analyze_domain(domain)
-    ph_task = analyze_producthunt(domain, product_name)
-    social_task = analyze_social(domain, product_name, website_social_links={})
+    async def _t(coro, timeout):
+        try:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        except asyncio.TimeoutError:
+            return {"error": f"timeout after {timeout}s", "_timed_out": True}
 
     results_phase1 = await asyncio.gather(
-        website_task, traffic_task, ph_task, social_task,
+        _t(analyze_website(url), 40),
+        _t(analyze_domain(domain), 20),
+        _t(analyze_producthunt(domain, product_name), 15),
+        _t(analyze_social(domain, product_name, website_social_links={}), 35),
         return_exceptions=True,
     )
 
