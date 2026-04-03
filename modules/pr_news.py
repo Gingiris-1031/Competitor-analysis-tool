@@ -107,9 +107,12 @@ async def _fetch_hn(product_name: str, brand: str, domain: str = "") -> list:
                                 "collaboration", "editor", "whiteboard",
                             }
                             title_has_context = any(w in title for w in _tech_product_words)
-                            # Case-sensitive exact match: "AFFiNE" != "Affine"
-                            product_exact_case = product_name in (h.get("title") or "")
-                            if not title_has_context and not product_exact_case:
+                            # Case-sensitive match: "AFFiNE" != "Affine"
+                            # Accept product_name OR domain in title (case-insensitive for domain)
+                            raw_title = h.get("title") or ""
+                            product_exact_case = product_name in raw_title
+                            domain_in_title = domain_clean and domain_clean in title
+                            if not title_has_context and not product_exact_case and not domain_in_title:
                                 continue
 
                     seen_ids.add(obj_id)

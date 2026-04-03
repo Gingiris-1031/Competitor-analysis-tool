@@ -456,49 +456,61 @@ async def _run_analysis(job_id: str):
     # ================================================================
     async def _run_propagation():
         job["progress"]["propagation"] = "running"
-        propagation = {}
+        try:
+            propagation = {}
 
-        # Primary: Twitter-based propagation (requires API data)
-        if job["results"].get("social", {}).get("_propagation_available"):
-            propagation = await run_launch_propagation(job["results"]["social"])
+            # Primary: Twitter-based propagation (requires API data)
+            if job["results"].get("social", {}).get("_propagation_available"):
+                propagation = await run_launch_propagation(job["results"]["social"])
 
-        # Fallback: if Twitter data is empty/unavailable, build lightweight summary
-        # from ProductHunt, GitHub, and Reddit signals
-        if not propagation or propagation.get("data_mode") == "empty":
-            ph  = job["results"].get("producthunt", {})
-            gh  = job["results"].get("github_oss", {})
-            soc = job["results"].get("social", {})
-            reddit = soc.get("channels", {}).get("reddit", {})
+            # Fallback: if Twitter data is empty/unavailable, build lightweight summary
+            # from ProductHunt, GitHub, and Reddit signals
+            if not propagation or (isinstance(propagation, dict) and propagation.get("data_mode") == "empty"):
+                ph  = job["results"].get("producthunt", {})
+                if not isinstance(ph, dict): ph = {}
+                gh  = job["results"].get("github_oss", {})
+                if not isinstance(gh, dict): gh = {}
+                soc = job["results"].get("social", {})
+                if not isinstance(soc, dict): soc = {}
+                channels = soc.get("channels", {})
+                reddit = channels.get("reddit", {}) if isinstance(channels, dict) else {}
 
-            signals = []
-            ph_votes = ph.get("votes") or ph.get("upvotes") or 0
-            ph_comments = ph.get("comments", 0)
-            ph_date = ph.get("featured_date") or ph.get("launch_date") or ""
-            if ph_votes:
-                signals.append(f"Product Hunt 上线：{ph_votes} 票，{ph_comments} 评论" + (f"（{ph_date}）" if ph_date else ""))
+                signals = []
+                ph_votes = ph.get("votes") or ph.get("upvotes") or 0
+                ph_comments = ph.get("comments", 0)
+                ph_date = ph.get("featured_date") or ph.get("launch_date") or ""
+                if ph_votes:
+                    signals.append(f"Product Hunt 上线：{ph_votes} 票，{ph_comments} 评论" + (f"（{ph_date}）" if ph_date else ""))
 
-            gh_stars = gh.get("stars", 0)
-            gh_growth = (gh.get("insights") or {}).get("peak_growth_rate") or ""
-            if gh_stars:
-                signals.append(f"GitHub Stars：{gh_stars:,}" + (f"，峰值增速 {gh_growth}" if gh_growth else ""))
+                gh_stars = gh.get("stars", 0)
+                gh_growth = (gh.get("insights") or {}).get("peak_growth_rate") or ""
+                if gh_stars:
+                    signals.append(f"GitHub Stars：{gh_stars:,}" + (f"，峰值增速 {gh_growth}" if gh_growth else ""))
 
-            reddit_posts = len(reddit.get("top_posts", []))
-            reddit_members = reddit.get("subreddit_members", 0)
-            if reddit_posts:
-                signals.append(f"Reddit 提及：{reddit_posts} 条帖子" + (f"，社区 {reddit_members:,} 成员" if reddit_members else ""))
+                reddit_posts = len(reddit.get("top_posts", [])) if isinstance(reddit, dict) else 0
+                reddit_members = reddit.get("subreddit_members", 0) if isinstance(reddit, dict) else 0
+                if reddit_posts:
+                    signals.append(f"Reddit 提及：{reddit_posts} 条帖子" + (f"，社区 {reddit_members:,} 成员" if reddit_members else ""))
 
-            propagation = {
-                "data_mode": "multi_channel_fallback",
-                "note": "⚠️ Twitter API 不可用，以下为多渠道综合传播信号",
-                "signals": signals,
-                "producthunt": {"votes": ph_votes, "comments": ph_comments, "date": ph_date},
-                "github": {"stars": gh_stars},
-                "reddit": {"posts": reddit_posts, "members": reddit_members},
-                "errors": ["Twitter top_tweets 为空，无法进行 Twitter 传播分析"],
+                propagation = {
+                    "data_mode": "multi_channel_fallback",
+                    "note": "⚠️ Twitter API 不可用，以下为多渠道综合传播信号",
+                    "signals": signals,
+                    "producthunt": {"votes": ph_votes, "comments": ph_comments, "date": ph_date},
+                    "github": {"stars": gh_stars},
+                    "reddit": {"posts": reddit_posts, "members": reddit_members},
+                    "errors": ["Twitter top_tweets 为空，无法进行 Twitter 传播分析"],
+                }
+
+            job["results"]["propagation"] = propagation
+            job["progress"]["propagation"] = "done"
+        except Exception as e:
+            job["results"]["propagation"] = {
+                "data_mode": "error",
+                "error": f"传播分析异常: {str(e)[:200]}",
+                "signals": [],
             }
-
-        job["results"]["propagation"] = propagation
-        job["progress"]["propagation"] = "done"
+            job["progress"]["propagation"] = "done"
 
     async def _run_traffic_peaks():
         job["progress"]["traffic_peaks"] = "running"

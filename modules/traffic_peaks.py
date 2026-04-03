@@ -57,9 +57,12 @@ async def _fetch_trends_apify(query: str) -> Optional[list]:
 
     run_url = "https://api.apify.com/v2/acts/apify~google-trends-scraper/run-sync-get-dataset-items"
     params = {"token": token}
+    # Map pytrends-style date_range to Apify timeRange
+    # pytrends: "today 12-m" → Apify: "today 5-y" (broadest available covering 12+ months)
+    apify_range = "today 5-y"
     payload = {
         "searchTerms": [query],
-        "timeRange": "today 3-m",
+        "timeRange": apify_range,
         "maxItems": 1,
     }
 
