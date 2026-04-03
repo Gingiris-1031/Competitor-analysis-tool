@@ -1,10 +1,13 @@
-"""社交媒体深度分析模块 — 渠道检测 + Caravo Twitter API + 传播指标"""
+"""社交媒体深度分析模块 — 渠道检测 + Apify/Caravo Twitter API + 传播指标"""
 import httpx
 import subprocess
 import json
 import os
 import re
+import logging
 from urllib.parse import quote
+
+log = logging.getLogger(__name__)
 
 # 可选：传播深度分析（propagation.py）
 try:
@@ -184,8 +187,233 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
     return _call_caravo_http(tool_id, params, api_key)
 
 
+# ---------------------------------------------------------------------------
+# Apify REST API helpers — Twitter data via apidojo/twitter-profile-scraper
+# ---------------------------------------------------------------------------
+
+# Actor IDs on Apify
+_APIFY_PROFILE_ACTOR = "apidojo/twitter-profile-scraper"
+_APIFY_TWEET_ACTOR = "apidojo/tweet-scraper"
+
+
+def _get_apify_token() -> str:
+    """Return Apify API token from env var or secrets file, or empty string."""
+    token = os.environ.get("APIFY_API_TOKEN", "").strip()
+    if token:
+        return token
+    try:
+        token = open(os.path.expanduser("~/.cola/secrets/apify_api_token")).read().strip()
+    except (FileNotFoundError, OSError):
+        pass
+    return token
+
+
+async def _call_apify_twitter_user(handle: str) -> dict:
+    """Fetch a Twitter user profile + recent tweets via Apify twitter-profile-scraper.
+
+    Returns ``{"success": True, "profile": {...}, "tweets": [...]}`` on success,
+    or ``{"success": False, "error": "..."}`` on failure.
+
+    The profile dict contains: userName, name, followers, following, description,
+    isBlueVerified.  Tweets list contains dicts with text, likeCount, retweetCount,
+    replyCount, viewCount, bookmarkCount, createdAt.
+    """
+    token = _get_apify_token()
+    if not token:
+        return {"success": False, "error": "No APIFY_API_TOKEN configured"}
+
+    actor_id = _APIFY_PROFILE_ACTOR
+    api_base = "https://api.apify.com/v2"
+    headers = {"Authorization": f"Bearer {token}"}
+    run_input = {
+        "twitterHandles": [handle],
+        "maxItems": 40,  # 40 included free per profile ($0.016)
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+            # Start actor run and wait synchronously (up to 60s)
+            resp = await client.post(
+                f"{api_base}/acts/{actor_id}/runs",
+                headers=headers,
+                json=run_input,
+                params={"waitForFinish": 60},
+            )
+            if resp.status_code not in (200, 201):
+                return {"success": False, "error": f"Apify run start HTTP {resp.status_code}"}
+
+            run_data = resp.json().get("data", {})
+            run_id = run_data.get("id")
+            run_status = run_data.get("status")
+
+            if not run_id:
+                return {"success": False, "error": "Apify run missing id"}
+
+            # If still running after waitForFinish, poll a couple more times
+            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                for _ in range(3):
+                    import asyncio
+                    await asyncio.sleep(10)
+                    status_resp = await client.get(
+                        f"{api_base}/actor-runs/{run_id}",
+                        headers=headers,
+                    )
+                    if status_resp.status_code == 200:
+                        run_status = status_resp.json().get("data", {}).get("status")
+                        if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                            break
+
+            if run_status != "SUCCEEDED":
+                return {"success": False, "error": f"Apify run status: {run_status}"}
+
+            # Fetch dataset items
+            ds_resp = await client.get(
+                f"{api_base}/actor-runs/{run_id}/dataset/items",
+                headers=headers,
+                params={"format": "json"},
+            )
+            if ds_resp.status_code != 200:
+                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+
+            items = ds_resp.json()
+            if not isinstance(items, list) or not items:
+                return {"success": False, "error": "Apify returned empty dataset"}
+
+            # Extract profile from the first item's author field
+            first = items[0] if items else {}
+            author = first.get("author", {})
+            profile = {
+                "userName": author.get("userName", handle),
+                "name": author.get("name", ""),
+                "followers": author.get("followers"),
+                "following": author.get("following"),
+                "description": (author.get("description") or "")[:200],
+                "isBlueVerified": author.get("isBlueVerified", False),
+                "isVerified": author.get("isVerified", False),
+                "id": author.get("id", ""),
+            }
+
+            # Extract tweets
+            tweets = []
+            for item in items:
+                if item.get("type") not in (None, "tweet"):
+                    continue  # skip replies if any leaked in
+                tweets.append({
+                    "text": (item.get("fullText") or item.get("text") or "")[:200],
+                    "likeCount": item.get("likeCount", 0),
+                    "retweetCount": item.get("retweetCount", 0),
+                    "replyCount": item.get("replyCount", 0),
+                    "viewCount": item.get("viewCount", 0),
+                    "bookmarkCount": item.get("bookmarkCount", 0),
+                    "quoteCount": item.get("quoteCount", 0),
+                    "createdAt": item.get("createdAt", ""),
+                    "url": item.get("url", ""),
+                })
+
+            return {"success": True, "profile": profile, "tweets": tweets}
+
+    except httpx.TimeoutException:
+        log.warning("Apify twitter-profile-scraper timed out for @%s", handle)
+        return {"success": False, "error": "Apify request timed out"}
+    except Exception as e:
+        log.warning("Apify twitter-profile-scraper error for @%s: %s", handle, e)
+        return {"success": False, "error": f"Apify error: {str(e)[:120]}"}
+
+
+async def _call_apify_twitter_search(handle: str, count: int = 10) -> dict:
+    """Search top tweets from a user via Apify tweet-scraper.
+
+    Uses ``searchTerms: ["from:{handle}"]`` with ``sort: "Top"``.
+    Returns ``{"success": True, "tweets": [...]}`` or ``{"success": False, ...}``.
+
+    Note: apidojo/tweet-scraper requires minimum 50 results per query.
+    We request 50 and trim to *count* on our side.
+    """
+    token = _get_apify_token()
+    if not token:
+        return {"success": False, "error": "No APIFY_API_TOKEN configured"}
+
+    actor_id = _APIFY_TWEET_ACTOR
+    api_base = "https://api.apify.com/v2"
+    headers = {"Authorization": f"Bearer {token}"}
+    run_input = {
+        "searchTerms": [f"from:{handle}"],
+        "sort": "Top",
+        "maxItems": max(50, count),  # minimum 50 required by actor
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
+            resp = await client.post(
+                f"{api_base}/acts/{actor_id}/runs",
+                headers=headers,
+                json=run_input,
+                params={"waitForFinish": 60},
+            )
+            if resp.status_code not in (200, 201):
+                return {"success": False, "error": f"Apify tweet-scraper HTTP {resp.status_code}"}
+
+            run_data = resp.json().get("data", {})
+            run_id = run_data.get("id")
+            run_status = run_data.get("status")
+
+            if not run_id:
+                return {"success": False, "error": "Apify run missing id"}
+
+            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                for _ in range(3):
+                    import asyncio
+                    await asyncio.sleep(10)
+                    status_resp = await client.get(
+                        f"{api_base}/actor-runs/{run_id}",
+                        headers=headers,
+                    )
+                    if status_resp.status_code == 200:
+                        run_status = status_resp.json().get("data", {}).get("status")
+                        if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                            break
+
+            if run_status != "SUCCEEDED":
+                return {"success": False, "error": f"Apify run status: {run_status}"}
+
+            ds_resp = await client.get(
+                f"{api_base}/actor-runs/{run_id}/dataset/items",
+                headers=headers,
+                params={"format": "json"},
+            )
+            if ds_resp.status_code != 200:
+                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+
+            items = ds_resp.json()
+            if not isinstance(items, list):
+                return {"success": False, "error": "Apify tweet-scraper returned unexpected format"}
+
+            tweets = []
+            for item in items[:count]:
+                tweets.append({
+                    "text": (item.get("fullText") or item.get("text") or "")[:200],
+                    "likeCount": item.get("likeCount", 0),
+                    "retweetCount": item.get("retweetCount", 0),
+                    "replyCount": item.get("replyCount", 0),
+                    "viewCount": item.get("viewCount", 0),
+                    "bookmarkCount": item.get("bookmarkCount", 0),
+                    "quoteCount": item.get("quoteCount", 0),
+                    "createdAt": item.get("createdAt", ""),
+                    "url": item.get("url", ""),
+                })
+
+            return {"success": True, "tweets": tweets}
+
+    except httpx.TimeoutException:
+        log.warning("Apify tweet-scraper timed out for @%s", handle)
+        return {"success": False, "error": "Apify tweet-scraper timed out"}
+    except Exception as e:
+        log.warning("Apify tweet-scraper error for @%s: %s", handle, e)
+        return {"success": False, "error": f"Apify tweet-scraper: {str(e)[:120]}"}
+
+
 async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:
-    """通过 Caravo Twitter API 深度分析 Twitter"""
+    """深度分析 Twitter — 优先 Apify REST API，fallback Caravo CLI/HTTP"""
     result = {
         "platform": "Twitter/X",
         "detected": False,
@@ -198,14 +426,104 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
         "note": "",
     }
 
-    # Try to get user profile via Caravo
-    # If we have a hint from the website, try it FIRST
-    name_lower = name.lower().replace(" ","")
+    name_lower = name.lower().replace(" ", "")
     handles_to_try = []
     if handle_hint:
         handles_to_try.append(handle_hint)
-    handles_to_try.extend([f"{brand}hq", f"{name_lower}hq", brand, name_lower, f"{brand}_dev", f"{brand}ai", f"get{brand}", f"{brand}app", f"use{brand}"])
+    handles_to_try.extend([
+        f"{brand}hq", f"{name_lower}hq", brand, name_lower,
+        f"{brand}_dev", f"{brand}ai", f"get{brand}", f"{brand}app", f"use{brand}",
+    ])
     handles_to_try = list(dict.fromkeys(handles_to_try))  # Deduplicate
+
+    # ------------------------------------------------------------------
+    # Strategy 1: Apify REST API (apidojo/twitter-profile-scraper)
+    # ------------------------------------------------------------------
+    apify_token = _get_apify_token()
+    if apify_token:
+        for handle in handles_to_try:
+            apify_resp = await _call_apify_twitter_user(handle)
+            if not apify_resp.get("success"):
+                log.debug("Apify miss for @%s: %s", handle, apify_resp.get("error", ""))
+                # If token issue, stop trying Apify entirely
+                if "token" in apify_resp.get("error", "").lower():
+                    break
+                continue
+
+            prof = apify_resp.get("profile", {})
+            apify_tweets = apify_resp.get("tweets", [])
+
+            # Skip if profile looks empty
+            if not prof.get("userName") and not prof.get("followers"):
+                continue
+
+            # ---- Bio relevance verification (same logic as Caravo path) ----
+            account_bio = (prof.get("description") or "").lower()
+            account_name_str = (prof.get("name") or "").lower()
+            if handle_hint and handle == handle_hint:
+                pass  # Trust website hint
+            elif account_bio and len(account_bio) > 10:
+                is_generic_name = len(brand) <= 5 or brand.lower() in {
+                    "enter", "super", "start", "build", "magic", "spark", "power",
+                    "light", "smart", "cloud", "agent", "click", "blast", "pulse",
+                }
+                if is_generic_name:
+                    domain_in_bio = any(tld in account_bio for tld in [
+                        f"{brand}.com", f"{brand}.io", f"{brand}.dev", f"{brand}.ai",
+                        f"{brand}.pro", f"{brand}.co", f"{brand}.app",
+                    ])
+                    if not domain_in_bio:
+                        continue
+                else:
+                    brand_lower_check = brand.lower()
+                    name_lower_check = name.lower()
+                    brand_in_bio = (
+                        brand_lower_check in account_bio or brand_lower_check in account_name_str
+                        or name_lower_check in account_bio or name_lower_check in account_name_str
+                    )
+                    if not brand_in_bio:
+                        continue
+
+            # ---- Populate result from Apify data ----
+            screen_name = prof.get("userName", handle)
+            result["detected"] = True
+            result["handle"] = f"@{screen_name}"
+            result["url"] = f"https://x.com/{screen_name}"
+            result["followers"] = prof.get("followers")
+            result["following"] = prof.get("following")
+            result["profile"] = {
+                "name": prof.get("name", ""),
+                "description": (prof.get("description") or "")[:200],
+                "verified": prof.get("isBlueVerified", False) or prof.get("isVerified", False),
+                "created_at": "",  # profile-scraper doesn't return creation date in author
+                "statuses_count": 0,
+                "listed_count": 0,
+            }
+            result["note"] = "✅ 通过 Apify REST API 获取到完整数据"
+
+            # Map Apify tweet format → internal format
+            for tw in apify_tweets[:10]:
+                result["top_tweets"].append({
+                    "text": (tw.get("text") or "")[:200],
+                    "likes": tw.get("likeCount", 0),
+                    "retweets": tw.get("retweetCount", 0),
+                    "replies": tw.get("replyCount", 0),
+                    "views": tw.get("viewCount", 0),
+                    "bookmarks": tw.get("bookmarkCount", 0),
+                    "created_at": tw.get("createdAt", ""),
+                })
+            # Sort by likes descending
+            result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
+
+            log.info("Twitter data for @%s fetched via Apify", screen_name)
+            return result
+
+        # If we reach here, Apify didn't find a matching account — fall through
+        log.info("Apify did not resolve Twitter for brand=%s, falling back to Caravo", brand)
+
+    # ------------------------------------------------------------------
+    # Strategy 2: Caravo CLI / HTTP fallback (original logic)
+    # ------------------------------------------------------------------
     for handle in handles_to_try:
         user_data = _call_caravo("twitter241/user", {"username": handle})
         if user_data.get("success") and user_data.get("data"):
@@ -223,14 +541,14 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             user_root = _dig(d, "json", "result", "data", "user", "result")
             legacy = user_root.get("legacy", {})
             core = user_root.get("core", {})
-            
+
             # Fallback: try shorter paths
             if not legacy.get("followers_count"):
                 user_root = _dig(d, "json", "result")
                 legacy = user_root.get("legacy", user_root)
             if not legacy.get("followers_count"):
                 legacy = d.get("json", d)
-            
+
             # Skip if truly empty
             if not legacy.get("screen_name") and not legacy.get("followers_count") and not core.get("screen_name"):
                 continue
@@ -242,27 +560,18 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             if handle_hint and handle == handle_hint:
                 pass  # Trust website hint
             elif account_bio and len(account_bio) > 10:
-                # For generic brand names, account name matching is useless
-                # (e.g. "ENTER" as account name will always match brand "enter")
-                # Instead, check if bio content has meaningful keyword overlap with the brand's domain
                 is_generic_name = len(brand) <= 5 or brand.lower() in {
                     "enter", "super", "start", "build", "magic", "spark", "power",
                     "light", "smart", "cloud", "agent", "click", "blast", "pulse",
                 }
                 if is_generic_name:
-                    # For generic brands: bio must contain domain-specific keywords
-                    # or the handle must exactly match a website-linked pattern
-                    # Check a few signals of relevance:
                     domain_in_bio = any(tld in account_bio for tld in [
                         f"{brand}.com", f"{brand}.io", f"{brand}.dev", f"{brand}.ai",
                         f"{brand}.pro", f"{brand}.co", f"{brand}.app",
                     ])
-                    # Also accept if bio mentions typical product keywords matching the product
                     if not domain_in_bio:
-                        # This handle is probably not the right one — skip
                         continue
                 else:
-                    # Non-generic: brand or name in bio or account name is enough
                     brand_lower_check = brand.lower()
                     name_lower_check = name.lower()
                     brand_in_bio = (brand_lower_check in account_bio or brand_lower_check in account_name_str
@@ -283,7 +592,7 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 "statuses_count": legacy.get("statuses_count", 0),
                 "listed_count": legacy.get("listed_count", 0),
             }
-            result["note"] = "✅ 通过 Twitter API 获取到完整数据"
+            result["note"] = "✅ 通过 Caravo Twitter API 获取到完整数据（Apify fallback）"
 
             # Search for top tweets
             search_data = _call_caravo("twitter241/search-v3", {"query": f"from:{handle}", "type": "Top", "count": "10"})
@@ -306,10 +615,11 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             break
 
     if not result["detected"]:
-        # Fallback: note that Caravo API may need balance
-        result["note"] = f"未通过 API 找到（尝试了 {', '.join(handles_to_try[:3])}...）。可能需要 Caravo 充值或手动确认。"
+        tried_str = ", ".join(handles_to_try[:3])
+        sources = "Apify + Caravo" if apify_token else "Caravo"
+        result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}...）。可能需要充值或手动确认。"
         result["key_posts_framework"] = {
-            "note": "🔍 需 Caravo 充值或手动补充",
+            "note": "🔍 需 API 充值或手动补充",
             "needed_data": [
                 "Launch 帖子详情（Views/Likes/Retweets/Quotes/Replies/Bookmarks）",
                 "最高互动帖子 Top 5",
