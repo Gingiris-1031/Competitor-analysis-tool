@@ -28,9 +28,8 @@ def _extract_brand(domain: str) -> str:
 
 
 async def analyze_social(domain: str, product_name: str, website_social_links: dict = None) -> dict:
-    """深度分析社交媒体存在与传播。website_social_links 来自官网提取的社媒链接，优先使用。"""
+    """深度分析社交媒体存在与传播。优先使用 Brave Search 找到官方账号，其次用官网链接。"""
     brand = _extract_brand(domain)
-    hints = website_social_links or {}  # e.g. {"twitter": {"handle": "AffineOfficial", "url": "..."}, ...}
 
     results = {
         "brand": brand,
@@ -40,11 +39,32 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         "propagation_path": {"layer1": {}, "layer2": {}},
     }
 
-    # Extract hint handles from website social links
+    # Step 0: Use Brave Search as primary source for official social handles
+    try:
+        from .web_search import brave_find_social
+    except ImportError:
+        try:
+            from web_search import brave_find_social
+        except ImportError:
+            brave_find_social = None
+
+    brave_hints = {}
+    if brave_find_social:
+        try:
+            brave_hints = await brave_find_social(brand, product_name)
+        except Exception:
+            brave_hints = {}
+
+    # Merge: Brave Search takes priority over website hints
+    website_hints = website_social_links or {}
+    hints = {}
+    for platform in set(list(brave_hints.keys()) + list(website_hints.keys())):
+        hints[platform] = brave_hints.get(platform) or website_hints.get(platform) or {}
+
+    # Extract hint handles
     twitter_hint = hints.get("twitter", {}).get("handle")
     youtube_hint = hints.get("youtube", {}).get("handle")
     github_hint = hints.get("github", {}).get("handle")
-
     instagram_hint = hints.get("instagram", {}).get("handle")
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={

@@ -109,11 +109,30 @@ async def _discover_launches_via_api(
 
 async def analyze_producthunt(domain: str, product_name: str) -> dict:
     """查询产品在 Product Hunt 上的表现"""
+    brand = _extract_brand(domain)
+    name_slug = product_name.lower().replace(" ", "-")
+
+    # ── Step 0: Use Brave Search to find the canonical PH slug ──
+    try:
+        from .web_search import brave_find_ph_slug
+    except ImportError:
+        try:
+            from web_search import brave_find_ph_slug
+        except ImportError:
+            brave_find_ph_slug = None
+
+    brave_slug = None
+    if brave_find_ph_slug:
+        try:
+            brave_slug = await brave_find_ph_slug(brand, product_name)
+            log.debug("Brave found PH slug: %s for %s", brave_slug, brand)
+        except Exception:
+            pass
+
     token = _get_token()
     if not token:
         return {"found": False, "error": "No PH token"}
 
-    brand = _extract_brand(domain)
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     async with httpx.AsyncClient(timeout=15) as client:
@@ -121,8 +140,8 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        name_slug = product_name.lower().replace(" ", "-")
-        seed_slugs = list(dict.fromkeys([brand, name_slug]))
+        # Brave slug gets tried first — it's the most reliable pointer
+        seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug])))
 
         for slug in seed_slugs:
             hit = await _query_post(client, headers, slug)
@@ -134,9 +153,9 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
                     product_slug = m.group(1).lower()
                 break
 
-        # If API gave nothing, fall back to brand as product_slug
+        # If API gave nothing, use brave_slug or brand as product_slug
         if not product_slug:
-            product_slug = brand
+            product_slug = brave_slug or brand
 
         # ── Step 2: Discover all launch slugs via HTTP scrape + API in parallel ──
         import asyncio as _aio
