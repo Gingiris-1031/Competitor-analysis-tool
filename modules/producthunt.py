@@ -136,6 +136,15 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     async with httpx.AsyncClient(timeout=15) as client:
+        # ── Step 0: URL-based search FIRST (most reliable for exact domain match) ──
+        for url_variant in [f"https://{domain}", f"https://www.{domain}"]:
+            try:
+                result = await _query_by_url(client, headers, url_variant)
+                if result.get("found"):
+                    return result
+            except Exception:
+                pass
+
         # ── Step 1: Use API to find at least one post and extract product_slug ──
         product_slug = None
         seed_hit = None
@@ -156,12 +165,16 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
                     if m:
                         product_slug = m.group(1).lower()
 
-        # If we already found launches via slug enumeration, return immediately
-        # (skip slow _discover_launches_via_api which makes 12+ sequential API calls)
+        # If we found launches via slug, verify domain match before returning
         if all_hits:
             if not product_slug:
                 product_slug = brave_slug or brand
-            return _build_result(all_hits, product_slug, brand, product_name)
+            # Filter: only keep hits whose website matches our domain
+            domain_lower = domain.lower().replace("www.", "")
+            verified = [h for h in all_hits if domain_lower in (h.get("website", "") or "").lower()]
+            if verified:
+                return _build_result(verified, product_slug, brand, product_name)
+            # No domain match — don't return wrong product, fall through to next steps
 
         # If API gave nothing, use brave_slug or brand as product_slug
         if not product_slug:

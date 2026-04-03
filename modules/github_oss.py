@@ -144,45 +144,75 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
                     return o, rep
 
     # 3. GitHub Search API — reliable fallback when Brave Search misses
-    result = await _github_search_api(product_name, brand)
+    result = await _github_search_api(product_name, brand, domain)
     if result[0]:
         return result
 
     return None, None
 
 
-async def _github_search_api(product_name: str, brand: str) -> tuple:
-    """Search GitHub repositories API as final fallback. Returns (owner, repo) or (None, None)."""
-    queries = list(dict.fromkeys([product_name, brand]))  # deduplicate, product_name first
+async def _github_search_api(product_name: str, brand: str, domain: str = "") -> tuple:
+    """Search GitHub repositories API as final fallback. Returns (owner, repo) or (None, None).
+
+    Uses domain-based verification to avoid false positives:
+    - Repos whose homepage matches the product domain are preferred
+    - Repo name must be an exact match (not substring) to avoid "lotion" matching "notion"
+    - Skip unofficial wrappers/clients
+    """
+    import re as _re
+    queries = list(dict.fromkeys([product_name, brand]))
     skip_repos = {"awesome", "docs", "wiki", "example", "template", "demo", "website", "landing"}
+    skip_desc = {"unofficial", "wrapper", "client for", "sdk for", "api for"}
+    domain_clean = _re.sub(r'^www\.', '', (domain or '').lower().strip())
 
     try:
         async with httpx.AsyncClient(timeout=8) as c:
+            # Pass 1: prefer repos whose homepage matches the domain
             for q in queries:
                 resp = await c.get(
                     f"{_GH_API}/search/repositories",
                     headers=_gh_headers(),
-                    params={"q": q, "sort": "stars", "order": "desc", "per_page": 5},
+                    params={"q": q, "sort": "stars", "order": "desc", "per_page": 10},
                 )
                 if resp.status_code != 200:
                     continue
                 items = resp.json().get("items", [])
+
+                # First pass: domain-verified repos
+                for item in items:
+                    full_name = item.get("full_name", "")
+                    stars = item.get("stargazers_count", 0)
+                    if "/" not in full_name or stars < 100:
+                        continue
+                    homepage = (item.get("homepage") or "").lower()
+                    if domain_clean and domain_clean in homepage:
+                        owner, repo = full_name.split("/", 1)
+                        return owner, repo
+
+                # Second pass: exact name match (word boundary, not substring)
+                brand_lower = brand.lower()
+                name_lower = product_name.lower()
                 for item in items:
                     full_name = item.get("full_name", "")
                     stars = item.get("stargazers_count", 0)
                     if "/" not in full_name or stars < 100:
                         continue
                     owner, repo = full_name.split("/", 1)
-                    # Skip obvious non-product repos
-                    if any(s in repo.lower() for s in skip_repos):
-                        continue
-                    # Relevance check: repo or description should mention brand/product
-                    desc = (item.get("description") or "").lower()
                     repo_lower = repo.lower()
-                    brand_lower = brand.lower()
-                    name_lower = product_name.lower()
-                    if (brand_lower in repo_lower or name_lower in repo_lower
-                            or brand_lower in desc or name_lower in desc):
+                    desc = (item.get("description") or "").lower()
+
+                    if any(s in repo_lower for s in skip_repos):
+                        continue
+                    if any(s in desc for s in skip_desc):
+                        continue
+
+                    # Require EXACT repo name match (not substring)
+                    name_match = (
+                        repo_lower == brand_lower
+                        or repo_lower == name_lower
+                        or repo_lower == name_lower.replace(" ", "-")
+                    )
+                    if name_match:
                         return owner, repo
     except Exception:
         pass
