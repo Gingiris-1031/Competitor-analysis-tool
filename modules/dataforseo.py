@@ -175,17 +175,48 @@ async def _top_keywords(client, headers, domain) -> dict:
     branded = [k for k in all_keywords if k["is_branded"]]
     non_branded = [k for k in all_keywords if not k["is_branded"]]
 
+    # Tag non-branded keywords: product-related vs. pure content-SEO (unrelated to core product)
+    _TECH_WORDS = {
+        "software", "app", "tool", "alternative", "open", "source", "ai", "api",
+        "saas", "cloud", "platform", "productivity", "workspace", "collaboration",
+        "whiteboard", "editor", "docs", "markdown", "code", "developer", "github",
+        "startup", "integrate", "plugin", "automation", "workflow", "template",
+        "dashboard", "analytics", "crm", "project", "management", "team", "sync",
+        "database", "privacy", "enterprise", "free", "pricing", "review", "vs",
+        "compare", "best", "top", "online", "web", "desktop", "mobile", "note",
+        "wiki", "kanban", "document", "spreadsheet", "diagram", "chart", "design",
+    }
+    _TECH_PHRASES = ["open source", " vs ", "alternative to", "for teams", "vs "]
+
+    def _is_product_related(kw: str) -> bool:
+        kw_lower = kw.lower()
+        words = set(re.split(r'[\s\-_/]', kw_lower))
+        if words & _TECH_WORDS:
+            return True
+        return any(p in kw_lower for p in _TECH_PHRASES)
+
+    for k in non_branded:
+        k["is_content_only"] = not _is_product_related(k["keyword"])
+
     # Sort non-branded by search_volume desc for "top exposure" keywords
     non_branded_by_volume = sorted(non_branded, key=lambda x: x.get("search_volume", 0), reverse=True)
+
+    # Separate product-related vs content-only non-branded
+    product_non_branded = [k for k in non_branded_by_volume if not k.get("is_content_only")]
+    content_non_branded = [k for k in non_branded_by_volume if k.get("is_content_only")]
 
     return {
         "cost": cost,
         "keywords": all_keywords[:10],  # Legacy: top 10 overall
         "branded_keywords": branded[:10],
         "non_branded_keywords": non_branded_by_volume[:10],
+        "product_keywords": product_non_branded[:10],    # Non-branded but product-adjacent
+        "content_keywords": content_non_branded[:5],     # Unrelated content-SEO pages
         "total": task.get("result", [{}])[0].get("total_count", 0) if task.get("result") else 0,
         "branded_count": len(branded),
         "non_branded_count": len(non_branded),
+        "product_keyword_count": len(product_non_branded),
+        "content_keyword_count": len(content_non_branded),
     }
 
 

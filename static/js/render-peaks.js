@@ -1,7 +1,16 @@
 function renderPeaks(tp) {
     const container = document.getElementById('section-peaks');
-    if (!tp || tp.error || !tp.summary || !tp.summary.total_weeks) {
-        container.innerHTML = '';
+    if (!tp || (!tp.summary && !tp.error)) { container.innerHTML = ''; return; }
+    if (tp.error || !tp.summary || !tp.summary.total_weeks) {
+        container.innerHTML = `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h3 class="text-base font-semibold text-white flex items-center gap-2 mb-3">
+                <span>📈</span> Google Trends 流量峰值分析
+            </h3>
+            <div class="text-sm text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-4 py-3">
+                ⚠️ ${tp.error || 'Google Trends 数据暂时无法获取，请重新生成报告。'}
+            </div>
+        </div>`;
         return;
     }
 

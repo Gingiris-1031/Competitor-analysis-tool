@@ -1,10 +1,11 @@
-function _renderKeywordTable(keywords) {
-    let html = `<div class="overflow-x-auto"><table class="w-full text-xs">
+function _renderKeywordTable(keywords, extraClass = '') {
+    let html = `<div class="overflow-x-auto ${extraClass}"><table class="w-full text-xs">
         <thead><tr class="bg-gray-800 text-gray-400"><th class="px-2 py-1.5 text-left">关键词</th><th class="px-2 py-1.5 text-right">排名</th><th class="px-2 py-1.5 text-right">月搜索量</th><th class="px-2 py-1.5 text-right">CPC</th><th class="px-2 py-1.5 text-left">竞争度</th></tr></thead>
         <tbody>`;
     for (const k of keywords) {
         const posColor = k.position <= 3 ? 'text-green-400' : k.position <= 10 ? 'text-blue-400' : 'text-gray-400';
-        html += `<tr class="border-t border-gray-800"><td class="px-2 py-1.5">${esc(k.keyword)}</td><td class="px-2 py-1.5 text-right ${posColor} font-mono">#${k.position}</td><td class="px-2 py-1.5 text-right font-mono">${(k.search_volume||0).toLocaleString()}</td><td class="px-2 py-1.5 text-right">$${(k.cpc||0).toFixed(2)}</td><td class="px-2 py-1.5">${esc(k.competition||'—')}</td></tr>`;
+        const contentBadge = k.is_content_only ? ' <span class="ml-1 text-[9px] text-gray-600 bg-gray-800 px-1 rounded">内容页</span>' : '';
+        html += `<tr class="border-t border-gray-800"><td class="px-2 py-1.5">${esc(k.keyword)}${contentBadge}</td><td class="px-2 py-1.5 text-right ${posColor} font-mono">#${k.position}</td><td class="px-2 py-1.5 text-right font-mono">${(k.search_volume||0).toLocaleString()}</td><td class="px-2 py-1.5 text-right">$${(k.cpc||0).toFixed(2)}</td><td class="px-2 py-1.5">${esc(k.competition||'—')}</td></tr>`;
     }
     html += `</tbody></table></div>`;
     return html;
@@ -115,6 +116,9 @@ function renderTraffic(tr) {
 
     // Top keywords — branded
     const brandedKw = kw.branded_keywords || kw.keywords || [];
+    // Product-related non-branded keywords (preferred) vs. all non-branded
+    const productKw  = kw.product_keywords  || [];
+    const contentKw  = kw.content_keywords  || [];
     const nonBrandedKw = kw.non_branded_keywords || [];
 
     if (brandedKw.length) {
@@ -123,15 +127,29 @@ function renderTraffic(tr) {
         html += `</div>`;
     }
 
-    // Top keywords — non-branded (the real SEO power)
-    if (nonBrandedKw.length) {
-        html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">🔑 非品牌词 · 首页高曝光 <span class="text-gray-500 font-normal">(${(kw.non_branded_count||nonBrandedKw.length)} 个非品牌词进首页，按搜索量排序)</span></h4>`;
-        html += _renderKeywordTable(nonBrandedKw);
+    // Prefer product-related keywords; fall back to all non-branded
+    const kwToShow = productKw.length ? productKw : nonBrandedKw;
+    if (kwToShow.length) {
+        const label = productKw.length
+            ? `🔑 产品相关非品牌词 <span class="text-gray-500 font-normal">(${kw.product_keyword_count || kwToShow.length} 个，按搜索量排序)</span>`
+            : `🔑 非品牌词 · 首页高曝光 <span class="text-gray-500 font-normal">(${kw.non_branded_count || kwToShow.length} 个，按搜索量排序)</span>`;
+        html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">${label}</h4>`;
+        html += _renderKeywordTable(kwToShow);
         html += `</div>`;
     } else if (brandedKw.length === 0 && kw.keywords && kw.keywords.length) {
         // Fallback: legacy format without branded/non-branded split
         html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">🔑 Top 排名关键词 <span class="text-gray-500 font-normal">(共 ${(kw.total||0).toLocaleString()} 个)</span></h4>`;
         html += _renderKeywordTable(kw.keywords);
+        html += `</div>`;
+    }
+
+    // Show content-only keywords as a collapsed/secondary section (informational)
+    if (contentKw.length) {
+        html += `<div class="mb-4">
+            <h4 class="text-sm font-semibold text-gray-500 mb-2">📄 内容 SEO 页（非产品词，高流量模板/工具页）
+                <span class="text-gray-600 font-normal">${kw.content_keyword_count || contentKw.length} 个</span>
+            </h4>`;
+        html += _renderKeywordTable(contentKw, 'opacity-60');
         html += `</div>`;
     }
 

@@ -143,6 +143,49 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
                             return o, top
                     return o, rep
 
+    # 3. GitHub Search API — reliable fallback when Brave Search misses
+    result = await _github_search_api(product_name, brand)
+    if result[0]:
+        return result
+
+    return None, None
+
+
+async def _github_search_api(product_name: str, brand: str) -> tuple:
+    """Search GitHub repositories API as final fallback. Returns (owner, repo) or (None, None)."""
+    queries = list(dict.fromkeys([product_name, brand]))  # deduplicate, product_name first
+    skip_repos = {"awesome", "docs", "wiki", "example", "template", "demo", "website", "landing"}
+
+    try:
+        async with httpx.AsyncClient(timeout=8) as c:
+            for q in queries:
+                resp = await c.get(
+                    f"{_GH_API}/search/repositories",
+                    headers=_gh_headers(),
+                    params={"q": q, "sort": "stars", "order": "desc", "per_page": 5},
+                )
+                if resp.status_code != 200:
+                    continue
+                items = resp.json().get("items", [])
+                for item in items:
+                    full_name = item.get("full_name", "")
+                    stars = item.get("stargazers_count", 0)
+                    if "/" not in full_name or stars < 100:
+                        continue
+                    owner, repo = full_name.split("/", 1)
+                    # Skip obvious non-product repos
+                    if any(s in repo.lower() for s in skip_repos):
+                        continue
+                    # Relevance check: repo or description should mention brand/product
+                    desc = (item.get("description") or "").lower()
+                    repo_lower = repo.lower()
+                    brand_lower = brand.lower()
+                    name_lower = product_name.lower()
+                    if (brand_lower in repo_lower or name_lower in repo_lower
+                            or brand_lower in desc or name_lower in desc):
+                        return owner, repo
+    except Exception:
+        pass
     return None, None
 
 

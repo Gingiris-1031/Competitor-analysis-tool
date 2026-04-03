@@ -13,13 +13,26 @@ async def analyze_funding(domain: str, product_name: str) -> dict:
     """分析产品融资历史：轮次、金额、投资方"""
     brand = _extract_brand(domain)
 
+    # Try Crunchbase with both brand AND product_name (handles org-name retries like "toeverything")
+    cb_slugs = list(dict.fromkeys(filter(None, [brand, product_name.lower().replace(" ", "")])))
+
     brave_task = _brave_funding_search(product_name, brand, domain)
-    cb_task    = _scrape_crunchbase(brand)
+    cb_tasks   = [_scrape_crunchbase(slug) for slug in cb_slugs[:2]]
 
-    results = await asyncio.gather(brave_task, cb_task, return_exceptions=True)
+    all_results = await asyncio.gather(brave_task, *cb_tasks, return_exceptions=True)
 
-    brave_data = results[0] if isinstance(results[0], dict) else {}
-    cb_data    = results[1] if isinstance(results[1], dict) else {}
+    brave_data = all_results[0] if isinstance(all_results[0], dict) else {}
+    # Merge Crunchbase results — use first one that has data
+    cb_data = {}
+    for r in all_results[1:]:
+        if isinstance(r, dict) and r.get("found"):
+            cb_data = r
+            break
+    if not cb_data:
+        for r in all_results[1:]:
+            if isinstance(r, dict):
+                cb_data = r
+                break
 
     # Crunchbase structured data takes priority; Brave fills gaps
     merged = {**brave_data}

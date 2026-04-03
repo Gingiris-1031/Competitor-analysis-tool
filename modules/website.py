@@ -60,14 +60,50 @@ async def analyze_website(url: str) -> dict:
     # Step 4: Detect changes between snapshots
     changes = _detect_changes(snapshots, current)
 
+    # Refine first_seen: skip domain registrar / parked pages
+    raw_first_seen = wayback_meta.get("first_seen", "N/A")
+    first_seen = _refine_first_seen(raw_first_seen, snapshots)
+
     return {
         "domain": domain,
-        "first_seen": wayback_meta.get("first_seen", "N/A"),
+        "first_seen": first_seen,
+        "first_seen_raw": raw_first_seen,  # keep original for reference
         "total_snapshots": wayback_meta.get("total_count", 0),
         "deep_timeline": snapshots,
         "current_site": current,
         "key_changes": changes,
     }
+
+
+def _refine_first_seen(raw_first_seen: str, snapshots: list) -> str:
+    """Return the date of the first snapshot with real product content.
+
+    Skips domain registrar / parked-page snapshots (DonDominio, GoDaddy, etc.).
+    Falls back to raw_first_seen if no better date is found.
+    """
+    _REGISTRAR_PATTERNS = [
+        "registrado en", "dondominio", "godaddy", "namecheap", "domain for sale",
+        "parked domain", "coming soon", "under construction", "domain is registered",
+        "buy this domain", "this domain", "domain parking", "sedo.com",
+        "hugedomains", "dan.com", "afternic", "flippa",
+    ]
+
+    for snap in sorted(snapshots, key=lambda s: s.get("date", "") or ""):
+        date = snap.get("date", "")
+        if not date:
+            continue
+        title = (snap.get("title") or "").lower()
+        slogan = (snap.get("slogan") or "").lower()
+        combined = title + " " + slogan
+
+        is_parked = any(p in combined for p in _REGISTRAR_PATTERNS)
+        # Also treat snapshots with very short/empty content as parked
+        has_content = bool(title and len(title) > 5 and not is_parked)
+        if has_content:
+            # Convert "YYYY-MM-DD" from snapshot date
+            return date[:10] if len(date) >= 10 else date
+
+    return raw_first_seen
 
 
 async def _fetch_wayback_timeline(domain: str) -> dict:

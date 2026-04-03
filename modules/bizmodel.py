@@ -80,10 +80,14 @@ def _estimate_revenue(p: dict, t: dict) -> dict:
     if not paid_tiers:
         return {"method": "无公开付费定价，无法估算", "arr_low": None, "arr_high": None}
 
-    rank_data     = (t.get("domain_rank") or {})
-    monthly_visits = rank_data.get("organic_traffic") or 0
-    if monthly_visits < 500:
+    rank_data       = (t.get("domain_rank") or {})
+    organic_traffic = rank_data.get("organic_traffic") or 0
+    if organic_traffic < 500:
         return {"method": "流量数据不足，无法估算", "arr_low": None, "arr_high": None}
+
+    # Estimate total monthly visits: organic search ≈ 40-65% of total for SaaS
+    # Use 1.6x conservative multiplier to account for direct/referral/social traffic
+    monthly_visits = int(organic_traffic * 1.6)
 
     # Conservative: 1-3% free-to-paid conversion (PLG benchmark)
     low_pct  = 0.01
@@ -92,20 +96,21 @@ def _estimate_revenue(p: dict, t: dict) -> dict:
     paying_high = int(monthly_visits * high_pct)
 
     # Use lowest paid tier price as baseline
-    min_price = min((t.get("price_monthly") or 0) for t in paid_tiers if (t.get("price_monthly") or 0) > 0)
+    min_price = min((tier.get("price_monthly") or 0) for tier in paid_tiers if (tier.get("price_monthly") or 0) > 0)
 
     arr_low  = paying_low  * min_price * 12
     arr_high = paying_high * min_price * 12
 
     return {
-        "method":              f"月访问 {monthly_visits:,} × 1–3% 转化 × ${min_price}/月",
+        "method":              f"月总访问估算 ~{monthly_visits:,}（有机搜索 {organic_traffic:,} × 1.6）× 1–3% 转化 × ${min_price}/月",
         "arr_low":             arr_low,
         "arr_high":            arr_high,
         "monthly_visits":      monthly_visits,
+        "organic_traffic":     organic_traffic,
         "avg_price_monthly":   min_price,
         "paying_users_low":    paying_low,
         "paying_users_high":   paying_high,
-        "assumptions":         "保守估算：1–3% 免费→付费转化率（PLG 行业基准）",
+        "assumptions":         "保守估算：有机流量 × 1.6 估算总访问；1–3% 免费→付费转化率（PLG 行业基准）",
     }
 
 

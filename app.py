@@ -304,18 +304,113 @@ async def _run_analysis(job_id: str):
     job["progress"]["pr_news"]  = "done"
     job["results"]["funding"]   = results_phase1[7] if isinstance(results_phase1[7], dict) else {}
 
+    # Refine product_name from page title (preserves correct casing e.g. AFFiNE, Linear, Notion)
+    _website_res = job["results"].get("website", {})
+    _page_title = (_website_res.get("current_site", {}).get("title") or "").strip()
+    if _page_title:
+        import re as _re2
+        # Extract first segment before " - " / " | " / " — " / " · "
+        _first_seg = _re2.split(r'\s*[-|—·]\s*', _page_title)[0].strip()
+        # Use it only if it's plausibly just the brand name (1-4 words, ≤40 chars)
+        if _first_seg and len(_first_seg) <= 40 and len(_first_seg.split()) <= 4:
+            # Check it resembles the domain brand (case-insensitive match)
+            _brand_lower = product_name.lower().replace(" ", "")
+            if _brand_lower in _first_seg.lower().replace(" ", ""):
+                product_name = _first_seg
+                job["product_name"] = product_name
+
+    # Phase 1.5: Retry github_oss with website social_links if Phase 1 missed it
+    _gh_result = job["results"].get("github_oss", {})
+    if not _gh_result.get("found"):
+        _ws_social = (_website_res.get("current_site", {}) or {}).get("social_links", {})
+        try:
+            _gh_retry = await asyncio.wait_for(
+                analyze_github_oss(domain, product_name, _ws_social or {}), timeout=20
+            )
+            if isinstance(_gh_retry, dict) and _gh_retry.get("found"):
+                job["results"]["github_oss"] = _gh_retry
+        except Exception:
+            pass
+
+    # Phase 1.6: Retry funding with GitHub org name if brand search missed it
+    # e.g. brand="affine" misses Toeverything's seed round → try org="toeverything"
+    _gh_result = job["results"].get("github_oss", {})
+    _gh_org = _gh_result.get("owner", "")
+    import re as _re3
+    _brand_lower = _re3.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
+    if (not job["results"].get("funding", {}).get("found")
+            and _gh_org and _gh_org.lower() != _brand_lower):
+        try:
+            _fund_retry = await asyncio.wait_for(
+                analyze_funding(domain, _gh_org), timeout=12
+            )
+            if isinstance(_fund_retry, dict) and _fund_retry.get("found"):
+                job["results"]["funding"] = _fund_retry
+        except Exception:
+            pass
+
+    # Phase 1.7: Reconcile social handles — update website social_links with
+    # Brave/Apify-verified handles from the social module (fixes handle mismatches)
+    _soc_channels = job["results"].get("social", {}).get("channels", {})
+    _ws_cur = (_website_res.get("current_site") or {})
+    _ws_social_links = _ws_cur.get("social_links") or {}
+    for _platform in ("twitter", "youtube", "instagram", "tiktok", "facebook"):
+        _ch = _soc_channels.get(_platform, {})
+        if _ch.get("detected") and _ch.get("handle") and _ws_social_links.get(_platform):
+            _verified_handle = _ch["handle"].lstrip("@")
+            _ws_social_links[_platform]["handle"] = _verified_handle
+            if _ch.get("url"):
+                _ws_social_links[_platform]["url"] = _ch["url"]
+            _ws_social_links[_platform]["verified"] = True
+
     # ================================================================
     # Phase 2: Propagation + Traffic Peaks (parallel, ~10s)
     # ================================================================
     async def _run_propagation():
+        job["progress"]["propagation"] = "running"
+        propagation = {}
+
+        # Primary: Twitter-based propagation (requires API data)
         if job["results"].get("social", {}).get("_propagation_available"):
-            job["progress"]["propagation"] = "running"
             propagation = await run_launch_propagation(job["results"]["social"])
-            job["results"]["propagation"] = propagation
-            job["progress"]["propagation"] = "done"
-        else:
-            job["results"]["propagation"] = {}
-            job["progress"]["propagation"] = "done"
+
+        # Fallback: if Twitter data is empty/unavailable, build lightweight summary
+        # from ProductHunt, GitHub, and Reddit signals
+        if not propagation or propagation.get("data_mode") == "empty":
+            ph  = job["results"].get("producthunt", {})
+            gh  = job["results"].get("github_oss", {})
+            soc = job["results"].get("social", {})
+            reddit = soc.get("channels", {}).get("reddit", {})
+
+            signals = []
+            ph_votes = ph.get("votes") or ph.get("upvotes") or 0
+            ph_comments = ph.get("comments", 0)
+            ph_date = ph.get("featured_date") or ph.get("launch_date") or ""
+            if ph_votes:
+                signals.append(f"Product Hunt 上线：{ph_votes} 票，{ph_comments} 评论" + (f"（{ph_date}）" if ph_date else ""))
+
+            gh_stars = gh.get("stars", 0)
+            gh_growth = (gh.get("insights") or {}).get("peak_growth_rate") or ""
+            if gh_stars:
+                signals.append(f"GitHub Stars：{gh_stars:,}" + (f"，峰值增速 {gh_growth}" if gh_growth else ""))
+
+            reddit_posts = len(reddit.get("top_posts", []))
+            reddit_members = reddit.get("subreddit_members", 0)
+            if reddit_posts:
+                signals.append(f"Reddit 提及：{reddit_posts} 条帖子" + (f"，社区 {reddit_members:,} 成员" if reddit_members else ""))
+
+            propagation = {
+                "data_mode": "multi_channel_fallback",
+                "note": "⚠️ Twitter API 不可用，以下为多渠道综合传播信号",
+                "signals": signals,
+                "producthunt": {"votes": ph_votes, "comments": ph_comments, "date": ph_date},
+                "github": {"stars": gh_stars},
+                "reddit": {"posts": reddit_posts, "members": reddit_members},
+                "errors": ["Twitter top_tweets 为空，无法进行 Twitter 传播分析"],
+            }
+
+        job["results"]["propagation"] = propagation
+        job["progress"]["propagation"] = "done"
 
     async def _run_traffic_peaks():
         job["progress"]["traffic_peaks"] = "running"

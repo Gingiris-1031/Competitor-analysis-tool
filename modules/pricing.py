@@ -170,10 +170,27 @@ def _find_price_cards(soup: BeautifulSoup) -> list:
         else:
             price = float(dollar_match.group(1))
         
-        # Extract name from first heading in card
+        # Extract name from headings — prefer short, plan-name-like headings
         headings = card.find_all(["h1", "h2", "h3", "h4", "h5", "strong", "b"])
-        plan_name = headings[0].get_text(strip=True) if headings else "Plan"
-        plan_name = plan_name[:40]
+        plan_name = "Plan"
+        _marketing_words = {
+            "start", "try", "get", "write", "draw", "plan", "build", "launch",
+            "create", "discover", "explore", "connect", "learn", "collaborate",
+            "everything", "unlimited", "all", "once", "today", "now", "join",
+        }
+        for h in headings:
+            txt = h.get_text(strip=True)
+            words = txt.split()
+            # Good plan name: short (1–4 words), no marketing copy keywords
+            if 1 <= len(words) <= 4 and len(txt) <= 30:
+                first_word_lower = words[0].lower()
+                if first_word_lower not in _marketing_words:
+                    plan_name = txt
+                    break
+        else:
+            # Fallback: use first heading truncated
+            if headings:
+                plan_name = headings[0].get_text(strip=True)[:30]
         
         if plan_name in seen_prices:
             continue

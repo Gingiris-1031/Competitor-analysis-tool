@@ -3,7 +3,19 @@
 function renderPR(data) {
     const el = document.getElementById('section-pr');
     if (!el) return;
-    if (!data || !data.found) { el.innerHTML = ''; return; }
+    if (!data || (!data.found && !data._timed_out && !data.error)) { el.innerHTML = ''; return; }
+    if (data._timed_out || (data.error && !data.found)) {
+        el.innerHTML = `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h3 class="text-base font-semibold text-white flex items-center gap-2 mb-3">
+                <span>📰</span> 媒体 & 社区曝光
+            </h3>
+            <div class="text-sm text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-4 py-3">
+                ⏱ 数据获取超时，建议重新生成报告，或稍后刷新查看。
+            </div>
+        </div>`;
+        return;
+    }
 
     const hn      = data.hn_posts       || [];
     const news    = data.news_articles  || [];

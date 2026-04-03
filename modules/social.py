@@ -62,38 +62,42 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         hints[platform] = brave_hints.get(platform) or website_hints.get(platform) or {}
 
     # Extract hint handles
-    twitter_hint = hints.get("twitter", {}).get("handle")
-    youtube_hint = hints.get("youtube", {}).get("handle")
-    github_hint = hints.get("github", {}).get("handle")
+    twitter_hint   = hints.get("twitter", {}).get("handle")
+    youtube_hint   = hints.get("youtube", {}).get("handle")
+    github_hint    = hints.get("github", {}).get("handle")
     instagram_hint = hints.get("instagram", {}).get("handle")
+    tiktok_hint    = hints.get("tiktok", {}).get("handle")
+    facebook_hint  = hints.get("facebook", {}).get("handle")
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
     }) as client:
         # Run all channel checks in parallel for speed
         import asyncio as _aio
-        twitter_task = _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
-        youtube_task = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
-        reddit_task = _deep_reddit(client, brand, product_name, domain=domain)
-        github_task = _deep_github(client, brand, product_name, handle_hint=github_hint)
+        twitter_task   = _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
+        youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
+        reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
+        github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint)
         instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
+        tiktok_task    = _deep_tiktok_apify(brand, product_name, handle_hint=tiktok_hint)
+        facebook_task  = _deep_facebook_apify(brand, product_name, handle_hint=facebook_hint)
 
         channel_results = await _aio.gather(
             twitter_task, youtube_task, reddit_task, github_task, instagram_task,
+            tiktok_task, facebook_task,
             return_exceptions=True,
         )
 
-        channel_names = ["twitter", "youtube", "reddit", "github", "instagram"]
-        for name, res in zip(channel_names, channel_results):
+        channel_names = ["twitter", "youtube", "reddit", "github", "instagram", "tiktok", "facebook"]
+        for ch_name, res in zip(channel_names, channel_results):
             if isinstance(res, Exception):
-                log.warning("Channel %s failed: %s", name, res)
-                results["channels"][name] = {"platform": name, "detected": False, "error": str(res)[:100]}
+                log.warning("Channel %s failed: %s", ch_name, res)
+                results["channels"][ch_name] = {"platform": ch_name, "detected": False, "error": str(res)[:100]}
             else:
-                results["channels"][name] = res
+                results["channels"][ch_name] = res
 
-        # Sync checks (no I/O, instant)
+        # Sync check (no I/O, instant)
         results["channels"]["linkedin"] = _check_linkedin(brand)
-        results["channels"]["tiktok"] = _check_tiktok(brand)
 
     # Aggregate propagation metrics
     results["propagation_metrics"] = _calc_propagation_metrics(results)
@@ -449,6 +453,63 @@ async def _call_apify_twitter_search(handle: str, count: int = 10) -> dict:
         return {"success": False, "error": f"Apify tweet-scraper: {str(e)[:120]}"}
 
 
+async def _call_apify_actor(actor_id: str, input_data: dict, wait_secs: int = 50) -> dict:
+    """通用 Apify actor 调用器 — 启动 run → 等待 → 拉取 dataset items"""
+    import asyncio as _aio
+    token = _get_apify_token()
+    if not token:
+        return {"success": False, "error": "No APIFY_API_TOKEN configured"}
+
+    api_base = "https://api.apify.com/v2"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=90, headers=headers) as client:
+            resp = await client.post(
+                f"{api_base}/acts/{actor_id}/runs",
+                json=input_data,
+                params={"waitForFinish": wait_secs},
+            )
+            if resp.status_code not in (200, 201):
+                return {"success": False, "error": f"Apify run HTTP {resp.status_code}"}
+
+            run_data = resp.json().get("data", {})
+            run_id = run_data.get("id")
+            run_status = run_data.get("status", "")
+
+            if not run_id:
+                return {"success": False, "error": "Apify run missing id"}
+
+            # Poll if still running after waitForFinish
+            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                for _ in range(4):
+                    await _aio.sleep(5)
+                    poll = await client.get(f"{api_base}/actor-runs/{run_id}")
+                    run_status = poll.json().get("data", {}).get("status", "")
+                    if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                        break
+
+            if run_status != "SUCCEEDED":
+                return {"success": False, "error": f"Apify run ended: {run_status}"}
+
+            ds_resp = await client.get(
+                f"{api_base}/actor-runs/{run_id}/dataset/items",
+                params={"format": "json"},
+            )
+            if ds_resp.status_code != 200:
+                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+
+            items = ds_resp.json()
+            if not isinstance(items, list):
+                return {"success": False, "error": "Unexpected Apify dataset format"}
+            return {"success": True, "items": items}
+
+    except httpx.TimeoutException:
+        return {"success": False, "error": f"Apify actor {actor_id} timed out"}
+    except Exception as e:
+        return {"success": False, "error": f"Apify actor error: {str(e)[:120]}"}
+
+
 async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:
     """深度分析 Twitter — 优先 Apify REST API，fallback Caravo CLI/HTTP"""
     result = {
@@ -652,12 +713,17 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             break
 
     if not result["detected"]:
-        # Fallback: if Brave Search gave us a handle_hint, show it even without API data
+        # Fallback: try Brave Search to extract follower count from snippets
         if handle_hint:
+            followers = await _brave_twitter_followers(handle_hint)
             result["detected"] = True
             result["handle"] = f"@{handle_hint}" if not handle_hint.startswith("@") else handle_hint
             result["url"] = f"https://x.com/{handle_hint.lstrip('@')}"
-            result["note"] = "受 API 限制，仅显示账号信息（粉丝数/推文需 Apify/Caravo 支持）"
+            if followers:
+                result["followers"] = followers
+                result["note"] = "粉丝数来自 Brave Search 摘要（近似值）"
+            else:
+                result["note"] = "受 API 限制，仅显示账号信息（粉丝数/推文需 Apify/Caravo 支持）"
         else:
             tried_str = ", ".join(handles_to_try[:3])
             sources = "Apify + Caravo" if apify_token else "Caravo"
@@ -674,6 +740,33 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
         }
 
     return result
+
+
+async def _brave_twitter_followers(handle: str) -> int | None:
+    """Brave Search 摘要提取 Twitter 粉丝数（免费兜底，数据粗糙）"""
+    try:
+        from .web_search import brave_search
+    except ImportError:
+        try:
+            from web_search import brave_search
+        except ImportError:
+            return None
+    try:
+        results = await brave_search(f"x.com/{handle.lstrip('@')} followers", count=3)
+        for r in results:
+            text = (r.get("description") or "") + " " + (r.get("title") or "")
+            m = re.search(r'([\d,]+\.?\d*)\s*([KMk])?\s*Followers', text, re.I)
+            if m:
+                raw = m.group(1).replace(",", "")
+                suffix = (m.group(2) or "").upper()
+                mult = {"K": 1_000, "M": 1_000_000}.get(suffix, 1)
+                try:
+                    return int(float(raw) * mult)
+                except ValueError:
+                    pass
+    except Exception:
+        pass
+    return None
 
 
 async def _deep_twitter(client: httpx.AsyncClient, brand: str, name: str) -> dict:
@@ -734,7 +827,7 @@ async def _deep_twitter(client: httpx.AsyncClient, brand: str, name: str) -> dic
 
 
 async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle_hint: str = None) -> dict:
-    """深度 YouTube 分析"""
+    """深度 YouTube 分析 — 优先 Apify apidojo/youtube-channel-scraper，fallback HTML"""
     result = {
         "platform": "YouTube",
         "detected": False,
@@ -742,46 +835,66 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
         "url": None,
         "subscribers": None,
         "video_count": None,
+        "total_views": None,
         "note": "",
     }
-    
+
     handles = []
     if handle_hint:
-        handles.append(handle_hint)
-    handles.extend([brand, f"{brand}hq", name.lower().replace(" ",""), f"{brand}dev"])
-    for handle in list(dict.fromkeys(handles)):
+        handles.append(handle_hint.lstrip("@"))
+    handles.extend([brand, f"{brand}hq", name.lower().replace(" ", ""), f"{brand}dev"])
+    handles = list(dict.fromkeys(handles))
+
+    # Strategy 1: Apify youtube-channel-scraper
+    if _get_apify_token():
+        for handle in handles:
+            channel_url = f"https://www.youtube.com/@{handle}"
+            resp = await _call_apify_actor(
+                "apidojo/youtube-channel-scraper",
+                {"channelUrls": [channel_url]},
+                wait_secs=45,
+            )
+            if not resp.get("success"):
+                log.debug("Apify YouTube miss for @%s: %s", handle, resp.get("error", ""))
+                continue
+            items = resp.get("items", [])
+            if not items:
+                continue
+            ch = items[0]
+
+            # Relevance check (skip if handle came from hint — already trusted)
+            ch_name = (ch.get("channelName") or ch.get("title") or "").lower()
+            if not (handle_hint and handle == handle_hint.lstrip("@")):
+                if brand.lower() not in ch_name and name.lower() not in ch_name:
+                    continue
+
+            result["detected"] = True
+            result["handle"] = f"@{handle}"
+            result["url"] = ch.get("channelUrl") or channel_url
+            result["subscribers"] = ch.get("numberOfSubscribers") or ch.get("subscriberCount")
+            result["video_count"] = ch.get("numberOfVideos") or ch.get("videoCount")
+            result["total_views"] = ch.get("channelTotalViews") or ch.get("viewCount")
+            result["note"] = "✅ 通过 Apify 获取 YouTube 频道数据"
+            log.info("YouTube data for @%s fetched via Apify", handle)
+            return result
+
+    # Strategy 2: HTML fallback (no subscriber count due to YouTube JS rendering)
+    for handle in handles:
         try:
-            resp = await client.get(f"https://www.youtube.com/@{handle}")
-            if resp.status_code == 200 and "This page isn" not in resp.text[:1000]:
+            r = await client.get(f"https://www.youtube.com/@{handle}")
+            if r.status_code == 200 and "This page isn" not in r.text[:1000]:
                 result["detected"] = True
                 result["handle"] = f"@{handle}"
                 result["url"] = f"https://www.youtube.com/@{handle}"
-                
-                sub_match = re.search(r'"subscriberCountText".*?"(\d[\d,.]*[KMB]?)\s*subscriber', resp.text, re.I)
-                if sub_match:
-                    result["subscribers"] = sub_match.group(1)
-                
-                vid_match = re.search(r'"videoCountText".*?"(\d[\d,.]*)"', resp.text)
-                if vid_match:
-                    result["video_count"] = vid_match.group(1)
-                
-                result["note"] = "检测到官方频道"
-                result["analysis_framework"] = {
-                    "note": "🔍 建议手动补充",
-                    "needed_data": [
-                        "视频分类统计（产品demo/教程/用户访谈/活动）",
-                        "Top 10 视频播放量排名",
-                        "发布频率和节奏",
-                        "KOL 合作视频列表",
-                    ],
-                }
-                break
+                sub_m = re.search(r'"subscriberCountText".*?"([\d,.]+[KMB]?)\s*subscriber', r.text, re.I)
+                if sub_m:
+                    result["subscribers"] = sub_m.group(1)
+                result["note"] = "检测到频道（HTML 解析，数据有限）"
+                return result
         except Exception:
             continue
-    
-    if not result["detected"]:
-        result["note"] = "未找到精确匹配"
-    
+
+    result["note"] = "未找到精确匹配"
     return result
 
 
@@ -1037,13 +1150,130 @@ def _check_linkedin(brand: str) -> dict:
     }
 
 
-def _check_tiktok(brand: str) -> dict:
-    return {
+async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> dict:
+    """深度 TikTok 分析 — Apify apidojo/tiktok-profile-scraper"""
+    result = {
         "platform": "TikTok",
-        "detected": None,
-        "url": f"https://www.tiktok.com/@{brand}",
-        "note": "🔍 建议手动检查",
+        "detected": False,
+        "handle": None,
+        "url": None,
+        "followers": None,
+        "following": None,
+        "likes": None,
+        "video_count": None,
+        "verified": False,
+        "note": "",
     }
+
+    handles = []
+    if handle_hint:
+        handles.append(handle_hint.lstrip("@"))
+    handles.extend([brand, name.lower().replace(" ", ""), f"{brand}hq", f"{brand}app", f"{brand}official"])
+    handles = list(dict.fromkeys(handles))
+
+    if not _get_apify_token():
+        result["url"] = f"https://www.tiktok.com/@{brand}"
+        result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
+        return result
+
+    for handle in handles:
+        resp = await _call_apify_actor(
+            "apidojo/tiktok-profile-scraper",
+            {"profiles": [f"@{handle}"]},
+            wait_secs=45,
+        )
+        if not resp.get("success"):
+            log.debug("Apify TikTok miss for @%s: %s", handle, resp.get("error", ""))
+            continue
+        items = resp.get("items", [])
+        if not items:
+            continue
+        prof = items[0]
+
+        # Relevance check
+        prof_name = (prof.get("nickname") or prof.get("uniqueId") or "").lower()
+        bio = (prof.get("signature") or "").lower()
+        if not (handle_hint and handle == handle_hint.lstrip("@")):
+            if brand.lower() not in prof_name and brand.lower() not in bio and name.lower() not in bio:
+                continue
+
+        result["detected"] = True
+        uid = prof.get("uniqueId") or handle
+        result["handle"] = f"@{uid}"
+        result["url"] = f"https://www.tiktok.com/@{uid}"
+        result["followers"] = prof.get("fans") or prof.get("followerCount")
+        result["following"] = prof.get("following") or prof.get("followingCount")
+        result["likes"] = prof.get("heart") or prof.get("heartCount") or prof.get("diggCount")
+        result["video_count"] = prof.get("video") or prof.get("videoCount")
+        result["verified"] = bool(prof.get("verified"))
+        result["note"] = "✅ 通过 Apify 获取 TikTok 账号数据"
+        log.info("TikTok data for @%s fetched via Apify", uid)
+        return result
+
+    result["url"] = f"https://www.tiktok.com/@{brand}"
+    result["note"] = f"未找到匹配 TikTok 账号（尝试了 {', '.join(handles[:3])}）"
+    return result
+
+
+async def _deep_facebook_apify(brand: str, name: str, handle_hint: str = None) -> dict:
+    """Facebook 页面分析 — Apify apify/facebook-pages-scraper"""
+    result = {
+        "platform": "Facebook",
+        "detected": False,
+        "handle": None,
+        "url": None,
+        "followers": None,
+        "likes": None,
+        "about": None,
+        "note": "",
+    }
+
+    handles = []
+    if handle_hint:
+        handles.append(handle_hint.lstrip("@"))
+    handles.extend([brand, name.lower().replace(" ", ""), f"{brand}hq", f"{brand}official"])
+    handles = list(dict.fromkeys(handles))
+
+    if not _get_apify_token():
+        result["url"] = f"https://www.facebook.com/{brand}"
+        result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
+        return result
+
+    # Try first 2 handles — Facebook scraping is slow, limit scope
+    for handle in handles[:2]:
+        fb_url = f"https://www.facebook.com/{handle}"
+        resp = await _call_apify_actor(
+            "apify/facebook-pages-scraper",
+            {"startUrls": [{"url": fb_url}], "maxPosts": 0},
+            wait_secs=55,
+        )
+        if not resp.get("success"):
+            log.debug("Apify Facebook miss for %s: %s", fb_url, resp.get("error", ""))
+            continue
+        items = resp.get("items", [])
+        if not items:
+            continue
+        page = items[0]
+
+        # Relevance check
+        page_name = (page.get("name") or page.get("title") or "").lower()
+        if not (handle_hint and handle == handle_hint.lstrip("@")):
+            if brand.lower() not in page_name and name.lower() not in page_name:
+                continue
+
+        result["detected"] = True
+        result["handle"] = handle
+        result["url"] = page.get("url") or fb_url
+        result["followers"] = page.get("followers") or page.get("followersCount")
+        result["likes"] = page.get("likes") or page.get("likesCount")
+        result["about"] = (page.get("about") or page.get("description") or "")[:200]
+        result["note"] = "✅ 通过 Apify 获取 Facebook 页面数据"
+        log.info("Facebook data for %s fetched via Apify", handle)
+        return result
+
+    result["url"] = f"https://www.facebook.com/{brand}"
+    result["note"] = f"未找到匹配 Facebook 页面（尝试了 {', '.join(handles[:2])}）"
+    return result
 
 
 async def _deep_instagram_caravo(brand: str, name: str, handle_hint: str = None) -> dict:
@@ -1242,13 +1472,44 @@ def _calc_propagation_metrics(data: dict) -> dict:
             if isinstance(ig_followers, int) else f"Instagram: detected"
         )
 
+    # TikTok data
+    tiktok = data["channels"].get("tiktok", {})
+    if tiktok.get("detected"):
+        tk_followers = tiktok.get("followers") or 0
+        if isinstance(tk_followers, int) and tk_followers > 0:
+            metrics["total_participants"] += tk_followers
+            metrics["estimated_impressions"] += tk_followers
+        tk_likes = tiktok.get("likes") or 0
+        if isinstance(tk_likes, int):
+            metrics["total_engagement"] += tk_likes
+        metrics["data_sources"].append("TikTok")
+        metrics["breakdown"].append(
+            f"TikTok: {tk_followers:,} followers" + (f", {tk_likes:,} total likes" if tk_likes else "")
+            if isinstance(tk_followers, int) else "TikTok: detected"
+        )
+
+    # Facebook data
+    facebook = data["channels"].get("facebook", {})
+    if facebook.get("detected"):
+        fb_followers = facebook.get("followers") or facebook.get("likes") or 0
+        if isinstance(fb_followers, int) and fb_followers > 0:
+            metrics["total_participants"] += fb_followers
+            metrics["estimated_impressions"] += fb_followers
+        metrics["data_sources"].append("Facebook")
+        metrics["breakdown"].append(
+            f"Facebook: {fb_followers:,} followers"
+            if isinstance(fb_followers, int) else "Facebook: detected"
+        )
+
     if not metrics["data_sources"]:
         metrics["note"] = "⚠️ 未能自动采集到社交媒体数据。建议手动补充。"
     else:
         missing = []
-        if not twitter.get("detected"): missing.append("Twitter/X")
-        if not youtube.get("detected"): missing.append("YouTube")
-        missing.extend(["LinkedIn", "TikTok"])
+        if not twitter.get("detected"):  missing.append("Twitter/X")
+        if not youtube.get("detected"):  missing.append("YouTube")
+        if not tiktok.get("detected"):   missing.append("TikTok")
+        if not facebook.get("detected"): missing.append("Facebook")
+        missing.append("LinkedIn")
         metrics["note"] = f"📊 已采集: {', '.join(metrics['data_sources'])}。" + (f" 未采集: {', '.join(missing)}。" if missing else "")
     
     return metrics
