@@ -123,20 +123,47 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
                         candidates.append((o, rep, "primary"))
 
         # Try primary candidates first (max 3 to avoid timeout), then secondary
+        # Require repo name to be a word-boundary match for the brand, not just substring
+        import re as _re2
+        brand_lower = brand.lower()
+        name_lower = product_name.lower().replace(" ", "-")
+
         seen = set()
         for priority in ("primary", "secondary"):
             checked = 0
             for o, rep, prio in candidates:
                 if prio != priority or (o, rep) in seen:
                     continue
-                if checked >= 3:  # Limit star-validation calls to avoid timeout
+                if checked >= 3:
                     break
                 seen.add((o, rep))
+                rep_lower = rep.lower()
+
+                # Reject substring-only matches (e.g. "lotion" for "notion")
+                is_exact = (
+                    rep_lower == brand_lower
+                    or rep_lower == name_lower
+                    or brand_lower == o.lower()  # org name matches brand
+                )
+                if not is_exact:
+                    # Check if repo homepage matches domain
+                    try:
+                        async with httpx.AsyncClient(timeout=5) as _c:
+                            _r = await _c.get(f"{_GH_API}/repos/{o}/{rep}", headers=_gh_headers())
+                            if _r.status_code == 200:
+                                hp = (_r.json().get("homepage") or "").lower()
+                                domain_clean = _re2.sub(r'^www\.', '', domain.lower())
+                                if domain_clean and domain_clean in hp:
+                                    is_exact = True
+                    except Exception:
+                        pass
+
+                if not is_exact:
+                    continue
+
                 checked += 1
-                # Quick star check: reject if < 200 stars (likely wrong repo)
                 stars = await _get_repo_stars(o, rep)
                 if stars is None or stars >= 200:
-                    # If low stars but we have an owner, try top repo under that org
                     if stars is not None and stars < 200:
                         top = await _find_top_repo(o)
                         if top:
