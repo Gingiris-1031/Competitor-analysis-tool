@@ -47,58 +47,60 @@ def _fetch_trends_sync(query: str, date_range: str = "today 12-m") -> Optional[l
 
 
 async def _fetch_trends_apify(query: str) -> Optional[list]:
-    """Apify Google Trends Scraper 作为 pytrends 的 fallback。
+    """Apify Google Trends Scraper (apify/google-trends-scraper) 作为 pytrends 的 fallback。
 
-    Uses the 'emastra/google-trends-scraper' actor on Apify.
     Returns data in the same format as _fetch_trends_sync.
     """
     token = os.environ.get("APIFY_API_TOKEN", "").strip()
     if not token:
         return None
 
-    run_url = "https://api.apify.com/v2/acts/emastra~google-trends-scraper/run-sync-get-dataset-items"
+    run_url = "https://api.apify.com/v2/acts/apify~google-trends-scraper/run-sync-get-dataset-items"
     params = {"token": token}
     payload = {
         "searchTerms": [query],
-        "timeRange": "past12Months",
-        "geo": "",
-        "isPublic": False,
-        "maxItems": 100,
+        "timeRange": "today 3-m",
+        "maxItems": 1,
     }
 
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             resp = await client.post(run_url, params=params, json=payload)
-            if resp.status_code != 200 and resp.status_code != 201:
+            if resp.status_code not in (200, 201):
                 logger.warning(f"Apify Trends HTTP {resp.status_code} for '{query}'")
                 return None
             data = resp.json()
 
-        # Apify returns array of items, each with interestOverTime
         if not data or not isinstance(data, list):
             return None
 
         timeline = []
         for item in data:
-            iot = item.get("interestOverTime", [])
+            # Apify output field: interestOverTime_timelineData
+            iot = item.get("interestOverTime_timelineData", [])
             if not iot:
                 continue
             for point in iot:
-                date_str = point.get("formattedAxisTime") or point.get("formattedTime", "")
+                # Format: {"time": "1767398400", "formattedTime": "Jan 3, 2026", "value": [37]}
+                raw_ts = point.get("time")
+                ts = int(raw_ts) if raw_ts else 0
+                date_str = point.get("formattedTime", "")
                 value = point.get("value", [0])
-                val = value[0] if isinstance(value, list) and value else (value if isinstance(value, int) else 0)
+                val = value[0] if isinstance(value, list) and value else 0
 
-                # Parse date — Apify returns various formats
-                ts = 0
+                # Parse date from "Jan 3, 2026" format
                 parsed_date = ""
-                for fmt in ["%b %d, %Y", "%Y-%m-%d", "%b %Y"]:
-                    try:
-                        dt = datetime.strptime(date_str, fmt)
-                        ts = int(dt.timestamp())
-                        parsed_date = dt.strftime("%Y-%m-%d")
-                        break
-                    except ValueError:
-                        continue
+                if ts:
+                    parsed_date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+                elif date_str:
+                    for fmt in ["%b %d, %Y", "%b %Y"]:
+                        try:
+                            dt = datetime.strptime(date_str, fmt)
+                            ts = int(dt.timestamp())
+                            parsed_date = dt.strftime("%Y-%m-%d")
+                            break
+                        except ValueError:
+                            continue
 
                 if ts and parsed_date:
                     timeline.append({

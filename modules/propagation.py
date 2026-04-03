@@ -520,6 +520,16 @@ async def analyze_launch_propagation(
         "errors": [],
     }
 
+    try:
+        return await _run_propagation_analysis(result, brand, launch_tweets, all_tweets)
+    except Exception as e:
+        result["data_mode"] = "empty"
+        result["errors"].append(f"传播分析异常: {str(e)[:200]}")
+        return result
+
+
+async def _run_propagation_analysis(result, brand, launch_tweets, all_tweets):
+    """Internal: actual propagation analysis, wrapped for error handling."""
     # ----------------------------------------------------------
     # Step 1: 识别 launch post
     # ----------------------------------------------------------

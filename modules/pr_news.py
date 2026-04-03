@@ -88,21 +88,29 @@ async def _fetch_hn(product_name: str, brand: str, domain: str = "") -> list:
                     if not domain_match and any(d in article_url for d in _bad_domains):
                         continue
 
-                    # For non-domain-match posts, require product context in title
+                    # For non-domain-match posts, require strong product relevance
                     # to filter out math/science uses of common brand names
                     if not domain_match:
-                        _tech_product_words = {
-                            "launch", "open source", "open-source", "funding", "startup",
-                            "tool", "app", "product", "github", "release", "saas", "api",
-                            "software", "update", "raises", "announce", "show hn",
-                            "alternative", "notion", "miro", "knowledge base", "workspace",
-                            "collaboration", "editor", "whiteboard",
-                        }
-                        title_has_context = any(w in title for w in _tech_product_words)
-                        # Also accept if product_name (not just brand) appears as exact match
-                        product_exact = product_name.lower() in title
-                        if not title_has_context and not product_exact:
-                            continue
+                        # Check if article URL points to the product's GitHub
+                        github_match = domain_clean and (
+                            f"github.com/{brand.lower()}" in article_url
+                            or f"github.com/toeverything" in article_url  # AFFiNE specific
+                        )
+                        if github_match:
+                            pass  # Accept GitHub links to product
+                        else:
+                            _tech_product_words = {
+                                "launch", "open source", "open-source", "funding", "startup",
+                                "tool", "app", "product", "release", "saas", "api",
+                                "software", "update", "raises", "announce", "show hn",
+                                "alternative", "knowledge base", "workspace", "notion alternative",
+                                "collaboration", "editor", "whiteboard",
+                            }
+                            title_has_context = any(w in title for w in _tech_product_words)
+                            # Case-sensitive exact match: "AFFiNE" != "Affine"
+                            product_exact_case = product_name in (h.get("title") or "")
+                            if not title_has_context and not product_exact_case:
+                                continue
 
                     seen_ids.add(obj_id)
                     hn_url = f"https://news.ycombinator.com/item?id={obj_id}"
