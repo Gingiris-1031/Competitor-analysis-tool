@@ -114,7 +114,7 @@ async def _top_keywords(client, headers, domain) -> dict:
             "target": domain,
             "language_code": "en",
             "location_code": 2840,
-            "limit": 50,
+            "limit": 100,
             "order_by": ["ranked_serp_element.serp_item.rank_absolute,asc"],
             "filters": ["ranked_serp_element.serp_item.rank_absolute","<",21],
         }],
@@ -128,13 +128,33 @@ async def _top_keywords(client, headers, domain) -> dict:
     import re
     brand_clean = re.sub(r'\.[a-z]{2,6}$', '', brand)
     brand_variants = {brand_clean, brand_clean.replace("-", ""), brand_clean.replace("-", " ")}
-    # Add common misspellings / partial matches
-    if len(brand_clean) > 3:
-        brand_variants.add(brand_clean[:4])
+    # Also add domain without TLD dot-separated variants (e.g. "affine pro" for affine.pro)
+    domain_no_www = re.sub(r'^www\.', '', domain.lower())
+    if '.' in domain_no_www:
+        parts = domain_no_www.rsplit('.', 1)
+        if parts[1] not in ('com', 'org', 'net', 'io', 'dev', 'ai', 'co', 'app'):
+            # For non-standard TLDs like .pro, add "brand tld" as branded variant
+            brand_variants.add(f"{parts[0]} {parts[1]}")
+            brand_variants.add(f"{parts[0]}.{parts[1]}")
 
     def _is_branded(kw: str) -> bool:
         kw_lower = kw.lower()
-        return any(v in kw_lower for v in brand_variants if len(v) > 2)
+        # Each variant must appear as a whole word (or word prefix) in the keyword,
+        # not just as a substring of an unrelated word
+        for v in brand_variants:
+            if len(v) <= 2:
+                continue
+            if v not in kw_lower:
+                continue
+            # Verify it's a word boundary match to avoid false positives
+            # e.g. "affi" in "affiliate" should NOT match for brand "affine"
+            pattern = r'(?:^|[\s\-_])' + re.escape(v) + r'(?:[\s\-_.,!?]|$)'
+            if re.search(pattern, kw_lower):
+                return True
+            # Also match if the variant IS the full keyword or starts the keyword
+            if kw_lower == v or kw_lower.startswith(v + ' ') or kw_lower.startswith(v + '-'):
+                return True
+        return False
 
     all_keywords = []
     if task.get("result") and task["result"][0].get("items"):

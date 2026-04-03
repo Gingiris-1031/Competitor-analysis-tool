@@ -40,21 +40,38 @@ function renderProductHunt(ph) {
 
     html += `</div>`;
 
-    // Other launches (multi-launch support)
+    // Launch timeline (chronological view of all launches)
     if (ph.other_launches && ph.other_launches.length > 0) {
-        html += `<div class="mt-4 pt-4 border-t border-gray-700">
-            <div class="text-xs font-semibold text-gray-400 mb-2">🚀 其他 Launch（共 ${ph.other_launches.length + 1} 次）</div>
-            <div class="space-y-1.5">`;
-        for (const ol of ph.other_launches) {
-            html += `<div class="flex items-center justify-between bg-gray-700/50 rounded px-3 py-2">
-                <div>
-                    <span class="text-xs text-gray-200">${esc(ol.name || '')}</span>
-                    ${ol.tagline ? `<span class="text-[10px] text-gray-500 ml-2">${esc(ol.tagline.slice(0,60))}</span>` : ''}
-                </div>
-                <div class="flex items-center gap-3 text-[10px] shrink-0 ml-2">
-                    <span class="text-orange-300 font-mono">⬆ ${(ol.votes || 0).toLocaleString()}</span>
-                    <span class="text-gray-500 font-mono">${esc(ol.launch_date || '')}</span>
-                    ${ol.url ? `<a href="${esc(ol.url)}" target="_blank" class="text-blue-400 hover:underline">↗</a>` : ''}
+        // Build unified list: main launch + other launches, sorted by date ascending
+        const allLaunches = [
+            { name: ph.name, slug: ph.slug, votes: ph.votes, launch_date: ph.launch_date, url: ph.url, tagline: ph.tagline, is_best: true },
+            ...ph.other_launches
+        ].sort((a, b) => (a.launch_date || '').localeCompare(b.launch_date || ''));
+
+        html += `<div class="mt-5 pt-5 border-t border-gray-700">
+            <div class="text-sm font-semibold text-gray-300 mb-3">📅 发布节点时间线（共 ${allLaunches.length} 次 Launch）</div>
+            <div class="relative pl-6 border-l-2 border-gray-700 space-y-4">`;
+        for (let i = 0; i < allLaunches.length; i++) {
+            const ol = allLaunches[i];
+            const isBest = ol.is_best;
+            const dotColor = isBest ? 'bg-orange-400' : 'bg-blue-400';
+            const ringColor = isBest ? 'ring-orange-400/30' : 'ring-blue-400/30';
+            const label = i === 0 ? '首次发布' : i === allLaunches.length - 1 ? '最近发布' : `第 ${i + 1} 次`;
+            html += `<div class="relative">
+                <div class="absolute -left-[25px] top-1 w-3 h-3 rounded-full ${dotColor} ring-4 ${ringColor}"></div>
+                <div class="bg-gray-800/70 rounded-lg px-4 py-3 ${isBest ? 'border border-orange-500/30' : ''}">
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-mono text-blue-300">${esc(ol.launch_date || 'N/A')}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${isBest ? 'bg-orange-900/50 text-orange-300' : 'bg-gray-700 text-gray-400'}">${label}${isBest ? ' · 最高票' : ''}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-orange-300 font-mono">⬆ ${(ol.votes || 0).toLocaleString()}</span>
+                            ${ol.url ? `<a href="${esc(ol.url)}" target="_blank" class="text-blue-400 hover:underline text-[10px]">↗</a>` : ''}
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-200">${esc(ol.name || '')}</div>
+                    ${ol.tagline ? `<div class="text-[10px] text-gray-500 mt-0.5">${esc(typeof ol.tagline === 'string' ? ol.tagline.slice(0,80) : '')}</div>` : ''}
                 </div>
             </div>`;
         }

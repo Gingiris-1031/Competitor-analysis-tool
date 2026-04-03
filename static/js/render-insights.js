@@ -1,6 +1,6 @@
 function renderInsights(ai) {
     const container = document.getElementById('section-insights');
-    if (!ai) { container.innerHTML = ''; return; }
+    if (!ai || (typeof ai === 'object' && Object.keys(ai).length === 0)) { container.innerHTML = ''; return; }
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <h3 class="text-lg font-semibold mb-4">🧠 AI 商业洞察</h3>`;
@@ -8,6 +8,11 @@ function renderInsights(ai) {
     if (ai.success && ai.content) {
         html += `<div class="ai-content">${formatMarkdown(ai.content)}</div>`;
         html += `<div class="text-[10px] text-gray-600 mt-4">分析来源: ${esc(ai.source || 'AI')}</div>`;
+    } else if (ai.source === 'error') {
+        html += `<div class="bg-red-900/10 border border-red-800/30 rounded-lg p-4">
+            <div class="text-sm text-red-300 mb-2">⚠️ ${esc(ai.note || 'AI 分析出现异常')}</div>
+            <div class="text-xs text-gray-500">报告其他部分正常生成，可忽略此错误。</div>
+        </div>`;
     } else {
         html += `<div class="bg-yellow-900/10 border border-yellow-800/30 rounded-lg p-4">
             <div class="text-sm text-yellow-300 mb-2">${esc(ai.note || '需要配置 LLM API')}</div>

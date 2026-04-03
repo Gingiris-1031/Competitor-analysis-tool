@@ -102,8 +102,55 @@ async def run_launch_propagation(social_result: dict) -> dict:
     )
 
 
+def _find_npx() -> str:
+    """Locate npx binary — handles Docker/Railway containers where PATH may differ."""
+    import shutil
+    npx = shutil.which("npx")
+    if npx:
+        return npx
+    # Common container / nvm / nodesource paths
+    for candidate in [
+        "/usr/bin/npx", "/usr/local/bin/npx",
+        "/root/.nvm/versions/node/*/bin/npx",
+        "/usr/lib/node_modules/.bin/npx",
+    ]:
+        import glob
+        matches = glob.glob(candidate)
+        if matches and os.path.isfile(matches[0]):
+            return matches[0]
+    return "npx"  # Last resort — hope it's on PATH
+
+
+def _call_caravo_http(tool_id: str, params: dict, api_key: str) -> dict:
+    """Direct HTTP fallback for Caravo API (no CLI needed)."""
+    import httpx as _httpx
+    try:
+        resp = _httpx.post(
+            "https://api.caravo.ai/v1/exec",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"tool_id": tool_id, "params": params},
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("success"):
+                return {"success": True, "data": data.get("output", data.get("data", {}))}
+            err_msg = data.get("error", data.get("message", ""))
+            if "balance" in str(err_msg).lower():
+                return {"success": False, "error": "Caravo 余额不足", "need_topup": True}
+            return {"success": False, "error": str(err_msg)[:100]}
+        if resp.status_code == 402:
+            return {"success": False, "error": "Caravo 余额不足", "need_topup": True}
+        return {"success": False, "error": f"HTTP {resp.status_code}"}
+    except Exception as e:
+        return {"success": False, "error": f"HTTP fallback: {str(e)[:80]}"}
+
+
 def _call_caravo(tool_id: str, params: dict) -> dict:
-    """调用 Caravo CLI"""
+    """调用 Caravo — 先尝试 CLI，失败则用 HTTP API 直连"""
     api_key = os.environ.get("CARAVO_API_KEY", "").strip()
     if not api_key:
         try:
@@ -112,11 +159,14 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
             pass
     if not api_key:
         return {"success": False, "error": "No Caravo API key"}
+
+    # Attempt 1: CLI
     env = os.environ.copy()
     env["CARAVO_API_KEY"] = api_key
+    npx_bin = _find_npx()
     try:
         result = subprocess.run(
-            ["npx", "-y", "@caravo/cli@latest", "exec", tool_id, "-d", json.dumps(params)],
+            [npx_bin, "-y", "@caravo/cli@latest", "exec", tool_id, "-d", json.dumps(params)],
             capture_output=True, text=True, timeout=30, env=env
         )
         if result.returncode == 0:
@@ -126,9 +176,12 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
         stderr = result.stderr[:200]
         if "balance" in stderr.lower() or "$0" in stderr:
             return {"success": False, "error": "Caravo 余额不足", "need_topup": True}
-        return {"success": False, "error": stderr[:100]}
-    except Exception as e:
-        return {"success": False, "error": str(e)[:100]}
+        # CLI failed — fall through to HTTP
+    except Exception:
+        pass  # CLI not available — fall through to HTTP
+
+    # Attempt 2: Direct HTTP API
+    return _call_caravo_http(tool_id, params, api_key)
 
 
 async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:

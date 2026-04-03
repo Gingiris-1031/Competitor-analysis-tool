@@ -155,9 +155,11 @@ async def _run_analysis(job_id: str):
         job["progress"]["growth_analysis"] = "error"
 
     # Step 4: AI Summary + Generate report
+    job["progress"]["report"] = "running"
+
+    # 4a: AI insights (non-fatal — report can still generate without AI)
+    ai = {}
     try:
-        job["progress"]["report"] = "running"
-        # Generate AI insights
         ai = await generate_ai_summary(
             product_name, url,
             job["results"].get("website", {}),
@@ -166,7 +168,12 @@ async def _run_analysis(job_id: str):
             job["results"].get("producthunt", {}),
         )
         job["results"]["ai_summary"] = ai
+    except Exception as e:
+        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(e)[:100]}", "source": "error"}
+        job["results"]["ai_summary"] = ai
 
+    # 4b: Generate report structure
+    try:
         report = generate_report(
             product_name, url,
             job["results"].get("website", {}),
@@ -192,7 +199,10 @@ async def _run_analysis(job_id: str):
             report["sections"]["growth_strategy"] = {}
 
         job["report"] = report
-        job["markdown"] = report_to_markdown(report)
+        try:
+            job["markdown"] = report_to_markdown(report)
+        except Exception:
+            job["markdown"] = f"# {product_name} 竞品调研报告\n\n> Markdown 导出出错，请查看在线报告。\n"
         job["progress"]["report"] = "done"
     except Exception as e:
         job["progress"]["report"] = "error"
