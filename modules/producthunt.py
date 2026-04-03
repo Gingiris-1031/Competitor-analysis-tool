@@ -169,17 +169,28 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         if all_hits:
             if not product_slug:
                 product_slug = brave_slug or brand
-            # PH website field is often a redirect URL, so domain check is unreliable.
-            # Instead, filter by product name match + pick highest votes.
+            # Multiple products may share the same name (e.g., "Notion" smart sensors
+            # vs "Notion" note-taking app). Group by PH product slug and pick the
+            # group with the highest total votes — that's the real product.
             name_lower = product_name.lower()
             name_matched = [h for h in all_hits if h.get("name", "").lower() == name_lower]
-            if name_matched:
-                # Among name-matched hits, pick the one with most votes
-                best = max(name_matched, key=lambda h: h.get("votes", 0))
-                # But reject if votes < 10 and tagline is clearly unrelated
+            if name_matched and len(name_matched) > 1:
+                # Group by PH product slug, pick group with most total votes
+                from collections import defaultdict
+                groups = defaultdict(list)
+                for h in name_matched:
+                    ps = ""
+                    m = re.search(r'/products/([^/]+)/', h.get("url", ""))
+                    if m:
+                        ps = m.group(1).lower()
+                    groups[ps or h.get("slug", "")].append(h)
+                best_group = max(groups.values(), key=lambda g: sum(h.get("votes", 0) for h in g))
+                return _build_result(best_group, product_slug, brand, product_name)
+            elif name_matched:
+                best = name_matched[0]
                 if best.get("votes", 0) >= 10:
                     return _build_result(name_matched, product_slug, brand, product_name)
-            # No reliable name match — don't return wrong product, fall through
+            # No reliable name match — fall through
 
         # If API gave nothing, use brave_slug or brand as product_slug
         if not product_slug:
