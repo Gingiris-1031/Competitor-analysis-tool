@@ -4,7 +4,7 @@ import json as _json
 import os
 import time
 import uuid
-from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from pydantic import BaseModel
@@ -26,8 +26,59 @@ from modules.github_oss import analyze_github_oss
 from modules.pr_news import analyze_pr_news
 from modules.funding import analyze_funding
 from modules.bizmodel import analyze_bizmodel
+from modules.supabase_client import (
+    verify_token_and_get_user, deduct_credit,
+    get_user_profile, save_report_to_db,
+)
 
 app = FastAPI(title="Analook — 竞品情报分析")
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+
+async def _extract_user(request: Request) -> dict | None:
+    """从 Authorization: Bearer <token> 提取并验证用户，失败返回 None。"""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:].strip()
+    if not token:
+        return None
+    return await verify_token_and_get_user(token)
+
+
+async def _require_credits(request: Request):
+    """
+    检查用户积分。返回 (user, error_response)。
+    - user = None & error = None  → Supabase 未配置，放行（开发模式）
+    - user = dict & error = None  → 验证成功，积分已扣减
+    - user = None & error = JSONResponse → 拦截，直接返回给客户端
+    """
+    user = await _extract_user(request)
+
+    # Supabase 未配置（本地开发） → 放行
+    from modules.supabase_client import get_supabase
+    if not get_supabase():
+        return None, None
+
+    # 未登录 → 要求登录
+    if not user:
+        return None, JSONResponse(
+            {"error": "请先登录", "code": "AUTH_REQUIRED"},
+            status_code=401,
+        )
+
+    # 扣减积分（原子操作，余额不足时返回 False）
+    ok = await deduct_credit(user["id"])
+    if not ok:
+        return None, JSONResponse(
+            {"error": "积分不足，请升级套餐或等待下月重置", "code": "CREDITS_EXHAUSTED"},
+            status_code=402,
+        )
+
+    return user, None
 
 # In-memory store for analysis jobs
 jobs: dict = {}
@@ -53,9 +104,14 @@ class TextAnalyzeRequest(BaseModel):
 
 
 @app.post("/api/analyze")
-async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
+async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Request):
+    # ── 积分检查（Auth 中间件）──────────────────────────────────────────────
+    user, err = await _require_credits(request)
+    if err:
+        return err
+
     job_id = str(uuid.uuid4())[:8]
-    
+
     # Auto-detect product name from domain if not provided
     domain = urlparse(req.url if req.url.startswith("http") else f"https://{req.url}").netloc
     if not domain:
@@ -87,6 +143,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
         "status": "running",
         "product_name": product_name,
         "url": req.url if req.url.startswith("http") else f"https://{req.url}",
+        "user_id": user["id"] if user else None,       # ← 记录报告归属人
         "cancelled": False,
         "progress": {
             "website": "pending",
@@ -103,7 +160,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
         "report": None,
         "markdown": None,
     }
-    
+
     bg.add_task(_run_analysis_with_timeout, job_id)
     return {"job_id": job_id, "status": "started"}
 
@@ -619,7 +676,8 @@ os.makedirs(REPORTS_DIR, exist_ok=True)
 
 
 def _persist_report(job_id: str, job: dict):
-    """Save completed report to disk as JSON."""
+    """Save completed report to disk (JSON) and async-sync to Supabase."""
+    # 1. 本地 JSON（保持原有行为）
     try:
         data = {
             "job_id": job_id,
@@ -633,6 +691,39 @@ def _persist_report(job_id: str, job: dict):
             _json.dump(data, f, ensure_ascii=False, default=str)
     except Exception:
         pass
+
+    # 2. 同步写入 Supabase reports 表（异步，不阻塞返回）
+    report = job.get("report")
+    if report:
+        user_id = job.get("user_id")
+        # Free 套餐强制 is_public=True；Pro/Business 默认也先 public（Stripe 接好后再开关）
+        asyncio.create_task(save_report_to_db(
+            job_id=job_id,
+            user_id=user_id,
+            url=job.get("url", ""),
+            product_name=job.get("product_name", ""),
+            report=report,
+            markdown=job.get("markdown", ""),
+            is_public=True,
+        ))
+
+
+@app.get("/api/me")
+async def get_me(request: Request):
+    """返回当前登录用户的 profile（积分余额、套餐类型等）。未登录返回 401。"""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "未登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    profile = await get_user_profile(user["id"])
+    if not profile:
+        # profile 不存在（极少数情况，触发器可能延迟）
+        return JSONResponse({
+            "id": user["id"],
+            "email": user["email"],
+            "plan_type": "free",
+            "credits_balance": 0,
+        })
+    return profile
 
 
 @app.get("/api/status/{job_id}")

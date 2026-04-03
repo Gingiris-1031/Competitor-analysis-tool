@@ -99,6 +99,13 @@ async function startAnalysis() {
     if (currentMode === 'pdf') return startPdfAnalysis();
 
     clearError();
+
+    // ── Auth 检查：未登录则弹出登录框 ─────────────────────────────────────
+    if (window._analookAuth && !window._analookAuth.user) {
+        window._analookAuth.showModal();
+        return;
+    }
+
     const rawUrl = document.getElementById('url-input').value.trim();
     const normalized = normalizeUrl(rawUrl);
     if (!normalized) {
@@ -109,14 +116,30 @@ async function startAnalysis() {
     const name = document.getElementById('name-input').value.trim() || null;
     _beginProgress('🌐 正在分析竞品官网...');
 
+    // 附带 Auth token
+    const token = window._analookAuth?.getToken();
+    const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+
     try {
         const resp = await fetch('/api/analyze', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
             body: JSON.stringify({ url: normalized, product_name: name }),
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
+            // 积分不足 → 友好提示
+            if (resp.status === 402) {
+                _abortProgress('');
+                showError('⚡ 积分不足！免费用户每月 3 次，升级 Pro 可获得 50 次。');
+                return;
+            }
+            // 未登录 → 弹出登录框
+            if (resp.status === 401) {
+                _abortProgress('');
+                window._analookAuth?.showModal();
+                return;
+            }
             throw new Error(err.detail || `服务器错误 ${resp.status}`);
         }
         const data = await resp.json();
