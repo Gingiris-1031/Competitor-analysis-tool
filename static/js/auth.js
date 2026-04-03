@@ -186,7 +186,7 @@
       _clearAuthError();
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: 'https://www.analook.com' },
       });
       if (error) _setAuthError(error.message);
     });
@@ -196,7 +196,7 @@
       _clearAuthError();
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'github',
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: 'https://www.analook.com' },
       });
       if (error) _setAuthError(error.message);
     });
