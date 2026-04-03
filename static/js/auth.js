@@ -25,7 +25,12 @@
   // ── 初始化：恢复本地 session ──────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();
   _session = session;
-  _updateUI(session?.user ?? null);
+  // 等 DOM ready 后再更新 UI（按钮/头像元素可能还没渲染）
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => _updateUI(session?.user ?? null));
+  } else {
+    _updateUI(session?.user ?? null);
+  }
 
   // 监听 Auth 状态变化（登录 / 登出 / token 刷新）
   sb.auth.onAuthStateChange((_event, newSession) => {
@@ -133,8 +138,8 @@
     });
   }
 
-  // ── 事件绑定（等 DOM ready）──────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', () => {
+  // ── 事件绑定（DOM 已 ready 则立即执行，否则等待）────────────────────────
+  function _bindEvents() {
     // 打开弹窗
     document.getElementById('auth-btn')?.addEventListener('click', () => _openModal('login'));
 
@@ -190,7 +195,14 @@
     document.getElementById('auth-avatar')?.addEventListener('click', async () => {
       if (confirm('确定要登出吗？')) await sb.auth.signOut();
     });
-  });
+  }
+
+  // DOMContentLoaded 可能已经触发（async IIFE 加载 SDK 有延迟），直接判断
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bindEvents);
+  } else {
+    _bindEvents();
+  }
 
   // ── 动态加载脚本 ──────────────────────────────────────────────────────────
   function _loadScript(src) {
