@@ -21,6 +21,7 @@ from modules.ai_summary import generate_ai_summary, generate_ai_summary_from_tex
 from modules.report import generate_report, report_to_markdown
 from modules.traffic_peaks import analyze_traffic_peaks
 from modules.growth_strategy import recommend_playbooks, build_qa_playbook_context
+from modules.pricing import analyze_pricing
 
 app = FastAPI(title="Analook — 竞品情报分析")
 
@@ -85,6 +86,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks):
             "social": "pending",
             "propagation": "pending",
             "traffic": "pending",
+            "pricing": "pending",
             "traffic_peaks": "pending",
             "growth_analysis": "pending",
             "report": "pending",
@@ -264,6 +266,7 @@ async def _run_analysis(job_id: str):
         _t(analyze_domain(domain), 20),
         _t(analyze_producthunt(domain, product_name), 15),
         _t(analyze_social(domain, product_name, website_social_links={}), 35),
+        _t(analyze_pricing(url, product_name), 20),
         return_exceptions=True,
     )
 
@@ -279,6 +282,9 @@ async def _run_analysis(job_id: str):
 
     job["results"]["social"] = results_phase1[3] if not isinstance(results_phase1[3], Exception) else {"error": str(results_phase1[3])}
     job["progress"]["social"] = "error" if isinstance(results_phase1[3], Exception) else "done"
+
+    job["results"]["pricing"] = results_phase1[4] if not isinstance(results_phase1[4], Exception) else {"error": str(results_phase1[4])}
+    job["progress"]["pricing"] = "error" if isinstance(results_phase1[4], Exception) else "done"
 
     # ================================================================
     # Phase 2: Propagation + Traffic Peaks (parallel)
@@ -366,6 +372,7 @@ async def _run_analysis(job_id: str):
             growth_strategy=early_strategy,
             growth_analysis=job["results"].get("growth_analysis", {}),
             traffic_peaks=job["results"].get("traffic_peaks", {}),
+            pricing=job["results"].get("pricing", {}),
         )
         job["results"]["ai_summary"] = ai
     except Exception as ai_err:
@@ -391,6 +398,7 @@ async def _run_analysis(job_id: str):
 
         growth_strategy = job["results"].get("growth_strategy", {})
         report["sections"]["growth_strategy"] = growth_strategy
+        report["sections"]["pricing"] = job["results"].get("pricing", {})
 
         job["report"] = report
         try:
@@ -633,3 +641,4 @@ async def ask_question(req: QARequest):
 # Serve static files
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+

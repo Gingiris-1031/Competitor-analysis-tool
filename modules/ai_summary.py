@@ -5,7 +5,7 @@ import json
 import os
 
 
-async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None) -> dict:
+async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None) -> dict:
     """调用 LLM 基于所有数据生成商业洞察"""
 
     context = _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
@@ -14,6 +14,7 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     playbook_insight = _build_playbook_insight(growth_strategy)
     social_insight = _build_social_insight(social)
     growth_insight = _build_growth_insight(growth_analysis, traffic_peaks)
+    pricing_insight = _build_pricing_insight(pricing)
 
     prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
@@ -43,6 +44,10 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 {growth_insight}
 
+## 定价结构分析
+
+{pricing_insight}
+
 ## Gingiris Playbook 匹配
 
 {playbook_insight}
@@ -59,7 +64,7 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 ### 二、商业模式拆解
 
-**定价模型**：基于官网数据，描述其定价结构（免费/付费比例设计、付费墙触发点、定价层级）。如果没有定价数据，根据官网结构推断并标注"推断"。
+**定价模型**：基于上方"定价结构分析"中的真实抓取数据，描述其定价层级（套餐名称、价格、功能边界、付费墙触发点）。如果没有定价数据，根据官网结构推断并标注"推断"。
 
 **变现策略**：免费用户如何转化为付费用户？核心升级触发点是什么？
 
@@ -409,6 +414,37 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
     return "\n".join(parts)
 
 
+def _build_pricing_insight(pricing: dict) -> str:
+    """生成定价洞察文本，供 AI 提示词使用"""
+    p = pricing or {}
+    if not p.get("found"):
+        return "未能抓取到定价页数据（可能无公开定价或为纯企业询价模式）。"
+
+    lines = []
+    lines.append(f"**来源**: {p.get('source_url', '—')}")
+    lines.append(f"**定价模式**: {p.get('model', '—')} | **有免费套餐**: {'是' if p.get('free_plan') else '否'} | **免费试用**: {'是' if p.get('free_trial') else '否'}")
+    if p.get("annual_discount"):
+        lines.append(f"**年付折扣**: {p['annual_discount']}")
+
+    tiers = p.get("tiers", [])
+    if tiers:
+        lines.append(f"\n**定价层级**（共 {len(tiers)} 档）:")
+        for t in tiers:
+            price_str = "免费" if t.get("price_monthly") == 0 else f"${t.get('price_monthly', '?')}/月"
+            if t.get("price_annual_monthly"):
+                price_str += f"（年付 ${t['price_annual_monthly']}/月）"
+            features_str = " / ".join(t.get("features", [])[:3])
+            lines.append(f"  - **{t.get('name', '—')}**: {price_str} — {features_str}")
+
+    insights = p.get("insights", [])
+    if insights:
+        lines.append("\n**定价洞察**:")
+        for ins in insights:
+            lines.append(f"  • {ins}")
+
+    return "\n".join(lines)
+
+
 async def _call_llm(prompt: str) -> dict:
     """调用 LLM — 优先 TeamoRouter（重试3次），fallback DeepSeek（重试2次）"""
     teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
@@ -493,3 +529,4 @@ def _fallback_summary() -> dict:
         "note": "⚙️ AI 分析需配置 TEAMOROUTER_API_KEY 或 DEEPSEEK_API_KEY 环境变量。",
         "source": "fallback",
     }
+

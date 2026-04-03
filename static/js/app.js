@@ -330,6 +330,7 @@ async function loadReport() {
         renderSocial(report.sections.social_media || {});
         renderPropagation(report.sections.propagation || {});
         renderTraffic(report.sections.traffic_analysis || {});
+        if (typeof renderPricing === 'function') renderPricing(report.sections.pricing || {});
         renderPeaks(report.sections.traffic_peaks || {});
         renderGrowth(report.sections.growth_analysis || {});
         renderInsights(report.sections.ai_insights || report.sections.ai_summary || {});
@@ -497,3 +498,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
