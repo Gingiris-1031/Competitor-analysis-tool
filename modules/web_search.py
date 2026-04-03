@@ -53,10 +53,13 @@ async def search_and_summarize(query: str, num_results: int = 8) -> dict:
 
 async def _google_search(query: str, limit: int = 8) -> dict:
     """DataForSEO SERP API"""
-    b64_path = os.path.expanduser("~/.cola/secrets/dataforseo_b64")
-    try:
-        b64 = open(b64_path).read().strip()
-    except FileNotFoundError:
+    b64 = os.environ.get("DATAFORSEO_B64", "").strip()
+    if not b64:
+        try:
+            b64 = open(os.path.expanduser("~/.cola/secrets/dataforseo_b64")).read().strip()
+        except FileNotFoundError:
+            pass
+    if not b64:
         return {"items": [], "error": "No DataForSEO credentials"}
 
     async with httpx.AsyncClient(timeout=20) as client:

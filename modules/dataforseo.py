@@ -8,12 +8,13 @@ API_BASE = "https://api.dataforseo.com/v3"
 
 
 def _get_auth_header() -> str:
-    b64_path = os.path.expanduser("~/.cola/secrets/dataforseo_b64")
-    try:
-        b64 = open(b64_path).read().strip()
-        return f"Basic {b64}"
-    except FileNotFoundError:
-        return ""
+    b64 = os.environ.get("DATAFORSEO_B64", "").strip()
+    if not b64:
+        try:
+            b64 = open(os.path.expanduser("~/.cola/secrets/dataforseo_b64")).read().strip()
+        except FileNotFoundError:
+            pass
+    return f"Basic {b64}" if b64 else ""
 
 
 async def analyze_domain(domain: str) -> dict:

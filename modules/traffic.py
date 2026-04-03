@@ -41,11 +41,13 @@ async def analyze_traffic(domain: str) -> dict:
 
 
 def _get_api_key():
-    path = os.path.expanduser("~/.cola/secrets/caravo_api_key")
-    try:
-        return open(path).read().strip()
-    except FileNotFoundError:
-        return None
+    api_key = os.environ.get("CARAVO_API_KEY", "").strip()
+    if not api_key:
+        try:
+            api_key = open(os.path.expanduser("~/.cola/secrets/caravo_api_key")).read().strip()
+        except FileNotFoundError:
+            pass
+    return api_key or None
 
 
 def _call_caravo(env: dict, tool_id: str, params: dict) -> dict:

@@ -185,10 +185,13 @@ async def _call_llm(prompt: str) -> dict:
             pass  # Fall through to DeepSeek
 
     # Priority 2: DeepSeek direct
-    key_path = os.path.expanduser("~/.cola/secrets/deepseek_api_key")
-    try:
-        api_key = open(key_path).read().strip()
-    except FileNotFoundError:
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        try:
+            api_key = open(os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
+        except FileNotFoundError:
+            pass
+    if not api_key:
         return _fallback_summary(prompt)
 
     try:

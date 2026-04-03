@@ -11,6 +11,9 @@ PLAYWRIGHT_PATH = "/Applications/Cola.app/Contents/Resources/server/node_modules
 
 
 def _get_token() -> str:
+    token = os.environ.get("PRODUCTHUNT_TOKEN", "").strip()
+    if token:
+        return token
     for p in ["~/.cola/secrets/producthunt_dev_token", "~/.cola/secrets/producthunt_token"]:
         try:
             return open(os.path.expanduser(p)).read().strip()

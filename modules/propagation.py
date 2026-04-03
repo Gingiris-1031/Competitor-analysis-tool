@@ -33,10 +33,13 @@ from typing import Optional
 
 def _call_caravo(tool_id: str, params: dict) -> dict:
     """调用 Caravo CLI，复用 social.py 的同款逻辑"""
-    api_key_path = os.path.expanduser("~/.cola/secrets/caravo_api_key")
-    try:
-        api_key = open(api_key_path).read().strip()
-    except FileNotFoundError:
+    api_key = os.environ.get("CARAVO_API_KEY", "").strip()
+    if not api_key:
+        try:
+            api_key = open(os.path.expanduser("~/.cola/secrets/caravo_api_key")).read().strip()
+        except FileNotFoundError:
+            pass
+    if not api_key:
         return {"success": False, "error": "No Caravo API key"}
     env = os.environ.copy()
     env["CARAVO_API_KEY"] = api_key
