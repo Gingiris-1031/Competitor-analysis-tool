@@ -149,9 +149,12 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        # Brave slug + brand + known PH post slug patterns (numbered -2/-3, -ai, etc.)
+        # Brave slug + brand + known PH post slug patterns
         extra_slugs = [f"{brand}-2", f"{brand}-3", f"{brand}-4", f"{brand}-ai",
-                       f"{brand}-open-source", f"get-{brand}"]
+                       f"{brand}-open-source", f"get-{brand}",
+                       # Version-style slugs (notion-2-0, notion-3-0)
+                       f"{brand}-2-0", f"{brand}-3-0", f"{brand}-4-0",
+                       f"{brand}-ai-2", f"{brand}-ai-3"]
         seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug] + extra_slugs)))
 
         all_hits = []
