@@ -18,7 +18,57 @@ function renderPropagation(prop) {
         <h3 class="text-lg font-semibold mb-1">🌐 传播深度分析</h3>
         <p class="text-xs text-gray-500 mb-5">Launch 帖四阶段传播 · KOL 影响力图谱 · 传播节奏</p>`;
 
-    if (isApprox && approx) {
+    // ── Multi-channel fallback mode (Twitter unavailable, show PH/GitHub/Reddit signals) ──
+    if (prop.data_mode === 'multi_channel_fallback') {
+        const signals = prop.signals || [];
+        const ph = prop.producthunt || {};
+        const gh = prop.github || {};
+        const rd = prop.reddit || {};
+        const errors = prop.errors || [];
+
+        if (errors.length) {
+            html += `<div class="bg-yellow-900/10 border border-yellow-700/30 rounded-lg p-3 mb-5 text-xs text-yellow-300/80">${esc(prop.note || '⚠️ Twitter API 不可用')}</div>`;
+        }
+
+        // Stats grid
+        html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">`;
+        if (ph.votes) {
+            html += `<div class="bg-gray-800 rounded-lg p-3">
+                <div class="text-[10px] text-gray-500">Product Hunt</div>
+                <div class="text-sm font-mono text-orange-300 mt-0.5">${Number(ph.votes).toLocaleString()} votes</div>
+                ${ph.comments ? `<div class="text-[10px] text-gray-500 mt-0.5">${ph.comments} comments</div>` : ''}
+                ${ph.date ? `<div class="text-[10px] text-gray-500">${esc(ph.date)}</div>` : ''}
+            </div>`;
+        }
+        if (gh.stars) {
+            html += `<div class="bg-gray-800 rounded-lg p-3">
+                <div class="text-[10px] text-gray-500">GitHub Stars</div>
+                <div class="text-sm font-mono text-yellow-300 mt-0.5">${Number(gh.stars).toLocaleString()}</div>
+            </div>`;
+        }
+        if (rd.posts) {
+            html += `<div class="bg-gray-800 rounded-lg p-3">
+                <div class="text-[10px] text-gray-500">Reddit</div>
+                <div class="text-sm font-mono text-blue-300 mt-0.5">${rd.posts} posts</div>
+                ${rd.members ? `<div class="text-[10px] text-gray-500 mt-0.5">${Number(rd.members).toLocaleString()} members</div>` : ''}
+            </div>`;
+        }
+        html += `</div>`;
+
+        // Signal list
+        if (signals.length) {
+            html += `<div class="space-y-2">`;
+            for (const sig of signals) {
+                html += `<div class="bg-gray-800 rounded-lg p-3 text-xs text-gray-300">${esc(sig)}</div>`;
+            }
+            html += `</div>`;
+        }
+
+        if (!signals.length && !ph.votes && !gh.stars && !rd.posts) {
+            html += `<div class="text-xs text-gray-500">暂无传播数据</div>`;
+        }
+
+    } else if (isApprox && approx) {
         // ── Approximate mode ────────────────────────────────────────────────
         html += `<div class="bg-yellow-900/10 border border-yellow-700/30 rounded-lg p-3 mb-5 text-xs text-yellow-300/80">${esc(approx.note || '近似分析模式')}</div>`;
 

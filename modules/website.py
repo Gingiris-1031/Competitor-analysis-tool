@@ -129,28 +129,32 @@ def _refine_first_seen(raw_first_seen: str, snapshots: list) -> str:
 
 
 async def _fetch_wayback_timeline(domain: str) -> dict:
-    """获取快照时间线：CDX API → Wayback timemap → Memento Time Travel API（多源聚合）"""
-    
-    # Try CDX API first (faster, deduped)
-    result = await _try_cdx(domain)
-    if result.get("all_timestamps"):
-        return result
-    
-    # Fallback to timemap API
+    """获取快照时间线：CDX + Memento 并行尝试，任一成功即返回"""
+
+    # Run CDX and Memento in parallel — don't wait for one to fail before trying the other
+    cdx_task = _try_cdx(domain)
+    memento_task = _try_memento(domain)
+
+    results = await asyncio.gather(cdx_task, memento_task, return_exceptions=True)
+
+    # Prefer CDX (deduped, cleaner data)
+    for r in results:
+        if isinstance(r, dict) and r.get("all_timestamps"):
+            return r
+
+    # Fallback to timemap (sequential, only if parallel failed)
     result = await _try_timemap(domain)
     if result.get("all_timestamps"):
         return result
 
-    # Last resort: Memento Time Travel API (aggregates Wayback + Archive.today + others)
-    result = await _try_memento(domain)
-    return result
+    return {"all_timestamps": [], "error": "Wayback Machine API 暂不可用，历史快照分析跳过"}
 
 
 async def _try_memento(domain: str) -> dict:
     """Memento Time Travel API — 聚合多个存档源（Wayback、Archive.today 等）"""
     url = f"https://timetravel.mementoweb.org/timemap/json/https://{domain}/"
     try:
-        async with httpx.AsyncClient(timeout=7) as client:
+        async with httpx.AsyncClient(timeout=12) as client:
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
             if resp.status_code != 200:
                 return {"all_timestamps": []}
@@ -191,7 +195,7 @@ async def _try_cdx(domain: str) -> dict:
         f"&filter=statuscode:200&collapse=timestamp:6&limit=30"
     )
     try:
-        async with httpx.AsyncClient(timeout=6) as client:
+        async with httpx.AsyncClient(timeout=12) as client:
             resp = await client.get(api_url)
             if resp.status_code != 200:
                 return {"all_timestamps": []}
@@ -216,7 +220,7 @@ async def _try_timemap(domain: str) -> dict:
     """Timemap API — fallback，更稳定但不去重"""
     api_url = f"https://web.archive.org/web/timemap/json?url={domain}&fl=timestamp,original&limit=50&output=json"
     try:
-        async with httpx.AsyncClient(timeout=6) as client:
+        async with httpx.AsyncClient(timeout=12) as client:
             resp = await client.get(api_url)
             if resp.status_code != 200:
                 return {"all_timestamps": []}
