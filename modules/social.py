@@ -662,13 +662,21 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             log.info("Twitter data for @%s fetched via Apify", screen_name)
             return result
 
-        # If we reach here, Apify didn't find a matching account — fall through
-        log.info("Apify did not resolve Twitter for brand=%s, falling back to Caravo", brand)
+        # If we reach here, Apify didn't find a matching account
+        # If we had a handle_hint (from website/Brave), skip slow Caravo and go to Brave fallback
+        if handle_hint:
+            log.info("Apify failed for hint @%s, skipping Caravo → Brave fallback", handle_hint)
+        else:
+            log.info("Apify did not resolve Twitter for brand=%s, falling back to Caravo", brand)
 
     # ------------------------------------------------------------------
-    # Strategy 2: Caravo CLI / HTTP fallback (original logic)
+    # Strategy 2: Caravo CLI / HTTP fallback
+    # Skip entirely when we have a handle_hint — Brave fallback is faster
     # ------------------------------------------------------------------
-    for handle in handles_to_try:
+    if handle_hint and not result["detected"]:
+        pass  # Skip Caravo, go straight to Brave fallback below
+    elif not result["detected"]:
+      for handle in handles_to_try:
         user_data = _call_caravo("twitter241/user", {"username": handle})
         if user_data.get("success") and user_data.get("data"):
             d = user_data["data"]

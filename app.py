@@ -455,6 +455,23 @@ async def _run_analysis(job_id: str):
                 _ws_social_links[_platform]["url"] = _ch["url"]
             _ws_social_links[_platform]["verified"] = True
 
+    # Phase 1.8: Retry Twitter if not detected — now we have website social_links
+    _tw_ch = _soc_channels.get("twitter", {})
+    if not (isinstance(_tw_ch, dict) and _tw_ch.get("detected")):
+        _tw_hint = _ws_social_links.get("twitter", {}).get("handle")
+        if _tw_hint:
+            from modules.social import _deep_twitter_caravo
+            try:
+                _tw_retry = await asyncio.wait_for(
+                    _deep_twitter_caravo(_brand_lower, product_name, handle_hint=_tw_hint),
+                    timeout=55,
+                )
+                if isinstance(_tw_retry, dict) and _tw_retry.get("detected"):
+                    soc = job["results"].setdefault("social", {})
+                    soc.setdefault("channels", {})["twitter"] = _tw_retry
+            except Exception:
+                pass
+
     # ================================================================
     # Phase 2: Propagation + Traffic Peaks (parallel, ~10s)
     # ================================================================
