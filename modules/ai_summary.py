@@ -527,9 +527,9 @@ async def _call_llm(prompt: str) -> dict:
     last_teamo_err = None
     if teamo_key:
         model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
-        for attempt in range(3):
+        for attempt in range(2):
             try:
-                async with httpx.AsyncClient(timeout=90) as client:
+                async with httpx.AsyncClient(timeout=50) as client:
                     resp = await client.post(
                         "https://router.teamolab.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
@@ -550,8 +550,8 @@ async def _call_llm(prompt: str) -> dict:
                     last_teamo_err = "empty response"
             except Exception as e:
                 last_teamo_err = str(e)
-            if attempt < 2:
-                await asyncio.sleep(2 ** attempt)  # 1s then 2s backoff
+            if attempt < 1:
+                await asyncio.sleep(2)
 
     # DeepSeek fallback
     api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
@@ -566,7 +566,7 @@ async def _call_llm(prompt: str) -> dict:
     last_ds_err = None
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=90) as client:
+            async with httpx.AsyncClient(timeout=50) as client:
                 resp = await client.post(
                     "https://api.deepseek.com/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
