@@ -282,13 +282,21 @@ async def _call_apify_twitter_user(handle: str) -> dict:
                 f"{api_base}/acts/{actor_id}/run-sync-get-dataset-items",
                 json=run_input,
                 params={"token": token},
-                timeout=60,
+                timeout=75,
             )
             if resp.status_code not in (200, 201):
                 body = resp.text[:200] if resp.text else ""
                 return {"success": False, "error": f"Apify HTTP {resp.status_code}: {body}"}
 
-            items = resp.json()
+            try:
+                items = resp.json()
+            except Exception:
+                return {"success": False, "error": f"Apify non-JSON response: {resp.text[:100]}"}
+
+            # run-sync may return error object instead of list
+            if isinstance(items, dict):
+                err = items.get("error", {})
+                return {"success": False, "error": f"Apify error: {err.get('message', str(err)[:100])}"}
             if not isinstance(items, list) or not items:
                 return {"success": False, "error": "Apify returned empty dataset"}
 
