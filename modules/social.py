@@ -280,12 +280,13 @@ async def _call_apify_twitter_user(handle: str) -> dict:
             # finish, and returns the dataset items directly in one call.
             resp = await client.post(
                 f"{api_base}/acts/{actor_id}/run-sync-get-dataset-items",
-                headers=headers,
                 json=run_input,
                 params={"token": token},
+                timeout=60,
             )
             if resp.status_code not in (200, 201):
-                return {"success": False, "error": f"Apify HTTP {resp.status_code}"}
+                body = resp.text[:200] if resp.text else ""
+                return {"success": False, "error": f"Apify HTTP {resp.status_code}: {body}"}
 
             items = resp.json()
             if not isinstance(items, list) or not items:
