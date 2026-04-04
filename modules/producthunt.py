@@ -189,7 +189,10 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
             # vs "Notion" note-taking app). Group by PH product slug and pick the
             # group with the highest total votes — that's the real product.
             name_lower = product_name.lower()
-            name_matched = [h for h in all_hits if h.get("name", "").lower() == name_lower]
+            # Use startswith to match versioned names: "Notion 2.0" starts with "Notion"
+            name_matched = [h for h in all_hits
+                            if h.get("name", "").lower() == name_lower
+                            or h.get("name", "").lower().startswith(name_lower + " ")]
             if name_matched and len(name_matched) > 1:
                 # Group by PH product slug, pick group with most total votes
                 from collections import defaultdict
