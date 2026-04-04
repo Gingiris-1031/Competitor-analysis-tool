@@ -6,8 +6,22 @@ from datetime import datetime
 from typing import Optional
 
 
+async def fetch_seoreviewtools(domain: str) -> dict:
+    """Public API: fetch SEO Review Tools data for a domain.
+    Called from app.py Phase 1 alongside DataForSEO.
+    """
+    return await _fetch_seoreviewtools(domain)
+
+
+def merge_seo_data(dataforseo: dict, srt: dict) -> dict:
+    """Public API: merge DataForSEO + SEO Review Tools data.
+    Called from app.py after Phase 1 completes.
+    """
+    return _merge_seo_data(dataforseo, srt)
+
+
 async def analyze_traffic(domain: str) -> dict:
-    """综合流量分析：DataForSEO SEO 指标 + Google Trends + WHOIS"""
+    """综合流量分析：DataForSEO + SEO Review Tools + Google Trends + WHOIS"""
 
     brand = (
         domain
@@ -17,20 +31,25 @@ async def analyze_traffic(domain: str) -> dict:
         .split(".")[0]
     )
 
-    # 并发执行三个数据源
+    # 并发执行所有数据源
     seo_task     = asyncio.create_task(_fetch_dataforseo_metrics(domain))
+    srt_task     = asyncio.create_task(_fetch_seoreviewtools(domain))
     trends_task  = asyncio.create_task(_fetch_trends(brand))
     whois_task   = asyncio.create_task(_fetch_whois(domain))
 
     seo_data    = await seo_task
+    srt_data    = await srt_task
     trends_data = await trends_task
     whois_data  = await whois_task
 
+    # Merge: DataForSEO is primary, SEO Review Tools fills gaps + adds DA/Spam Score
+    merged_seo = _merge_seo_data(seo_data, srt_data)
+
     return {
-        "seo_metrics":    seo_data,
+        "seo_metrics":    merged_seo,
         "google_trends":  trends_data,
         "whois":          whois_data,
-        "growth_analysis": _build_growth_analysis(seo_data, trends_data, whois_data),
+        "growth_analysis": _build_growth_analysis(merged_seo, trends_data, whois_data),
     }
 
 
@@ -90,6 +109,103 @@ async def _fetch_dataforseo_metrics(domain: str) -> dict:
 
     except Exception as e:
         return {"error": str(e)[:200], "domain": domain}
+
+
+# ---------------------------------------------------------------------------
+# SEO Review Tools — Domain Authority + Traffic + Backlinks (fallback/complement)
+# ---------------------------------------------------------------------------
+
+async def _fetch_seoreviewtools(domain: str) -> dict:
+    """Fetch traffic + backlink data from SEO Review Tools API.
+
+    Free/cheap alternative to DataForSEO. Provides:
+    - Global organic traffic estimate
+    - Backlink count, referring domains, TLD distribution
+    - Moz Domain Authority (DA) + Spam Score (unique, DataForSEO doesn't have)
+    """
+    api_key = os.environ.get("SEOREVIEWTOOLS_KEY", "").strip()
+    if not api_key:
+        return {}
+
+    result = {}
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+            # Traffic + Backlinks in parallel
+            traffic_resp, backlink_resp = await asyncio.gather(
+                client.get(f"https://api.seoreviewtools.com/v5/website-traffic/?key={api_key}&url={domain}"),
+                client.get(f"https://api.seoreviewtools.com/v5/backlink-overview/?key={api_key}&url={domain}"),
+                return_exceptions=True,
+            )
+
+            # Parse traffic
+            if not isinstance(traffic_resp, Exception) and traffic_resp.status_code == 200:
+                data = traffic_resp.json()
+                if data.get("status") == "ok":
+                    items = data.get("data", {}).get("data", [])
+                    if items:
+                        result["srt_organic_traffic"] = items[0].get("organic traffic", 0)
+                        result["srt_paid_traffic"] = items[0].get("paid traffic", 0)
+
+            # Parse backlinks
+            if not isinstance(backlink_resp, Exception) and backlink_resp.status_code == 200:
+                data = backlink_resp.json()
+                if data.get("status") == "ok":
+                    items = data.get("data", {}).get("data", [])
+                    if items:
+                        bl = items[0]
+                        result["domain_authority"] = bl.get("Domain Authority", 0)
+                        result["spam_score"] = bl.get("Spam Score", 0)
+                        result["srt_backlinks"] = bl.get("Backlinks total", 0)
+                        result["srt_referring_domains"] = bl.get("Unique domains", 0)
+                        result["srt_indexed_pages"] = bl.get("Indexed pages", 0)
+                        # TLD distribution (top 5)
+                        tld = bl.get("TLD distribution", {})
+                        if isinstance(tld, dict):
+                            top_tlds = sorted(tld.items(), key=lambda x: x[1], reverse=True)[:5]
+                            result["tld_distribution"] = {k: v for k, v in top_tlds}
+
+    except Exception:
+        pass
+
+    result["_source"] = "seoreviewtools"
+    return result
+
+
+def _merge_seo_data(dataforseo: dict, srt: dict) -> dict:
+    """Merge DataForSEO (primary) with SEO Review Tools (complement/fallback).
+
+    DataForSEO is more detailed but costs more. SRT adds:
+    - domain_authority (Moz DA, 0-100) — DataForSEO has its own 'rank' but not Moz DA
+    - spam_score — unique to SRT
+    - Fallback traffic/backlink numbers when DataForSEO fails
+    """
+    merged = dict(dataforseo) if dataforseo else {}
+
+    if not srt:
+        return merged
+
+    # Always add DA + Spam Score (unique to SRT, not in DataForSEO)
+    if srt.get("domain_authority"):
+        merged["domain_authority"] = srt["domain_authority"]
+    if srt.get("spam_score") is not None:
+        merged["spam_score"] = srt["spam_score"]
+    if srt.get("tld_distribution"):
+        merged["tld_distribution"] = srt["tld_distribution"]
+    if srt.get("srt_indexed_pages"):
+        merged["indexed_pages"] = srt["srt_indexed_pages"]
+
+    # Fallback: use SRT data when DataForSEO failed or returned empty
+    if merged.get("error") or not merged.get("organic_traffic_estimate"):
+        if srt.get("srt_organic_traffic"):
+            merged["organic_traffic_estimate"] = srt["srt_organic_traffic"]
+            merged["_traffic_source"] = "seoreviewtools"
+            merged.pop("error", None)
+    if not merged.get("backlinks") and srt.get("srt_backlinks"):
+        merged["backlinks"] = srt["srt_backlinks"]
+        merged["referring_domains"] = srt.get("srt_referring_domains", 0)
+        merged["_backlinks_source"] = "seoreviewtools"
+
+    return merged
 
 
 # ---------------------------------------------------------------------------

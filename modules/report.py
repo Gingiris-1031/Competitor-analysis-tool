@@ -50,16 +50,24 @@ def _format_social(data: dict) -> dict:
 
 
 def _format_traffic(data: dict) -> dict:
-    return {
+    result = {
         "title": "流量与 SEO 分析",
-        "source": "DataForSEO",
+        "source": "DataForSEO + SEO Review Tools",
         "domain_rank": data.get("domain_rank", {}),
         "backlinks": data.get("backlinks", {}),
         "top_keywords": data.get("top_keywords", {}),
         "historical": data.get("historical", {}),
         "growth_analysis": data.get("growth_analysis", {}),
         "total_cost": data.get("total_cost", 0),
+        # Merged SEO metrics (DA, spam score, fallback traffic/backlinks)
+        "seo_metrics": {
+            k: data[k] for k in (
+                "domain_authority", "spam_score", "indexed_pages", "tld_distribution",
+                "organic_traffic_estimate", "backlinks", "referring_domains",
+            ) if data.get(k) is not None
+        },
     }
+    return result
 
 
 def _generate_summary(name: str, website: dict, social: dict, traffic: dict, producthunt: dict = None) -> dict:

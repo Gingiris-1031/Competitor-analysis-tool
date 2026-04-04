@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from modules.website import analyze_website
 from modules.social import analyze_social, run_launch_propagation
 from modules.growth_analysis import analyze_growth_deep
-from modules.traffic import analyze_traffic
+from modules.traffic import analyze_traffic, fetch_seoreviewtools, merge_seo_data
 from modules.dataforseo import analyze_domain
 from modules.producthunt import analyze_producthunt
 from modules.ai_summary import generate_ai_summary, generate_ai_summary_from_text
@@ -326,17 +326,18 @@ async def _run_analysis(job_id: str):
         except asyncio.TimeoutError:
             return {"error": f"timeout after {timeout}s", "_timed_out": True}
 
-    # Phase 1: all modules run in parallel
+    # Phase 1: all modules run in parallel (including SEO Review Tools alongside DataForSEO)
     job["progress"]["pr_news"] = "running"
     results_phase1 = await asyncio.gather(
         _t(analyze_website(url), 40),
         _t(analyze_domain(domain), 20),
         _t(analyze_producthunt(domain, product_name), 25),
-        _t(analyze_social(domain, product_name, website_social_links={}), 80),  # Apify Twitter needs 30-60s per handle
+        _t(analyze_social(domain, product_name, website_social_links={}), 80),
         _t(analyze_pricing(url, product_name), 20),
-        _t(analyze_github_oss(domain, product_name, {}), 25),                  # Phase 1, no website hints
+        _t(analyze_github_oss(domain, product_name, {}), 25),
         _t(analyze_pr_news(domain, product_name), 18),
         _t(analyze_funding(domain, product_name), 15),
+        _t(fetch_seoreviewtools(domain), 15),  # SEO Review Tools: DA + backlinks + traffic fallback
         return_exceptions=True,
     )
 
@@ -345,7 +346,10 @@ async def _run_analysis(job_id: str):
     job["results"]["website"] = results_phase1[0] if not isinstance(results_phase1[0], Exception) else {"error": str(results_phase1[0])}
     job["progress"]["website"] = "error" if isinstance(results_phase1[0], Exception) else "done"
 
-    job["results"]["traffic"] = results_phase1[1] if not isinstance(results_phase1[1], Exception) else {"error": str(results_phase1[1])}
+    _dataforseo_raw = results_phase1[1] if not isinstance(results_phase1[1], Exception) else {"error": str(results_phase1[1])}
+    _srt_raw = results_phase1[8] if isinstance(results_phase1[8], dict) else {}
+    # Merge DataForSEO + SEO Review Tools: adds DA/Spam Score, fallback traffic/backlinks
+    job["results"]["traffic"] = merge_seo_data(_dataforseo_raw, _srt_raw)
     job["progress"]["traffic"] = "error" if isinstance(results_phase1[1], Exception) else "done"
 
     job["results"]["producthunt"] = results_phase1[2] if not isinstance(results_phase1[2], Exception) else {"error": str(results_phase1[2])}

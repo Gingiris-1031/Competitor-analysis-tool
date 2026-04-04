@@ -20,20 +20,50 @@ function renderTraffic(tr) {
     const hist = tr.historical || {};
     const growth = tr.growth_analysis || {};
 
+    // Check for SEO Review Tools data in seo_metrics (merged)
+    const seoM = tr.seo_metrics || {};
+
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <h3 class="text-lg font-semibold mb-1">📈 流量与 SEO 分析</h3>
-        <p class="text-xs text-gray-500 mb-4">数据来源: DataForSEO</p>`;
+        <p class="text-xs text-gray-500 mb-4">数据来源: DataForSEO + SEO Review Tools</p>`;
+
+    // Domain Authority bar (if available from SEO Review Tools)
+    if (seoM.domain_authority) {
+        const da = seoM.domain_authority;
+        const spam = seoM.spam_score || 0;
+        const daColor = da >= 60 ? 'bg-green-500' : da >= 30 ? 'bg-yellow-500' : 'bg-red-500';
+        const spamColor = spam <= 10 ? 'text-green-400' : spam <= 30 ? 'text-yellow-400' : 'text-red-400';
+        html += `<div class="flex items-center gap-4 mb-5 bg-gray-800 rounded-lg p-4">
+            <div class="flex-1">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs text-gray-400">Domain Authority (Moz)</span>
+                    <span class="text-lg font-bold font-mono text-white">${da}<span class="text-xs text-gray-500">/100</span></span>
+                </div>
+                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="${daColor} h-full rounded-full transition-all" style="width:${da}%"></div>
+                </div>
+            </div>
+            <div class="text-center px-3 border-l border-gray-700">
+                <div class="text-[10px] text-gray-500">Spam Score</div>
+                <div class="text-sm font-mono ${spamColor} mt-0.5">${spam}%</div>
+            </div>
+            ${seoM.indexed_pages ? `<div class="text-center px-3 border-l border-gray-700">
+                <div class="text-[10px] text-gray-500">收录页面</div>
+                <div class="text-sm font-mono text-gray-300 mt-0.5">${Number(seoM.indexed_pages).toLocaleString()}</div>
+            </div>` : ''}
+        </div>`;
+    }
 
     // Core metrics grid
-    if (rank.organic_traffic || bl.backlinks) {
+    if (rank.organic_traffic || bl.backlinks || seoM.organic_traffic_estimate) {
         html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">`;
         const metrics = [
-            ['有机流量/月', rank.organic_traffic, 'text-blue-300'],
+            ['有机流量/月', rank.organic_traffic || seoM.organic_traffic_estimate, 'text-blue-300'],
             ['排名关键词', rank.total_keywords, 'text-green-300'],
             ['Top 10 关键词', rank.keywords_top10, 'text-purple-300'],
             ['等效付费成本', rank.estimated_paid_cost ? '$'+rank.estimated_paid_cost.toLocaleString() : null, 'text-yellow-300'],
-            ['反向链接', bl.backlinks, 'text-blue-300'],
-            ['引用域名', bl.referring_domains, 'text-green-300'],
+            ['反向链接', bl.backlinks || seoM.backlinks, 'text-blue-300'],
+            ['引用域名', bl.referring_domains || seoM.referring_domains, 'text-green-300'],
             ['域名排名', bl.domain_rank, 'text-purple-300'],
             ['引用 IP', bl.referring_ips, 'text-gray-300'],
         ];
