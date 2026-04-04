@@ -91,8 +91,26 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
                     timeout=50,
                 )
             except _aio.TimeoutError:
+                # Apify/Caravo timed out — try quick Brave fallback for handle + followers
+                handle = twitter_hint
+                if not handle:
+                    try:
+                        from .web_search import brave_find_twitter
+                        handle = await brave_find_twitter(brand, product_name, domain=domain)
+                    except Exception:
+                        pass
+                if handle:
+                    followers = await _brave_twitter_followers(handle)
+                    return {
+                        "platform": "Twitter/X", "detected": True,
+                        "handle": f"@{handle}" if not handle.startswith("@") else handle,
+                        "url": f"https://x.com/{handle.lstrip('@')}",
+                        "followers": followers,
+                        "following": None, "profile": {}, "top_tweets": [],
+                        "note": f"粉丝数来自 Brave Search（Apify 超时）" if followers else "Apify 超时，仅 Brave 确认账号存在",
+                    }
                 return {"platform": "Twitter/X", "detected": False, "handle": None,
-                        "note": "Twitter 分析超时（Apify 响应慢），建议手动确认"}
+                        "note": "Twitter 分析超时，未找到匹配账号"}
 
         twitter_task   = _twitter_with_timeout()
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
