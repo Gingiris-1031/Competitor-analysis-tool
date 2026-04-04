@@ -536,14 +536,17 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     # Strategy 1: Apify REST API (apidojo/twitter-profile-scraper)
     # ------------------------------------------------------------------
     apify_token = _get_apify_token()
+    _apify_errors = []  # Collect errors for debugging
     if apify_token:
         # Limit Apify to first 3 handles (each call takes 30-60s, $0.003 per profile)
         for handle in handles_to_try[:3]:
             apify_resp = await _call_apify_twitter_user(handle)
             if not apify_resp.get("success"):
-                log.debug("Apify miss for @%s: %s", handle, apify_resp.get("error", ""))
+                err_msg = apify_resp.get("error", "unknown")
+                _apify_errors.append(f"@{handle}: {err_msg}")
+                log.warning("Apify miss for @%s: %s", handle, err_msg)
                 # If token issue, stop trying Apify entirely
-                if "token" in apify_resp.get("error", "").lower():
+                if "token" in err_msg.lower():
                     break
                 continue
 
@@ -722,11 +725,13 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 result["followers"] = followers
                 result["note"] = "粉丝数来自 Brave Search 摘要（近似值）"
             else:
-                result["note"] = "受 API 限制，仅显示账号信息（粉丝数/推文需 Apify/Caravo 支持）"
+                apify_debug = "; ".join(_apify_errors[:2]) if _apify_errors else ""
+                result["note"] = f"受 API 限制，仅显示账号信息。Apify: {apify_debug}" if apify_debug else "受 API 限制，仅显示账号信息"
         else:
             tried_str = ", ".join(handles_to_try[:3])
             sources = "Apify + Caravo" if apify_token else "Caravo"
-            result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}...）。可能需要充值或手动确认。"
+            apify_debug = "; ".join(_apify_errors[:2]) if _apify_errors else ""
+            result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}）。{apify_debug}"
         result["key_posts_framework"] = {
             "note": "🔍 需 API 充值或手动补充",
             "needed_data": [
