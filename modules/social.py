@@ -237,7 +237,7 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 # Actor IDs on Apify
-_APIFY_PROFILE_ACTOR = "happitap/twitter-profile-scraper"
+_APIFY_PROFILE_ACTOR = "happitap~twitter-profile-scraper"
 _APIFY_TWEET_ACTOR = "apidojo/tweet-scraper"
 
 
@@ -276,24 +276,54 @@ async def _call_apify_twitter_user(handle: str) -> dict:
 
     try:
         async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-            # Use run-sync-get-dataset-items: starts the actor, waits for it to
-            # finish, and returns the dataset items directly in one call.
+            # Start actor run with waitForFinish
             resp = await client.post(
-                f"{api_base}/acts/{actor_id}/run-sync-get-dataset-items",
+                f"{api_base}/acts/{actor_id}/runs",
                 json=run_input,
-                params={"token": token},
+                params={"token": token, "waitForFinish": 60},
                 timeout=75,
             )
             if resp.status_code not in (200, 201):
                 body = resp.text[:200] if resp.text else ""
                 return {"success": False, "error": f"Apify HTTP {resp.status_code}: {body}"}
 
-            try:
-                items = resp.json()
-            except Exception:
-                return {"success": False, "error": f"Apify non-JSON response: {resp.text[:100]}"}
+            run_data = resp.json().get("data", {})
+            run_id = run_data.get("id")
+            run_status = run_data.get("status")
 
-            # run-sync may return error object instead of list
+            if not run_id:
+                return {"success": False, "error": "Apify run missing id"}
+
+            # Poll if not finished yet
+            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                import asyncio as _aio_poll
+                for _ in range(4):
+                    await _aio_poll.sleep(8)
+                    sr = await client.get(
+                        f"{api_base}/actor-runs/{run_id}",
+                        params={"token": token},
+                    )
+                    if sr.status_code == 200:
+                        run_status = sr.json().get("data", {}).get("status")
+                        if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                            break
+
+            if run_status != "SUCCEEDED":
+                return {"success": False, "error": f"Apify run status: {run_status}"}
+
+            # Fetch dataset items
+            ds_resp = await client.get(
+                f"{api_base}/actor-runs/{run_id}/dataset/items",
+                params={"token": token, "format": "json"},
+            )
+            if ds_resp.status_code != 200:
+                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+
+            try:
+                items = ds_resp.json()
+            except Exception:
+                return {"success": False, "error": "Apify non-JSON dataset response"}
+
             if isinstance(items, dict):
                 err = items.get("error", {})
                 return {"success": False, "error": f"Apify error: {err.get('message', str(err)[:100])}"}
