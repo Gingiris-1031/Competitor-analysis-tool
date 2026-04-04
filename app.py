@@ -526,6 +526,7 @@ async def _run_analysis(job_id: str):
             producthunt=job["results"].get("producthunt", {}),
             social=job["results"].get("social", {}),
             first_seen=website_first_seen,
+            github_oss=job["results"].get("github_oss", {}),
         )
         job["results"]["traffic_peaks"] = peaks
         job["progress"]["traffic_peaks"] = "done"

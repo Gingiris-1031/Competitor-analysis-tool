@@ -748,6 +748,69 @@ def _match_reddit_posts(social: dict, window_start: int, window_end: int) -> lis
 
 
 # ---------------------------------------------------------------------------
+# Attribution — GitHub star milestones
+# ---------------------------------------------------------------------------
+
+def _match_github_milestones(github_oss: dict, window_start: int, window_end: int) -> list:
+    """Find GitHub star milestones (big monthly gains) within the time window."""
+    history = github_oss.get("star_history", [])
+    if not history:
+        return []
+
+    repo = github_oss.get("repo", "")
+    owner = github_oss.get("owner", "")
+    total_stars = github_oss.get("stars", 0)
+    events = []
+
+    for h in history:
+        month = h.get("month", "")  # "2022-08"
+        gain = h.get("gain", 0)
+        cumulative = h.get("cumulative", 0)
+
+        if not month or gain < 500:  # Only significant star events
+            continue
+
+        # Convert month to timestamp range
+        try:
+            month_start = int(datetime.strptime(f"{month}-01", "%Y-%m-%d").timestamp())
+            month_end = month_start + 31 * 86400  # ~1 month
+        except Exception:
+            continue
+
+        # Check if this month overlaps with the peak window
+        if month_end < window_start or month_start > window_end:
+            continue
+
+        # Classify the event
+        if gain >= 3000:
+            event_type = "🚀 开源首发/病毒传播"
+        elif gain >= 1000:
+            event_type = "⭐ Star 爆发"
+        else:
+            event_type = "📈 持续增长"
+
+        # Detect milestones
+        milestone = ""
+        for threshold in [1000, 5000, 10000, 20000, 50000]:
+            prev = cumulative - gain
+            if prev < threshold <= cumulative:
+                milestone = f"突破 {threshold:,} Stars"
+                break
+
+        events.append({
+            "title": f"{owner}/{repo} {event_type}" + (f" — {milestone}" if milestone else ""),
+            "stars_gained": gain,
+            "cumulative": cumulative,
+            "date": f"{month}-15",  # Mid-month approximation
+            "url": f"https://github.com/{owner}/{repo}",
+            "event_type": event_type,
+            "milestone": milestone,
+        })
+
+    return sorted(events, key=lambda x: x["stars_gained"], reverse=True)[:3]
+
+
+# ---------------------------------------------------------------------------
 # Attribution — summary text generator
 # ---------------------------------------------------------------------------
 
@@ -800,6 +863,12 @@ def _generate_attribution_summary(sources: list, peak: dict) -> str:
         summary = f"主要由 Reddit 讨论驱动（{upvotes} upvotes，r/{subreddit}）"
         if title:
             summary += f"：「{title[:60]}」"
+    elif channel == "GitHub":
+        stars = top_event.get("stars_gained", 0)
+        milestone = top_event.get("milestone", "")
+        summary = f"主要由 GitHub 开源热度驱动（+{stars:,} stars）"
+        if milestone:
+            summary += f"，{milestone}"
     else:
         summary = f"主要由 {channel} 驱动"
 
@@ -822,12 +891,23 @@ async def _attribute_peak(
     producthunt: dict,
     social: dict,
     first_seen_ts: int = 0,
+    github_oss: dict = None,
 ) -> dict:
     """对单个峰值进行归因分析。"""
     window_start = peak["peak_timestamp"] - 14 * 86400  # -2 weeks
     window_end = peak["peak_timestamp"] + 14 * 86400    # +2 weeks
 
     sources = []
+
+    # 0. GitHub Star milestones (open source launch, viral star events)
+    if github_oss and github_oss.get("star_history"):
+        gh_events = _match_github_milestones(github_oss, window_start, window_end)
+        if gh_events:
+            sources.append({
+                "channel": "GitHub",
+                "events": gh_events,
+                "impact_score": sum(e.get("stars_gained", 0) for e in gh_events),
+            })
 
     # 1. HN Search (live API call, ±3 weeks to catch upstream causes)
     hn_window_start = peak["peak_timestamp"] - 21 * 86400
@@ -981,6 +1061,7 @@ async def analyze_traffic_peaks(
     producthunt: dict = None,
     social: dict = None,
     first_seen: str = "",
+    github_oss: dict = None,
 ) -> dict:
     """
     通过 Google Trends 检测品牌搜索热度峰值，交叉关联已知 launch 事件，
@@ -1092,7 +1173,7 @@ async def analyze_traffic_peaks(
     for peak in all_peaks_annotated:
         attribution = await _attribute_peak(
             peak, brand_name, domain_query, producthunt or {}, social or {},
-            first_seen_ts=first_seen_ts,
+            first_seen_ts=first_seen_ts, github_oss=github_oss or {},
         )
         peak["attribution"] = attribution
 

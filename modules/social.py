@@ -81,7 +81,20 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     }) as client:
         # Fast channels only (≤20s each) — TikTok/Facebook use Apify and need 45-55s, run separately
         import asyncio as _aio
-        twitter_task   = _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint)
+
+        # Twitter gets its own 50s timeout to prevent it from blocking other channels
+        # (Apify Twitter takes 30-60s per handle, other channels complete in 5-15s)
+        async def _twitter_with_timeout():
+            try:
+                return await _aio.wait_for(
+                    _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint),
+                    timeout=50,
+                )
+            except _aio.TimeoutError:
+                return {"platform": "Twitter/X", "detected": False, "handle": None,
+                        "note": "Twitter 分析超时（Apify 响应慢），建议手动确认"}
+
+        twitter_task   = _twitter_with_timeout()
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
         reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
         github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint)
