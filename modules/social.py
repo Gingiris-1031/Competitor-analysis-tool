@@ -568,8 +568,9 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     apify_token = _get_apify_token()
     _apify_errors = []  # Collect errors for debugging
     if apify_token:
-        # Limit Apify to first 3 handles (each call takes 30-60s, $0.003 per profile)
-        for handle in handles_to_try[:3]:
+        # Apify: try ONLY the first handle (30-60s per call). If it fails,
+        # fall through immediately to Caravo/Brave (instant).
+        for handle in handles_to_try[:1]:
             apify_resp = await _call_apify_twitter_user(handle)
             if not apify_resp.get("success"):
                 err_msg = apify_resp.get("error", "unknown")

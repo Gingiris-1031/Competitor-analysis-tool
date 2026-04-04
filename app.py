@@ -385,14 +385,14 @@ async def _run_analysis(job_id: str):
     _tiktok_hint  = job["results"].get("social", {}).get("_tiktok_hint")
     _facebook_hint = job["results"].get("social", {}).get("_facebook_hint")
 
-    # Phase 1.5: Slow Apify channels (TikTok 55s + Facebook 65s) run in parallel with
-    # conditional retries for github_oss and funding — total bounded by 65s
+    # Phase 1.5: Slow Apify channels (TikTok/Facebook) + retries — run in parallel,
+    # bounded by 35s (reduced from 65s). Also start Phase 2 + AI summary early.
     from modules.social import _deep_tiktok_apify, _deep_facebook_apify
 
     async def _slow_tiktok():
         try:
             res = await asyncio.wait_for(
-                _deep_tiktok_apify(_brand_lower, product_name, handle_hint=_tiktok_hint), timeout=55
+                _deep_tiktok_apify(_brand_lower, product_name, handle_hint=_tiktok_hint), timeout=35
             )
             soc = job["results"].setdefault("social", {})
             soc.setdefault("channels", {})["tiktok"] = res if isinstance(res, dict) else {"platform": "TikTok", "detected": False}
@@ -402,7 +402,7 @@ async def _run_analysis(job_id: str):
     async def _slow_facebook():
         try:
             res = await asyncio.wait_for(
-                _deep_facebook_apify(_brand_lower, product_name, handle_hint=_facebook_hint), timeout=65
+                _deep_facebook_apify(_brand_lower, product_name, handle_hint=_facebook_hint), timeout=35
             )
             soc = job["results"].setdefault("social", {})
             soc.setdefault("channels", {})["facebook"] = res if isinstance(res, dict) else {"platform": "Facebook", "detected": False}
@@ -528,23 +528,13 @@ async def _run_analysis(job_id: str):
 
     if _cancelled(): return
 
-    phase2_results = await asyncio.gather(
-        _run_propagation(), _run_traffic_peaks(),
-        return_exceptions=True,
-    )
-    if isinstance(phase2_results[0], Exception):
-        job["results"]["propagation"] = {"error": str(phase2_results[0])}
-        job["progress"]["propagation"] = "error"
-    if isinstance(phase2_results[1], Exception):
-        job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
-        job["progress"]["traffic_peaks"] = "error"
-
-    if _cancelled(): return
-
     # ================================================================
-    # Phase 3: Growth analysis + AI summary
+    # Phase 2: Propagation + Traffic Peaks + AI Summary (ALL PARALLEL)
+    # AI summary only needs Phase 1 data, so start it NOW instead of
+    # waiting for Phase 2 to complete. This saves 60-90s.
     # ================================================================
-    # Bizmodel is synchronous — runs instantly using already-collected data
+
+    # Sync operations first (instant, <1ms)
     try:
         job["results"]["bizmodel"] = analyze_bizmodel(
             domain, product_name,
@@ -557,6 +547,46 @@ async def _run_analysis(job_id: str):
     except Exception:
         job["results"]["bizmodel"] = {"found": False}
 
+    # AI summary task — starts NOW, runs in parallel with propagation + peaks
+    async def _run_ai_summary():
+        job["progress"]["report"] = "running"
+        try:
+            ai = await generate_ai_summary(
+                product_name, url,
+                job["results"].get("website", {}),
+                job["results"].get("social", {}),
+                job["results"].get("traffic", {}),
+                job["results"].get("producthunt", {}),
+                growth_strategy={},  # Not available yet, will be added post-hoc
+                pricing=job["results"].get("pricing", {}),
+                github_oss=job["results"].get("github_oss", {}),
+            )
+            job["results"]["ai_summary"] = ai
+            return ai
+        except Exception as ai_err:
+            ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(ai_err)[:100]}", "source": "error"}
+            job["results"]["ai_summary"] = ai
+            return ai
+
+    # Run propagation + traffic_peaks + AI summary ALL in parallel
+    phase2_results = await asyncio.gather(
+        _run_propagation(), _run_traffic_peaks(), _run_ai_summary(),
+        return_exceptions=True,
+    )
+    if isinstance(phase2_results[0], Exception):
+        job["results"]["propagation"] = {"error": str(phase2_results[0])}
+        job["progress"]["propagation"] = "error"
+    if isinstance(phase2_results[1], Exception):
+        job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
+        job["progress"]["traffic_peaks"] = "error"
+    ai = phase2_results[2] if isinstance(phase2_results[2], dict) else job["results"].get("ai_summary", {})
+
+    if _cancelled(): return
+
+    # ================================================================
+    # Phase 3: Growth analysis + Playbook (sync, instant <1s)
+    # These need propagation data from Phase 2, so they run after.
+    # ================================================================
     job["progress"]["growth_analysis"] = "running"
     try:
         growth_deep = analyze_growth_deep(
@@ -573,6 +603,7 @@ async def _run_analysis(job_id: str):
         job["results"]["growth_analysis"] = {"error": str(growth_err)}
         job["progress"]["growth_analysis"] = "error"
 
+    early_strategy = {}
     try:
         early_strategy = recommend_playbooks({
             "sections": {
@@ -587,28 +618,7 @@ async def _run_analysis(job_id: str):
         })
         job["results"]["growth_strategy"] = early_strategy
     except Exception:
-        early_strategy = {}
         job["results"]["growth_strategy"] = {}
-
-    if _cancelled(): return
-
-    try:
-        ai = await generate_ai_summary(
-            product_name, url,
-            job["results"].get("website", {}),
-            job["results"].get("social", {}),
-            job["results"].get("traffic", {}),
-            job["results"].get("producthunt", {}),
-            growth_strategy=early_strategy,
-            growth_analysis=job["results"].get("growth_analysis", {}),
-            traffic_peaks=job["results"].get("traffic_peaks", {}),
-            pricing=job["results"].get("pricing", {}),
-            github_oss=job["results"].get("github_oss", {}),
-        )
-        job["results"]["ai_summary"] = ai
-    except Exception as ai_err:
-        ai = {"success": False, "content": "", "note": f"AI 分析异常: {str(ai_err)[:100]}", "source": "error"}
-        job["results"]["ai_summary"] = ai
 
     # ================================================================
     # Phase 4: Report generation
@@ -747,12 +757,27 @@ async def get_status(job_id: str):
     job = jobs.get(job_id)
     if not job:
         return JSONResponse({"error": "Job not found"}, status_code=404)
-    return {
+    resp = {
         "status": job["status"],
         "progress": job["progress"],
         "product_name": job["product_name"],
         "mode": job.get("mode", "url"),
     }
+    # Progressive delivery: include partial results for completed modules
+    # so the frontend can render sections as they arrive
+    if job.get("results"):
+        partial = {}
+        for key, prog_key in [
+            ("website", "website"), ("social", "social"), ("traffic", "traffic"),
+            ("producthunt", "producthunt"), ("pricing", "pricing"),
+            ("github_oss", "github_oss"), ("pr_news", "pr_news"),
+            ("funding", "funding"),
+        ]:
+            if job["progress"].get(prog_key or key) == "done" and key in job["results"]:
+                partial[key] = job["results"][key]
+        if partial:
+            resp["partial_results"] = partial
+    return resp
 
 
 @app.get("/api/report/{job_id}")

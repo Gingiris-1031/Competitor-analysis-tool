@@ -118,8 +118,18 @@ async def _fetch_trends_apify(query: str) -> Optional[list]:
         return None
 
 
+_trends_cache: dict = {}  # {query: {"ts": float, "data": list}}
+_TRENDS_CACHE_TTL = 30 * 60  # 30 minutes
+
+
 async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """获取 Google Trends 数据：pytrends (primary) → Apify (fallback)。"""
+    """获取 Google Trends 数据：cache → pytrends (primary) → Apify (fallback)。"""
+    # Check cache first
+    cache_key = f"{query}:{date_range}"
+    cached = _trends_cache.get(cache_key)
+    if cached and (time.time() - cached["ts"]) < _TRENDS_CACHE_TTL:
+        return cached["data"]
+
     # Try pytrends first (free, fast)
     loop = asyncio.get_event_loop()
     try:
@@ -128,13 +138,17 @@ async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[
             timeout=35,
         )
         if result:
+            _trends_cache[cache_key] = {"ts": time.time(), "data": result}
             return result
     except Exception:
         pass
 
     # Fallback to Apify Google Trends Scraper
     logger.info(f"pytrends failed, trying Apify fallback for '{query}'")
-    return await _fetch_trends_apify(query)
+    result = await _fetch_trends_apify(query)
+    if result:
+        _trends_cache[cache_key] = {"ts": time.time(), "data": result}
+    return result
 
 
 def _parse_timeline(timeline: list, query: str) -> list:

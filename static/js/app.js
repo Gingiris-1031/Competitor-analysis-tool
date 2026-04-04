@@ -307,6 +307,11 @@ async function pollStatus() {
                 }
             }
         }
+        // Progressive rendering: show completed sections while still running
+        if (data.partial_results && data.status !== 'completed') {
+            _renderPartialResults(data.partial_results);
+        }
+
         if (data.status === 'completed') {
             stopTimer();
             document.getElementById('cancel-btn')?.classList.add('hidden');
@@ -324,6 +329,41 @@ async function pollStatus() {
         }
     } catch (e) {
         setTimeout(pollStatus, 2000);
+    }
+}
+
+// ── Progressive rendering (show sections as they complete) ──────────────────
+const _partialRendered = new Set();
+function _renderPartialResults(partial) {
+    // Show report section alongside progress
+    const reportSec = document.getElementById('report-section');
+    if (reportSec && reportSec.classList.contains('hidden')) {
+        reportSec.classList.remove('hidden');
+    }
+
+    // Render each completed module that hasn't been rendered yet
+    // Use the report.py format functions via a lightweight shim
+    const moduleMap = {
+        'website':     { section: 'website_analysis', render: typeof renderWebsite !== 'undefined' ? renderWebsite : null,
+                         format: (d) => ({ title: "官网演变分析", domain: d.domain, first_seen: d.first_seen, total_snapshots: d.total_snapshots, deep_timeline: d.deep_timeline || [], current: d.current_site || {}, key_changes: d.key_changes || [] }) },
+        'social':      { section: 'social_media', render: typeof renderSocial !== 'undefined' ? renderSocial : null,
+                         format: (d) => ({ title: "社交媒体", brand: d.brand, channels: d.channels || {}, propagation_metrics: d.propagation_metrics || {} }) },
+        'traffic':     { section: 'traffic_analysis', render: typeof renderTraffic !== 'undefined' ? renderTraffic : null, format: (d) => d },
+        'producthunt': { section: 'producthunt', render: typeof renderProductHunt !== 'undefined' ? renderProductHunt : null, format: (d) => d },
+        'pricing':     { section: 'pricing', render: typeof renderPricing !== 'undefined' ? renderPricing : null, format: (d) => d },
+    };
+
+    for (const [key, data] of Object.entries(partial)) {
+        if (_partialRendered.has(key)) continue;
+        const info = moduleMap[key];
+        if (!info || !info.render) continue;
+        try {
+            const formatted = info.format ? info.format(data) : data;
+            info.render(formatted);
+            _partialRendered.add(key);
+        } catch (e) {
+            // Skip render errors for partial data
+        }
     }
 }
 
