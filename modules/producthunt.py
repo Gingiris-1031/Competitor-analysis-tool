@@ -135,7 +135,7 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=30) as client:
         # ── Step 0: URL-based search FIRST (most reliable for exact domain match) ──
         for url_variant in [f"https://{domain}", f"https://www.{domain}"]:
             try:
@@ -149,24 +149,37 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        # Brave slug + brand + known PH post slug patterns
-        extra_slugs = [f"{brand}-2", f"{brand}-3", f"{brand}-4", f"{brand}-ai",
-                       f"{brand}-open-source", f"get-{brand}",
-                       # Version-style slugs (notion-2-0, notion-3-0)
-                       f"{brand}-2-0", f"{brand}-3-0", f"{brand}-4-0",
-                       f"{brand}-ai-2", f"{brand}-ai-3"]
-        seed_slugs = list(dict.fromkeys(filter(None, [brave_slug, brand, name_slug] + extra_slugs)))
+        # Core slugs first (most likely), then version/variant slugs
+        core_slugs = list(dict.fromkeys(filter(None, [
+            brave_slug, brand, name_slug,
+            f"{brand}-2", f"{brand}-2-0", f"{brand}-ai",
+        ])))
+        variant_slugs = list(dict.fromkeys(filter(None, [
+            f"{brand}-3", f"{brand}-3-0", f"{brand}-4", f"{brand}-4-0",
+            f"{brand}-ai-2", f"{brand}-open-source", f"get-{brand}",
+        ])))
 
         all_hits = []
-        for slug in seed_slugs:
-            hit = await _query_post(client, headers, slug)
-            if hit.get("found"):
-                all_hits.append(hit)
+        # Query core slugs in parallel for speed
+        import asyncio as _aio2
+        core_tasks = [_query_post(client, headers, s) for s in core_slugs]
+        core_results = await _aio2.gather(*core_tasks, return_exceptions=True)
+        for i, r in enumerate(core_results):
+            if isinstance(r, dict) and r.get("found"):
+                all_hits.append(r)
                 if seed_hit is None:
-                    seed_hit = hit
-                    m = re.search(r'/products/([^/]+)/', hit.get("url", ""))
+                    seed_hit = r
+                    m = re.search(r'/products/([^/]+)/', r.get("url", ""))
                     if m:
                         product_slug = m.group(1).lower()
+
+        # If core didn't find enough, try variants (also parallel)
+        if len(all_hits) < 2:
+            var_tasks = [_query_post(client, headers, s) for s in variant_slugs]
+            var_results = await _aio2.gather(*var_tasks, return_exceptions=True)
+            for r in var_results:
+                if isinstance(r, dict) and r.get("found"):
+                    all_hits.append(r)
 
         # If we found launches via slug, filter to the correct product
         if all_hits:
