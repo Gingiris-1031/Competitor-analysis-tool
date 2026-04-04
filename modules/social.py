@@ -276,50 +276,18 @@ async def _call_apify_twitter_user(handle: str) -> dict:
 
     try:
         async with httpx.AsyncClient(timeout=90, follow_redirects=True) as client:
-            # Start actor run and wait synchronously (up to 60s)
+            # Use run-sync-get-dataset-items: starts the actor, waits for it to
+            # finish, and returns the dataset items directly in one call.
             resp = await client.post(
-                f"{api_base}/acts/{actor_id}/runs",
+                f"{api_base}/acts/{actor_id}/run-sync-get-dataset-items",
                 headers=headers,
                 json=run_input,
-                params={"waitForFinish": 60},
+                params={"token": token},
             )
             if resp.status_code not in (200, 201):
-                return {"success": False, "error": f"Apify run start HTTP {resp.status_code}"}
+                return {"success": False, "error": f"Apify HTTP {resp.status_code}"}
 
-            run_data = resp.json().get("data", {})
-            run_id = run_data.get("id")
-            run_status = run_data.get("status")
-
-            if not run_id:
-                return {"success": False, "error": "Apify run missing id"}
-
-            # If still running after waitForFinish, poll a couple more times
-            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                for _ in range(3):
-                    import asyncio
-                    await asyncio.sleep(10)
-                    status_resp = await client.get(
-                        f"{api_base}/actor-runs/{run_id}",
-                        headers=headers,
-                    )
-                    if status_resp.status_code == 200:
-                        run_status = status_resp.json().get("data", {}).get("status")
-                        if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                            break
-
-            if run_status != "SUCCEEDED":
-                return {"success": False, "error": f"Apify run status: {run_status}"}
-
-            # Fetch dataset items
-            ds_resp = await client.get(
-                f"{api_base}/actor-runs/{run_id}/dataset/items",
-                headers=headers,
-                params={"format": "json"},
-            )
-            if ds_resp.status_code != 200:
-                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
-
-            items = ds_resp.json()
+            items = resp.json()
             if not isinstance(items, list) or not items:
                 return {"success": False, "error": "Apify returned empty dataset"}
 
