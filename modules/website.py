@@ -1,9 +1,44 @@
 """官网深度分析模块 — Wayback Machine 多快照抓取 + 结构对比"""
 import httpx
+import json as _json
+import os
+import time
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 import asyncio
 import re
+
+# ---------------------------------------------------------------------------
+# Wayback timeline cache — persisted to disk (snapshots don't change)
+# ---------------------------------------------------------------------------
+_CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "cache")
+_WAYBACK_CACHE_TTL = 7 * 24 * 3600  # 7 days
+
+
+def _cache_key(domain: str) -> str:
+    return os.path.join(_CACHE_DIR, f"wayback_{domain.replace('/', '_')}.json")
+
+
+def _read_cache(domain: str) -> dict | None:
+    path = _cache_key(domain)
+    try:
+        if os.path.exists(path):
+            with open(path) as f:
+                data = _json.load(f)
+            if time.time() - data.get("_ts", 0) < _WAYBACK_CACHE_TTL:
+                return data.get("result")
+    except Exception:
+        pass
+    return None
+
+
+def _write_cache(domain: str, result: dict):
+    try:
+        os.makedirs(_CACHE_DIR, exist_ok=True)
+        with open(_cache_key(domain), "w") as f:
+            _json.dump({"_ts": time.time(), "result": result}, f)
+    except Exception:
+        pass
 
 
 async def analyze_website(url: str) -> dict:
@@ -13,6 +48,14 @@ async def analyze_website(url: str) -> dict:
     domain = urlparse(url).netloc
     if not domain:
         domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+
+    # Check disk cache first — Wayback data doesn't change, cache for 7 days
+    cached = _read_cache(domain)
+    if cached:
+        # Always re-fetch current site (it changes), keep cached historical data
+        current = await _analyze_current_site(url)
+        cached["current_site"] = current
+        return cached
 
     # Step 0: Follow redirects to find the REAL domain (quick check, 5s max)
     real_domain = domain
@@ -85,7 +128,7 @@ async def analyze_website(url: str) -> dict:
     raw_first_seen = wayback_meta.get("first_seen", "N/A")
     first_seen = _refine_first_seen(raw_first_seen, snapshots)
 
-    return {
+    result = {
         "domain": domain,
         "first_seen": first_seen,
         "first_seen_raw": raw_first_seen,
@@ -94,6 +137,12 @@ async def analyze_website(url: str) -> dict:
         "current_site": current,
         "key_changes": changes,
     }
+
+    # Cache to disk if we got meaningful data (not just current site)
+    if real_snapshots:
+        _write_cache(domain, result)
+
+    return result
 
 
 _REGISTRAR_PATTERNS = [
