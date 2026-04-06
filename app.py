@@ -332,7 +332,7 @@ async def _run_analysis(job_id: str):
         _t(analyze_website(url), 40),
         _t(analyze_domain(domain), 20),
         _t(analyze_producthunt(domain, product_name), 25),
-        _t(analyze_social(domain, product_name, website_social_links={}), 80),
+        _t(analyze_social(domain, product_name, website_social_links={}), 35),  # TwitterAPI.io <3s/handle, total <20s
         _t(analyze_pricing(url, product_name), 20),
         _t(analyze_github_oss(domain, product_name, {}), 25),
         _t(analyze_pr_news(domain, product_name), 18),

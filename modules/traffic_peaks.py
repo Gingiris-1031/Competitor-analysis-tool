@@ -122,15 +122,65 @@ _trends_cache: dict = {}  # {query: {"ts": float, "data": list}}
 _TRENDS_CACHE_TTL = 30 * 60  # 30 minutes
 
 
+async def _fetch_trends_serpapi(query: str, date_range: str = "today 12-m") -> Optional[list]:
+    """SerpApi Google Trends — fast (<2s), reliable, $0.015/search."""
+    api_key = os.environ.get("SERPAPI_KEY", "").strip()
+    if not api_key:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            resp = await client.get(
+                "https://serpapi.com/search.json",
+                params={"engine": "google_trends", "q": query, "date": date_range, "api_key": api_key},
+            )
+            if resp.status_code != 200:
+                logger.warning(f"SerpApi Trends HTTP {resp.status_code} for '{query}'")
+                return None
+            data = resp.json()
+            tl = data.get("interest_over_time", {}).get("timeline_data", [])
+            if not tl:
+                return None
+
+            # Convert SerpApi format → our unified format
+            timeline = []
+            for point in tl:
+                vals = point.get("values", [{}])
+                val = vals[0].get("extracted_value", 0) if vals else 0
+                # SerpApi returns "timestamp": "1234567890" as string
+                ts_str = point.get("timestamp")
+                ts = int(ts_str) if ts_str else 0
+                date_str = point.get("date", "")
+                # Parse date from "Apr 6 – 12, 2025" or use timestamp
+                parsed_date = ""
+                if ts:
+                    parsed_date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
+                timeline.append({
+                    "timestamp": ts,
+                    "date": parsed_date,
+                    "values": [{"query": query, "extracted_value": val}],
+                })
+            return timeline if timeline else None
+    except Exception as e:
+        logger.warning(f"SerpApi Trends failed for '{query}': {e}")
+        return None
+
+
 async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[list]:
-    """获取 Google Trends 数据：cache → pytrends (primary) → Apify (fallback)。"""
+    """获取 Google Trends 数据：cache → SerpApi (primary) → pytrends → Apify (last resort)。"""
     # Check cache first
     cache_key = f"{query}:{date_range}"
     cached = _trends_cache.get(cache_key)
     if cached and (time.time() - cached["ts"]) < _TRENDS_CACHE_TTL:
         return cached["data"]
 
-    # Try pytrends first (free, fast)
+    # Strategy 1: SerpApi (fast, reliable, <2s)
+    result = await _fetch_trends_serpapi(query, date_range)
+    if result:
+        _trends_cache[cache_key] = {"ts": time.time(), "data": result}
+        return result
+
+    # Strategy 2: pytrends (free fallback, may get 429'd by Google)
     loop = asyncio.get_event_loop()
     try:
         result = await asyncio.wait_for(
@@ -143,8 +193,8 @@ async def _fetch_trends(query: str, date_range: str = "today 12-m") -> Optional[
     except Exception:
         pass
 
-    # Fallback to Apify Google Trends Scraper
-    logger.info(f"pytrends failed, trying Apify fallback for '{query}'")
+    # Strategy 3: Apify (last resort, slow 60-90s)
+    logger.info(f"SerpApi + pytrends failed, trying Apify fallback for '{query}'")
     result = await _fetch_trends_apify(query)
     if result:
         _trends_cache[cache_key] = {"ts": time.time(), "data": result}

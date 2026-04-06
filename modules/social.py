@@ -88,29 +88,11 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
             try:
                 return await _aio.wait_for(
                     _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint),
-                    timeout=50,
+                    timeout=20,  # TwitterAPI.io is fast (<3s/handle), 20s is generous
                 )
             except _aio.TimeoutError:
-                # Apify/Caravo timed out — try quick Brave fallback for handle + followers
-                handle = twitter_hint
-                if not handle:
-                    try:
-                        from .web_search import brave_find_twitter
-                        handle = await brave_find_twitter(brand, product_name, domain=domain)
-                    except Exception:
-                        pass
-                if handle:
-                    followers = await _brave_twitter_followers(handle)
-                    return {
-                        "platform": "Twitter/X", "detected": True,
-                        "handle": f"@{handle}" if not handle.startswith("@") else handle,
-                        "url": f"https://x.com/{handle.lstrip('@')}",
-                        "followers": followers,
-                        "following": None, "profile": {}, "top_tweets": [],
-                        "note": f"粉丝数来自 Brave Search（Apify 超时）" if followers else "Apify 超时，仅 Brave 确认账号存在",
-                    }
                 return {"platform": "Twitter/X", "detected": False, "handle": None,
-                        "note": "Twitter 分析超时，未找到匹配账号"}
+                        "note": "Twitter 分析超时"}
 
         twitter_task   = _twitter_with_timeout()
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
@@ -570,7 +552,7 @@ async def _call_apify_actor(actor_id: str, input_data: dict, wait_secs: int = 50
 
 
 async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:
-    """深度分析 Twitter — 优先 Apify REST API，fallback Caravo CLI/HTTP"""
+    """深度分析 Twitter — TwitterAPI.io (primary, <3s) → Brave fallback (instant)"""
     result = {
         "platform": "Twitter/X",
         "detected": False,
@@ -591,217 +573,122 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
         f"{brand}hq", f"{name_lower}hq", brand, name_lower,
         f"{brand}_dev", f"{brand}ai", f"get{brand}", f"{brand}app", f"use{brand}",
     ])
-    handles_to_try = list(dict.fromkeys(handles_to_try))  # Deduplicate
+    handles_to_try = list(dict.fromkeys(handles_to_try))
 
     # ------------------------------------------------------------------
-    # Strategy 1: Apify REST API (apidojo/twitter-profile-scraper)
+    # Strategy 1: TwitterAPI.io REST API (<3s per call, $0.00018/profile)
     # ------------------------------------------------------------------
-    apify_token = _get_apify_token()
-    _apify_errors = []  # Collect errors for debugging
-    if apify_token:
-        # Apify: try ONLY the first handle (30-60s per call). If it fails,
-        # fall through immediately to Caravo/Brave (instant).
-        for handle in handles_to_try[:1]:
-            apify_resp = await _call_apify_twitter_user(handle)
-            if not apify_resp.get("success"):
-                err_msg = apify_resp.get("error", "unknown")
-                _apify_errors.append(f"@{handle}: {err_msg}")
-                log.warning("Apify miss for @%s: %s", handle, err_msg)
-                # If token issue, stop trying Apify entirely
-                if "token" in err_msg.lower():
-                    break
-                continue
-
-            prof = apify_resp.get("profile", {})
-            apify_tweets = apify_resp.get("tweets", [])
-
-            # Skip if profile looks empty
-            if not prof.get("userName") and not prof.get("followers"):
-                continue
-
-            # ---- Bio relevance verification (same logic as Caravo path) ----
-            account_bio = (prof.get("description") or "").lower()
-            account_name_str = (prof.get("name") or "").lower()
-            if handle_hint and handle == handle_hint:
-                pass  # Trust website hint
-            elif account_bio and len(account_bio) > 10:
-                is_generic_name = len(brand) <= 5 or brand.lower() in {
-                    "enter", "super", "start", "build", "magic", "spark", "power",
-                    "light", "smart", "cloud", "agent", "click", "blast", "pulse",
-                }
-                if is_generic_name:
-                    domain_in_bio = any(tld in account_bio for tld in [
-                        f"{brand}.com", f"{brand}.io", f"{brand}.dev", f"{brand}.ai",
-                        f"{brand}.pro", f"{brand}.co", f"{brand}.app",
-                    ])
-                    if not domain_in_bio:
-                        continue
-                else:
-                    brand_lower_check = brand.lower()
-                    name_lower_check = name.lower()
-                    brand_in_bio = (
-                        brand_lower_check in account_bio or brand_lower_check in account_name_str
-                        or name_lower_check in account_bio or name_lower_check in account_name_str
+    twitterapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
+    if twitterapi_key:
+        async with httpx.AsyncClient(timeout=10) as client:
+            for handle in handles_to_try[:4]:  # Try up to 4 handles (<3s each = <12s total)
+                try:
+                    resp = await client.get(
+                        "https://api.twitterapi.io/twitter/user/info",
+                        headers={"X-API-Key": twitterapi_key},
+                        params={"userName": handle},
                     )
-                    if not brand_in_bio:
+                    if resp.status_code != 200:
+                        continue
+                    data = resp.json()
+                    if data.get("status") != "success":
+                        continue
+                    prof = data.get("data", {})
+                    if not prof.get("userName"):
                         continue
 
-            # ---- Populate result from Apify data ----
-            screen_name = prof.get("userName", handle)
-            result["detected"] = True
-            result["handle"] = f"@{screen_name}"
-            result["url"] = f"https://x.com/{screen_name}"
-            result["followers"] = prof.get("followers")
-            result["following"] = prof.get("following")
-            result["profile"] = {
-                "name": prof.get("name", ""),
-                "description": (prof.get("description") or "")[:200],
-                "verified": prof.get("isBlueVerified", False) or prof.get("isVerified", False),
-                "created_at": "",  # profile-scraper doesn't return creation date in author
-                "statuses_count": 0,
-                "listed_count": 0,
-            }
-            result["note"] = "✅ 通过 Apify REST API 获取到完整数据"
+                    # Bio relevance verification
+                    account_bio = (prof.get("description") or "").lower()
+                    account_name_str = (prof.get("name") or "").lower()
+                    if handle_hint and handle == handle_hint:
+                        pass  # Trust website/Brave hint
+                    elif account_bio and len(account_bio) > 10:
+                        brand_lower = brand.lower()
+                        name_lower_check = name.lower()
+                        is_generic = len(brand) <= 5 or brand_lower in {
+                            "enter", "super", "start", "build", "magic", "spark",
+                            "power", "light", "smart", "cloud", "agent", "click",
+                        }
+                        if is_generic:
+                            if not any(f"{brand_lower}.{tld}" in account_bio for tld in
+                                       ["com", "io", "dev", "ai", "pro", "co", "app"]):
+                                continue
+                        else:
+                            if (brand_lower not in account_bio
+                                    and brand_lower not in account_name_str
+                                    and name_lower_check not in account_bio
+                                    and name_lower_check not in account_name_str):
+                                continue
 
-            # Map Apify tweet format → internal format
-            for tw in apify_tweets[:10]:
-                result["top_tweets"].append({
-                    "text": (tw.get("text") or "")[:200],
-                    "likes": tw.get("likeCount", 0),
-                    "retweets": tw.get("retweetCount", 0),
-                    "replies": tw.get("replyCount", 0),
-                    "views": tw.get("viewCount", 0),
-                    "bookmarks": tw.get("bookmarkCount", 0),
-                    "created_at": tw.get("createdAt", ""),
-                })
-            # Sort by likes descending
-            result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
+                    # ---- Populate result ----
+                    screen_name = prof.get("userName", handle)
+                    result["detected"] = True
+                    result["handle"] = f"@{screen_name}"
+                    result["url"] = f"https://x.com/{screen_name}"
+                    result["followers"] = prof.get("followers")
+                    result["following"] = prof.get("following")
+                    result["profile"] = {
+                        "name": prof.get("name", ""),
+                        "description": (prof.get("description") or "")[:200],
+                        "verified": prof.get("isBlueVerified", False),
+                        "verified_type": prof.get("verifiedType", ""),
+                        "created_at": prof.get("createdAt", ""),
+                        "statuses_count": prof.get("statusesCount", 0),
+                        "listed_count": 0,
+                    }
+                    result["note"] = "✅ via TwitterAPI.io"
 
-            log.info("Twitter data for @%s fetched via Apify", screen_name)
-            return result
+                    # Fetch top tweets
+                    try:
+                        tw_resp = await client.get(
+                            "https://api.twitterapi.io/twitter/user/last_tweets",
+                            headers={"X-API-Key": twitterapi_key},
+                            params={"userName": screen_name},
+                        )
+                        if tw_resp.status_code == 200:
+                            tw_data = tw_resp.json()
+                            tweets = tw_data.get("data", {}).get("tweets", []) if isinstance(tw_data.get("data"), dict) else []
+                            for tw in tweets[:10]:
+                                result["top_tweets"].append({
+                                    "text": (tw.get("text") or "")[:200],
+                                    "likes": tw.get("likeCount", 0),
+                                    "retweets": tw.get("retweetCount", 0),
+                                    "replies": tw.get("replyCount", 0),
+                                    "views": tw.get("viewCount", 0),
+                                    "bookmarks": tw.get("bookmarkCount", 0),
+                                    "created_at": tw.get("createdAt", ""),
+                                })
+                            result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
+                    except Exception:
+                        pass  # Tweets are optional, profile is the priority
 
-        # If we reach here, Apify didn't find a matching account
-        # If we had a handle_hint (from website/Brave), skip slow Caravo and go to Brave fallback
-        if handle_hint:
-            log.info("Apify failed for hint @%s, skipping Caravo → Brave fallback", handle_hint)
-        else:
-            log.info("Apify did not resolve Twitter for brand=%s, falling back to Caravo", brand)
+                    log.info("Twitter @%s via TwitterAPI.io: %s followers", screen_name, prof.get("followers"))
+                    return result
+                except Exception as e:
+                    log.debug("TwitterAPI.io miss for @%s: %s", handle, e)
+                    continue
 
     # ------------------------------------------------------------------
-    # Strategy 2: Caravo CLI / HTTP fallback
-    # Skip entirely when we have a handle_hint — Brave fallback is faster
+    # Strategy 2: Brave Search fallback (instant, handle + estimated followers)
     # ------------------------------------------------------------------
-    if handle_hint and not result["detected"]:
-        pass  # Skip Caravo, go straight to Brave fallback below
-    elif not result["detected"]:
-      for handle in handles_to_try:
-        user_data = _call_caravo("twitter241/user", {"username": handle})
-        if user_data.get("success") and user_data.get("data"):
-            d = user_data["data"]
-            # Navigate deeply nested twitter241 response:
-            # {json: {result: {data: {user: {result: {legacy: {...}, core: {...}}}}}}}
-            def _dig(obj, *keys):
-                for k in keys:
-                    if isinstance(obj, dict):
-                        obj = obj.get(k, {})
-                    else:
-                        return {}
-                return obj if isinstance(obj, dict) else {}
-
-            user_root = _dig(d, "json", "result", "data", "user", "result")
-            legacy = user_root.get("legacy", {})
-            core = user_root.get("core", {})
-
-            # Fallback: try shorter paths
-            if not legacy.get("followers_count"):
-                user_root = _dig(d, "json", "result")
-                legacy = user_root.get("legacy", user_root)
-            if not legacy.get("followers_count"):
-                legacy = d.get("json", d)
-
-            # Skip if truly empty
-            if not legacy.get("screen_name") and not legacy.get("followers_count") and not core.get("screen_name"):
-                continue
-
-            # Verify bio relevance — skip accounts whose description is clearly unrelated
-            # (Unless this was from a website hint, which we trust)
-            account_bio = (legacy.get("description") or "").lower()
-            account_name_str = (core.get("name") or legacy.get("name") or "").lower()
-            if handle_hint and handle == handle_hint:
-                pass  # Trust website hint
-            elif account_bio and len(account_bio) > 10:
-                is_generic_name = len(brand) <= 5 or brand.lower() in {
-                    "enter", "super", "start", "build", "magic", "spark", "power",
-                    "light", "smart", "cloud", "agent", "click", "blast", "pulse",
-                }
-                if is_generic_name:
-                    domain_in_bio = any(tld in account_bio for tld in [
-                        f"{brand}.com", f"{brand}.io", f"{brand}.dev", f"{brand}.ai",
-                        f"{brand}.pro", f"{brand}.co", f"{brand}.app",
-                    ])
-                    if not domain_in_bio:
-                        continue
-                else:
-                    brand_lower_check = brand.lower()
-                    name_lower_check = name.lower()
-                    brand_in_bio = (brand_lower_check in account_bio or brand_lower_check in account_name_str
-                                    or name_lower_check in account_bio or name_lower_check in account_name_str)
-                    if not brand_in_bio:
-                        continue
-
-            result["detected"] = True
-            result["handle"] = f"@{core.get('screen_name', handle)}"
-            result["url"] = f"https://x.com/{core.get('screen_name', handle)}"
-            result["followers"] = legacy.get("followers_count") or legacy.get("normal_followers_count")
-            result["following"] = legacy.get("friends_count") or legacy.get("following_count")
-            result["profile"] = {
-                "name": core.get("name") or legacy.get("name", ""),
-                "description": (legacy.get("description") or "")[:200],
-                "verified": legacy.get("verified", False) or user_root.get("is_blue_verified", False),
-                "created_at": legacy.get("created_at", ""),
-                "statuses_count": legacy.get("statuses_count", 0),
-                "listed_count": legacy.get("listed_count", 0),
-            }
-            result["note"] = "✅ 通过 Caravo Twitter API 获取到完整数据（Apify fallback）"
-
-            # Search for top tweets
-            search_data = _call_caravo("twitter241/search-v3", {"query": f"from:{handle}", "type": "Top", "count": "10"})
-            if search_data.get("success") and search_data.get("data"):
-                tweets_raw = search_data["data"]
-                tweets = tweets_raw if isinstance(tweets_raw, list) else tweets_raw.get("tweets", tweets_raw.get("results", []))
-                for tw in (tweets[:10] if isinstance(tweets, list) else []):
-                    tweet = tw.get("legacy", tw) if isinstance(tw, dict) else {}
-                    result["top_tweets"].append({
-                        "text": (tweet.get("full_text") or tweet.get("text", ""))[:200],
-                        "likes": tweet.get("favorite_count", 0),
-                        "retweets": tweet.get("retweet_count", 0),
-                        "replies": tweet.get("reply_count", 0),
-                        "views": tweet.get("views_count") or tweet.get("views", {}).get("count", 0) if isinstance(tweet.get("views"), dict) else tweet.get("views", 0),
-                        "bookmarks": tweet.get("bookmark_count", 0),
-                        "created_at": tweet.get("created_at", ""),
-                    })
-                # Sort by likes
-                result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
-            break
-
     if not result["detected"]:
-        # Fallback: try Brave Search to extract follower count from snippets
-        if handle_hint:
-            followers = await _brave_twitter_followers(handle_hint)
+        handle = handle_hint
+        if not handle:
+            try:
+                from .web_search import brave_find_twitter
+                handle = await brave_find_twitter(brand, name, domain="")
+            except Exception:
+                pass
+        if handle:
+            followers = await _brave_twitter_followers(handle)
             result["detected"] = True
-            result["handle"] = f"@{handle_hint}" if not handle_hint.startswith("@") else handle_hint
-            result["url"] = f"https://x.com/{handle_hint.lstrip('@')}"
-            if followers:
-                result["followers"] = followers
-                result["note"] = "粉丝数来自 Brave Search 摘要（近似值）"
-            else:
-                apify_debug = "; ".join(_apify_errors[:2]) if _apify_errors else ""
-                result["note"] = f"受 API 限制，仅显示账号信息。Apify: {apify_debug}" if apify_debug else "受 API 限制，仅显示账号信息"
+            result["handle"] = f"@{handle}" if not handle.startswith("@") else handle
+            result["url"] = f"https://x.com/{handle.lstrip('@')}"
+            result["followers"] = followers
+            result["note"] = "粉丝数来自 Brave Search（TwitterAPI.io 未找到匹配账号）" if followers else "仅 Brave 确认账号存在"
         else:
             tried_str = ", ".join(handles_to_try[:3])
-            sources = "Apify + Caravo" if apify_token else "Caravo"
-            apify_debug = "; ".join(_apify_errors[:2]) if _apify_errors else ""
-            result["note"] = f"未通过 {sources} 找到（尝试了 {tried_str}）。{apify_debug}"
+            result["note"] = f"未找到 Twitter 账号（尝试了 {tried_str}）"
         result["key_posts_framework"] = {
             "note": "🔍 需 API 充值或手动补充",
             "needed_data": [
