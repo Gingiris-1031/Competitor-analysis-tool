@@ -4,12 +4,12 @@ import json
 
 
 def generate_report(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict = None, ai_summary: dict = None, growth_deep: dict = None, traffic_peaks: dict = None, propagation: dict = None, growth_strategy: dict = None) -> dict:
-    return {
+    report = {
         "meta": {
             "product_name": product_name,
             "url": url,
             "generated_at": datetime.now().isoformat(),
-            "version": "MVP v0.4",
+            "version": "MVP v0.5",
         },
         "sections": {
             "website_analysis": _format_website(website),
@@ -24,6 +24,9 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
             "growth_strategy": growth_strategy or {},
         },
     }
+    # Strategy Radar — computed from all sections
+    report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"])
+    return report
 
 
 def _format_website(data: dict) -> dict:
@@ -676,3 +679,88 @@ def report_to_markdown(report: dict) -> str:
 
     md += "\n---\n*报告由竞品调研工具自动生成，部分数据需手动验证。*\n"
     return md
+
+
+import math as _math
+
+def _compute_strategy_radar(sections: dict) -> dict:
+    """Compute 6-dimension strategy radar scores (0-100) from report data."""
+
+    def _clamp(v): return max(0, min(100, int(v)))
+    def _log_scale(v, base=10): return _math.log10(max(v, 1)) if v else 0
+
+    # --- 1. Product Power (产品力) ---
+    ph = sections.get("producthunt", {})
+    pricing = sections.get("pricing", {})
+    ph_votes = ph.get("votes", 0) or 0
+    ph_reviews = ph.get("reviews_count", 0) or 0
+    has_pricing = 1 if (pricing.get("found") or pricing.get("plans")) else 0
+    product_score = _clamp(
+        min(ph_votes / 50, 40) + has_pricing * 25 + min(ph_reviews * 5, 20) + 15
+    )
+
+    # --- 2. Social Influence (社交影响力) ---
+    sm = sections.get("social_media", {})
+    channels = sm.get("channels", {})
+    tw = channels.get("twitter", {}) if isinstance(channels, dict) else {}
+    tw_followers = tw.get("followers", 0) or 0
+    yt = channels.get("youtube", {}) if isinstance(channels, dict) else {}
+    yt_subs = yt.get("subscribers", 0) or 0
+    social_score = _clamp(
+        _log_scale(tw_followers) * 15 + _log_scale(yt_subs) * 10 + 10
+    )
+
+    # --- 3. SEO Authority (SEO 权威度) ---
+    tr = sections.get("traffic_analysis", {})
+    seo_m = tr.get("seo_metrics", {})
+    da = seo_m.get("domain_authority", 0) or 0
+    traffic = seo_m.get("organic_traffic_estimate", 0) or tr.get("domain_rank", {}).get("organic_traffic", 0) or 0
+    seo_score = _clamp(
+        da + _log_scale(traffic) * 8
+    )
+
+    # --- 4. Open Source / Community (开源/社区) ---
+    gh = sections.get("github_oss", {})
+    stars = gh.get("stars", 0) or 0
+    contributors = gh.get("contributors_count", 0) or 0
+    rd = channels.get("reddit", {}) if isinstance(channels, dict) else {}
+    has_reddit = 1 if (isinstance(rd, dict) and rd.get("detected")) else 0
+    community_score = _clamp(
+        _log_scale(stars) * 18 + _log_scale(contributors) * 10 + has_reddit * 15
+    )
+
+    # --- 5. Content Engine (内容引擎) ---
+    ws = sections.get("website_analysis", {})
+    cur = ws.get("current", ws.get("current_site", {}))
+    features = cur.get("features", {}) if isinstance(cur, dict) else {}
+    content_features = sum(1 for k in ["blog", "docs", "changelog", "faq", "case_study"] if features.get(k))
+    content_score = _clamp(content_features * 18 + 10)
+
+    # --- 6. Launch Execution (Launch 执行力) ---
+    ga = sections.get("growth_analysis", {})
+    tp = sections.get("traffic_peaks", {})
+    waves = ga.get("launch_waves", {})
+    total_waves = waves.get("total_waves", 0) or 0
+    peaks_detected = tp.get("summary", {}).get("total_peaks_detected", 0) or 0
+    ph_launches = 1 + len(ph.get("other_launches", []))
+    launch_score = _clamp(
+        min(ph_launches * 15, 40) + min(total_waves * 10, 30) + min(peaks_detected * 3, 30)
+    )
+
+    dimensions = [
+        {"key": "product", "label": "产品力", "score": product_score, "emoji": "🎯"},
+        {"key": "social", "label": "社交影响力", "score": social_score, "emoji": "📢"},
+        {"key": "seo", "label": "SEO 权威度", "score": seo_score, "emoji": "🔍"},
+        {"key": "community", "label": "开源/社区", "score": community_score, "emoji": "💻"},
+        {"key": "content", "label": "内容引擎", "score": content_score, "emoji": "📝"},
+        {"key": "launch", "label": "Launch 执行力", "score": launch_score, "emoji": "🚀"},
+    ]
+
+    total = sum(d["score"] for d in dimensions)
+    avg = int(total / len(dimensions))
+
+    return {
+        "dimensions": dimensions,
+        "total_score": total,
+        "avg_score": avg,
+    }

@@ -8,6 +8,29 @@ function renderInsights(ai) {
             <span class="text-[10px] bg-indigo-900/40 text-indigo-300 border border-indigo-700/40 px-2.5 py-1 rounded-full font-medium">🔮 Wayback + PH + Playbook 交叉分析</span>
         </div>`;
 
+    // AI Strategic Verdict card (if available)
+    const verdict = ai.verdict;
+    if (verdict && verdict.killer_move) {
+        const repColor = verdict.replicability === '高' ? 'text-green-400 bg-green-900/30 border-green-700/40'
+            : verdict.replicability === '低' ? 'text-red-400 bg-red-900/30 border-red-700/40'
+            : 'text-yellow-400 bg-yellow-900/30 border-yellow-700/40';
+        const patternEmoji = {'开源社区驱动':'💻','PLG 产品驱动':'🎯','内容 SEO 驱动':'📝','社交病毒传播':'📢','模板飞轮驱动':'🔄','企业销售驱动':'🏢'}[verdict.growth_pattern] || '📊';
+        html += `<div class="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/30 rounded-xl p-5 mb-6">
+            <div class="flex items-start gap-4">
+                <div class="text-3xl flex-shrink-0">${patternEmoji}</div>
+                <div class="flex-1">
+                    <div class="text-xs text-gray-500 mb-1">AI 战略判定</div>
+                    <div class="text-base font-bold text-white mb-2">${esc(verdict.one_line_verdict)}</div>
+                    <div class="flex flex-wrap items-center gap-3 text-xs">
+                        <span class="text-blue-300">🎯 杀手锏：${esc(verdict.killer_move)}</span>
+                        <span class="text-purple-300">${patternEmoji} ${esc(verdict.growth_pattern)}</span>
+                        <span class="${repColor} px-2 py-0.5 rounded-full border text-[10px]">可复制性：${esc(verdict.replicability)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
     if (ai.success && ai.content) {
         html += `<div class="ai-content">${formatMarkdown(ai.content)}</div>`;
         html += `<div class="text-[10px] text-gray-600 mt-4">分析来源: ${esc(ai.source || 'AI')}</div>`;

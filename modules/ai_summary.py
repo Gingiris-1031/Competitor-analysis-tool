@@ -125,9 +125,34 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 3. **社交账号可能误匹配**。如账号描述与产品不符，标注"⚠️ 此账号可能不属于目标产品"并跳过该数据。
 4. **数字要精确**。不写"大量用户"，写"X 万月访问"；不写"快速增长"，写"6个月增长 X 倍"。
 5. **当前日期是 2026 年 4 月**。不要将未来事件当作已发生。
-6. 语言风格：像军师，直接，不废话，每段不超过 150 字。"""
+6. 语言风格：像军师，直接，不废话，每段不超过 150 字。
+
+---
+
+## 最后，额外输出一个 JSON 块（用 ```json 包裹），格式如下：
+
+```json
+{{"killer_move": "一句话描述竞品的核心杀手锏（15字以内）", "growth_pattern": "从以下选一个：开源社区驱动|PLG 产品驱动|内容 SEO 驱动|社交病毒传播|模板飞轮驱动|企业销售驱动", "replicability": "高|中|低", "one_line_verdict": "一句话战略判定（20字以内）"}}
+```
+
+这个 JSON 会被程序自动提取，必须严格遵守格式。"""
 
     result = await _call_llm(prompt)
+
+    # Extract verdict JSON from AI response
+    if result.get("success") and result.get("content"):
+        import re as _re
+        json_match = _re.search(r'```json\s*(\{.*?\})\s*```', result["content"], _re.DOTALL)
+        if json_match:
+            try:
+                import json as _json
+                verdict = _json.loads(json_match.group(1))
+                result["verdict"] = verdict
+                # Remove the JSON block from display content
+                result["content"] = result["content"][:json_match.start()].rstrip()
+            except Exception:
+                pass
+
     return result
 
 

@@ -1087,17 +1087,54 @@ def _build_summary(data: list, peaks: list, unmatched: list, phases: list) -> di
     matched_count = attributed_count + ph_matched_count
     unmatched_count = len(unmatched)
 
+    # --- Traffic Quality Scores (0-100) ---
+    total_peaks = len(peaks)
+
+    # 1. Organic authenticity: % of peaks with clear attribution
+    organic_score = int((matched_count / max(total_peaks, 1)) * 100) if total_peaks else 50
+
+    # 2. Growth sustainability: recent 4 weeks vs overall average
+    avg_val = sum(values) / len(values) if values else 0
+    recent_avg = sum(values[-4:]) / 4 if len(values) >= 4 else avg_val
+    sustainability_score = min(100, int((recent_avg / max(avg_val, 1)) * 60 + 20)) if avg_val else 50
+
+    # 3. Channel diversity: unique channels across all peak attributions
+    all_channels = set()
+    for p in peaks:
+        attr = p.get("attribution", {})
+        for src in attr.get("sources", []):
+            all_channels.add(src.get("channel", ""))
+    all_channels.discard("")
+    diversity_score = min(100, int(len(all_channels) / 5 * 100)) if all_channels else 20
+
+    # 4. Brand moat: momentum trend (sustained growth = strong moat)
+    if trend == "上升":
+        moat_score = 80
+    elif trend == "平稳":
+        moat_score = 60
+    elif trend == "下降":
+        moat_score = 30
+    else:
+        moat_score = 50
+
     return {
         "total_weeks": len(data),
         "max_interest": max_val,
         "max_interest_date": data[max_idx]["date_label"],
-        "avg_interest": round(sum(values) / len(values), 1),
+        "avg_interest": round(avg_val, 1),
         "recent_trend": trend,
         "current_phase": current_phase,
-        "total_peaks_detected": len(peaks),
+        "total_peaks_detected": total_peaks,
         "matched_peaks": matched_count,
         "unmatched_peaks": unmatched_count,
         "attributed_peaks": attributed_count,
+        "traffic_quality": {
+            "organic_authenticity": organic_score,
+            "growth_sustainability": sustainability_score,
+            "channel_diversity": diversity_score,
+            "brand_moat": moat_score,
+            "overall": int((organic_score + sustainability_score + diversity_score + moat_score) / 4),
+        },
     }
 
 

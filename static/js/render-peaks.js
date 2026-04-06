@@ -46,6 +46,38 @@ function renderPeaks(tp) {
     }
     html += `</div>`;
 
+    // ── Traffic Quality Scoring (ring charts) ────────────────────────────────
+    const tq = s.traffic_quality;
+    if (tq) {
+        const metrics = [
+            { label: '有机真实度', score: tq.organic_authenticity, emoji: '🎯', desc: '峰值来源可追溯性' },
+            { label: '增长持续性', score: tq.growth_sustainability, emoji: '📈', desc: '近期 vs 长期热度' },
+            { label: '渠道多样性', score: tq.channel_diversity, emoji: '🌐', desc: '流量渠道丰富度' },
+            { label: '品牌护城河', score: tq.brand_moat, emoji: '🏰', desc: '搜索热度趋势' },
+        ];
+        html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">`;
+        for (const m of metrics) {
+            const pct = m.score;
+            const color = pct >= 60 ? '#22c55e' : pct >= 30 ? '#eab308' : '#ef4444';
+            const bgColor = pct >= 60 ? 'rgba(22,163,74,0.1)' : pct >= 30 ? 'rgba(234,179,8,0.1)' : 'rgba(239,68,68,0.1)';
+            // SVG ring chart
+            const r = 28, cx = 32, cy = 32, circum = 2 * Math.PI * r;
+            const dashLen = (pct / 100) * circum;
+            html += `<div class="bg-gray-800 rounded-xl p-3 text-center" style="background:${bgColor}">
+                <svg viewBox="0 0 64 64" style="width:56px; height:56px; margin:0 auto;">
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="5"/>
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="5"
+                        stroke-dasharray="${dashLen} ${circum}" stroke-linecap="round"
+                        transform="rotate(-90 ${cx} ${cy})" style="transition:stroke-dasharray 0.5s"/>
+                    <text x="${cx}" y="${cy + 1}" text-anchor="middle" dominant-baseline="central" fill="${color}" font-size="14" font-weight="bold">${pct}</text>
+                </svg>
+                <div class="text-xs font-medium text-gray-300 mt-1">${m.emoji} ${esc(m.label)}</div>
+                <div class="text-[9px] text-gray-500">${esc(m.desc)}</div>
+            </div>`;
+        }
+        html += `</div>`;
+    }
+
     // ── Sparkline chart (text-based bar chart) ───────────────────────────────
     if (trendsData.length > 0) {
         const maxVal = Math.max(...trendsData.map(d => d.value), 1);

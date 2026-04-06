@@ -388,6 +388,7 @@ async function loadReport() {
         renderSummaryCard(report);
 
         // Render all sections
+        if (typeof renderStrategyRadar === 'function') renderStrategyRadar(report.sections.strategy_radar || {});
         renderWebsite(report.sections.website_analysis || {});
         if (typeof renderGithub === 'function') renderGithub(report.sections.github_oss || {});
         renderProductHunt(report.sections.producthunt || {});
