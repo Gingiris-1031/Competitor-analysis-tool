@@ -15,23 +15,33 @@ _SOCIAL_PLATFORM_RE = {
 
 
 async def brave_search(query: str, count: int = 5) -> list:
-    """Brave Search API — returns list of {title, url, description}"""
+    """Brave Search API — returns list of {title, url, description}.
+    Includes retry with exponential backoff for 429/5xx errors."""
+    import asyncio as _aio
     api_key = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
     if not api_key:
         return []
-    try:
-        async with httpx.AsyncClient(timeout=8) as client:
-            resp = await client.get(
-                "https://api.search.brave.com/res/v1/web/search",
-                headers={"X-Subscription-Token": api_key, "Accept": "application/json"},
-                params={"q": query, "count": count},
-            )
-        if resp.status_code != 200:
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                resp = await client.get(
+                    "https://api.search.brave.com/res/v1/web/search",
+                    headers={"X-Subscription-Token": api_key, "Accept": "application/json"},
+                    params={"q": query, "count": count},
+                )
+            if resp.status_code == 200:
+                results = resp.json().get("web", {}).get("results", [])
+                return [{"title": r.get("title", ""), "url": r.get("url", ""), "description": r.get("description", "")} for r in results]
+            if resp.status_code in (429, 500, 502, 503) and attempt < 2:
+                await _aio.sleep(2 ** attempt)
+                continue
             return []
-        results = resp.json().get("web", {}).get("results", [])
-        return [{"title": r.get("title", ""), "url": r.get("url", ""), "description": r.get("description", "")} for r in results]
-    except Exception:
-        return []
+        except Exception:
+            if attempt < 2:
+                await _aio.sleep(1)
+                continue
+            return []
+    return []
 
 
 async def brave_find_twitter(brand: str, product_name: str, domain: str = "") -> str | None:

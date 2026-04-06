@@ -200,22 +200,35 @@ def _find_launch_post(tweets: list) -> Optional[dict]:
 # ============================================================
 
 def _fetch_retweets(tweet_id: str, count: int = 100) -> list:
-    """获取推文的 retweet 列表"""
+    """获取推文的 retweet 列表 — TwitterAPI.io (primary) → Caravo (fallback)"""
+    import httpx as _httpx
+
+    # Strategy 1: TwitterAPI.io (<3s)
+    tapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
+    if tapi_key:
+        try:
+            resp = _httpx.get(
+                "https://api.twitterapi.io/twitter/tweet/retweeters",
+                headers={"X-API-Key": tapi_key},
+                params={"tweetId": tweet_id},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                users = data.get("data", {}).get("users", []) if isinstance(data.get("data"), dict) else []
+                if users:
+                    return users
+        except Exception:
+            pass
+
+    # Strategy 2: Caravo fallback
     result = _call_caravo("twitter241/retweets", {"pid": tweet_id, "count": str(count)})
     if not result.get("success"):
         return []
     raw = result.get("data", {})
-    # 尝试提取 retweets 列表
     if isinstance(raw, list):
         return raw
-    # 常见嵌套路径
-    for path in [
-        ["retweets"],
-        ["data", "retweets"],
-        ["json", "retweets"],
-        ["users"],
-        ["data", "users"],
-    ]:
+    for path in [["retweets"], ["data", "retweets"], ["users"], ["data", "users"]]:
         obj = raw
         for key in path:
             if isinstance(obj, dict):
@@ -226,20 +239,35 @@ def _fetch_retweets(tweet_id: str, count: int = 100) -> list:
 
 
 def _fetch_quotes(tweet_id: str, count: int = 100) -> list:
-    """获取推文的 quote 列表"""
+    """获取推文的 quote 列表 — TwitterAPI.io (primary) → Caravo (fallback)"""
+    import httpx as _httpx
+
+    # Strategy 1: TwitterAPI.io
+    tapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
+    if tapi_key:
+        try:
+            resp = _httpx.get(
+                "https://api.twitterapi.io/twitter/tweet/quotes",
+                headers={"X-API-Key": tapi_key},
+                params={"tweetId": tweet_id},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                tweets = data.get("data", {}).get("tweets", []) if isinstance(data.get("data"), dict) else []
+                if tweets:
+                    return tweets
+        except Exception:
+            pass
+
+    # Strategy 2: Caravo fallback
     result = _call_caravo("twitter241/quotes", {"pid": tweet_id, "count": str(count)})
     if not result.get("success"):
         return []
     raw = result.get("data", {})
     if isinstance(raw, list):
         return raw
-    for path in [
-        ["quotes"],
-        ["data", "tweets"],
-        ["json", "data", "search_by_raw_query", "search_timeline", "timeline", "instructions"],
-        ["tweets"],
-        ["data"],
-    ]:
+    for path in [["quotes"], ["data", "tweets"], ["tweets"], ["data"]]:
         obj = raw
         for key in path:
             if isinstance(obj, dict):
@@ -250,12 +278,42 @@ def _fetch_quotes(tweet_id: str, count: int = 100) -> list:
 
 
 def _fetch_tweet_detail(tweet_id: str) -> Optional[dict]:
-    """获取推文详情"""
+    """获取推文详情 — TwitterAPI.io (primary) → Caravo (fallback)"""
+    import httpx as _httpx
+
+    # Strategy 1: TwitterAPI.io
+    tapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
+    if tapi_key:
+        try:
+            resp = _httpx.get(
+                "https://api.twitterapi.io/twitter/tweets",
+                headers={"X-API-Key": tapi_key},
+                params={"tweet_ids": tweet_id},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                tweets = data.get("data", {}).get("tweets", []) if isinstance(data.get("data"), dict) else []
+                if tweets:
+                    t = tweets[0]
+                    return {
+                        "full_text": t.get("text", ""),
+                        "favorite_count": t.get("likeCount", 0),
+                        "retweet_count": t.get("retweetCount", 0),
+                        "reply_count": t.get("replyCount", 0),
+                        "quote_count": t.get("quoteCount", 0),
+                        "views_count": t.get("viewCount", 0),
+                        "bookmark_count": t.get("bookmarkCount", 0),
+                        "created_at": t.get("createdAt", ""),
+                    }
+        except Exception:
+            pass
+
+    # Strategy 2: Caravo fallback
     result = _call_caravo("twitter241/tweet-v2", {"pid": tweet_id})
     if not result.get("success"):
         return None
     raw = result.get("data", {})
-    # 深挖
     def _dig(obj, *keys):
         for k in keys:
             if isinstance(obj, dict):
@@ -263,7 +321,6 @@ def _fetch_tweet_detail(tweet_id: str) -> Optional[dict]:
             else:
                 return {}
         return obj
-
     tweet = (
         _dig(raw, "data", "tweetResult", "result")
         or _dig(raw, "json", "data", "tweetResult", "result")

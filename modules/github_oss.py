@@ -19,6 +19,23 @@ def _gh_headers(star_json: bool = False) -> dict:
     return h
 
 
+async def _gh_get(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
+    """GitHub API GET with 429 retry (exponential backoff)."""
+    import asyncio as _aio
+    headers = kwargs.pop("headers", _gh_headers())
+    for attempt in range(3):
+        resp = await client.get(url, headers=headers, **kwargs)
+        if resp.status_code == 200:
+            return resp
+        if resp.status_code in (403, 429) and attempt < 2:
+            # GitHub returns 403 for rate limits (not 429)
+            retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+            await _aio.sleep(min(retry_after, 5))
+            continue
+        return resp
+    return resp
+
+
 async def analyze_github_oss(domain: str, product_name: str,
                               website_social_links: dict = None) -> dict:
     """分析开源产品 GitHub 数据：Stars 增长曲线、贡献者、发版历史"""
