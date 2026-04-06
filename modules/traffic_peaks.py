@@ -1180,8 +1180,13 @@ async def analyze_traffic_peaks(
     if brand_name == domain_query.lower():
         brand_name = brand.lower()
 
-    # Use 5-year range to capture full product lifecycle (not just 12 months)
-    trends_range = "today 5-y"
+    # Dynamic range: from product first_seen date to now (covers full lifecycle)
+    # SerpApi format: "YYYY-MM-DD YYYY-MM-DD" or "all" or "today 5-y"
+    if first_seen and len(first_seen) >= 10:
+        trends_range = f"{first_seen[:10]} {datetime.now().strftime('%Y-%m-%d')}"
+    else:
+        trends_range = "today 5-y"  # fallback if no first_seen
+
     timeline_domain, timeline_brand = await asyncio.gather(
         _fetch_trends(domain_query, trends_range),
         _fetch_trends(brand_name, trends_range),
