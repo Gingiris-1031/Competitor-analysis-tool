@@ -1180,9 +1180,11 @@ async def analyze_traffic_peaks(
     if brand_name == domain_query.lower():
         brand_name = brand.lower()
 
+    # Use 5-year range to capture full product lifecycle (not just 12 months)
+    trends_range = "today 5-y"
     timeline_domain, timeline_brand = await asyncio.gather(
-        _fetch_trends(domain_query),
-        _fetch_trends(brand_name),
+        _fetch_trends(domain_query, trends_range),
+        _fetch_trends(brand_name, trends_range),
         return_exceptions=True,
     )
     if isinstance(timeline_domain, Exception):

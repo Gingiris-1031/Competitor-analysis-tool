@@ -618,6 +618,7 @@ async def _run_analysis(job_id: str):
             job["results"].get("traffic", {}),
             job["results"].get("producthunt", {}),
             propagation=job["results"].get("propagation", {}),
+            github_oss=job["results"].get("github_oss", {}),
         )
         job["results"]["growth_analysis"] = growth_deep
         job["progress"]["growth_analysis"] = "done"

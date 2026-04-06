@@ -18,16 +18,14 @@ def analyze_growth_deep(
     social: dict,
     traffic: dict,
     producthunt: dict,
-    propagation: dict = None,  # 来自 analyze_launch_propagation() 的结果，可选
+    propagation: dict = None,
+    github_oss: dict = None,
 ) -> dict:
     """
     基于已采集数据，生成增长深度分析。
-
-    propagation 参数：将 propagation.py 的 analyze_launch_propagation() 结果
-    传入，可在 launch_waves 里补充传播深度分析摘要。
     """
     result = {
-        "channel_breakdown": _analyze_channels(social, traffic),
+        "channel_breakdown": _analyze_channels(social, traffic, github_oss=github_oss),
         "zero_to_one_story": _build_zero_to_one(product_name, website, traffic, producthunt),
         "launch_waves": _detect_launch_waves(product_name, website, social, traffic, producthunt),
     }
@@ -55,7 +53,7 @@ def analyze_growth_deep(
 # 1. 关键增长渠道/内容拆解
 # ============================================================
 
-def _analyze_channels(social: dict, traffic: dict) -> dict:
+def _analyze_channels(social: dict, traffic: dict, github_oss: dict = None) -> dict:
     """分析各渠道的增长贡献和内容模式"""
     channels = social.get("channels", {})
     breakdown = {
@@ -144,15 +142,19 @@ def _analyze_channels(social: dict, traffic: dict) -> dict:
         breakdown["channel_metrics"]["reddit"] = rd_metrics
         breakdown["active_channels"].append("Reddit")
 
-    # GitHub analysis
-    gh = channels.get("github", {})
-    if gh.get("detected"):
+    # GitHub analysis — prefer github_oss module data (has stars, contributors)
+    gh_social = channels.get("github", {})
+    gh_oss = github_oss or {}
+    if gh_oss.get("found") or gh_social.get("detected"):
         breakdown["channel_metrics"]["github"] = {
             "platform": "GitHub",
-            "stars_total": gh.get("stars_total", 0),
-            "followers": gh.get("followers", 0),
-            "public_repos": gh.get("public_repos", 0),
-            "top_repo_stars": gh.get("top_repos", [{}])[0].get("stars", 0) if gh.get("top_repos") else 0,
+            "stars_total": gh_oss.get("stars", 0) or gh_social.get("stars_total", 0),
+            "followers": gh_oss.get("subscribers", 0) or gh_social.get("followers", 0),
+            "public_repos": gh_social.get("public_repos", 0),
+            "top_repo_stars": gh_oss.get("stars", 0) or 0,
+            "contributors": gh_oss.get("contributors_count", 0),
+            "repo": gh_oss.get("repo", ""),
+            "owner": gh_oss.get("owner", ""),
         }
         breakdown["active_channels"].append("GitHub")
 
