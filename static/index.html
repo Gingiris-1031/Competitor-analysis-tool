@@ -35,6 +35,10 @@
         .ws-timeline-scroll::-webkit-scrollbar-track { background: transparent; }
         .ws-timeline-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
         .ws-timeline-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        /* Website timeline thumbnails */
+        @keyframes ws-spin { to { transform: rotate(360deg); } }
+        .ws-thumb-loaded .ws-thumb-spinner { display: none !important; }
+        .ws-thumb-container:hover { outline: 2px solid rgba(96,165,250,0.4); outline-offset: -2px; }
     </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
