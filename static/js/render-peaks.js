@@ -249,12 +249,44 @@ function renderPeaks(tp) {
         html += `</div></div>`;
     }
 
-    // ── Unmatched peaks hint ─────────────────────────────────────────────────
+    // ── Unmatched peaks — deep investigation results ──────────────────────────
     if (unmatched.length > 0) {
-        html += `<div class="bg-orange-900/10 border border-orange-800/30 rounded-lg p-3">
-            <div class="text-xs text-orange-300 font-medium mb-1">⚠️ ${unmatched.length} 个疑似未记录的 Launch 事件</div>
-            <div class="text-[10px] text-gray-400">这些流量峰值没有关联到已知的 PH 发布或 Twitter 公告，可能来自：HN 首页 / 媒体报道 / 付费投放 / 病毒传播</div>
-        </div>`;
+        // Check if any unmatched peaks now have attribution (from Brave investigation)
+        const investigated = unmatched.filter(p => p.attribution && p.attribution.attributed);
+        const stillUnmatched = unmatched.filter(p => !p.attribution || !p.attribution.attributed);
+
+        if (investigated.length > 0) {
+            html += `<div class="mb-4">
+                <h4 class="text-xs font-semibold text-gray-400 mb-2">🔎 深度调查发现的事件</h4>
+                <div class="space-y-2">`;
+            for (const pk of investigated) {
+                const attr = pk.attribution || {};
+                html += `<div class="bg-gray-800 rounded-lg px-3 py-2.5 border-l-2 border-yellow-600/60">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-mono text-yellow-300">${esc(pk.peak_date_label || '')}</span>
+                        <span class="text-[9px] bg-yellow-900/50 text-yellow-400 rounded px-1.5 py-0.5">🔎 深度调查</span>
+                    </div>
+                    <div class="text-xs text-gray-300 mb-1.5">${esc(attr.summary || '')}</div>`;
+                // Show found events
+                for (const src of (attr.all_sources || [])) {
+                    for (const ev of (src.events || []).slice(0, 3)) {
+                        html += `<div class="flex items-start gap-2 mb-1">
+                            <span class="text-[10px] text-gray-500 flex-shrink-0">${esc(ev.source || src.channel || '')}</span>
+                            <a href="${esc(ev.url || '')}" target="_blank" rel="noopener" class="text-[10px] text-blue-400 hover:underline truncate">${esc(ev.title || '')}</a>
+                        </div>`;
+                    }
+                }
+                html += `</div>`;
+            }
+            html += `</div></div>`;
+        }
+
+        if (stillUnmatched.length > 0) {
+            html += `<div class="bg-orange-900/10 border border-orange-800/30 rounded-lg p-3">
+                <div class="text-xs text-orange-300 font-medium mb-1">⚠️ ${stillUnmatched.length} 个未归因的流量峰值</div>
+                <div class="text-[10px] text-gray-400">可能来自：付费广告投放、线下活动、口碑传播、或数据源未覆盖的渠道</div>
+            </div>`;
+        }
     }
 
     html += `</div>`;

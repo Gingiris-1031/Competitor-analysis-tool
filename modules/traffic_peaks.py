@@ -1040,6 +1040,23 @@ async def _attribute_peak(
             "summary": _generate_attribution_summary(sources, peak),
         }
     else:
+        # Deep investigation: Brave Search for news/events near this peak date
+        deep_events = await _brave_investigate_peak(brand, domain, peak)
+        if deep_events:
+            sources.append({
+                "channel": "媒体/新闻",
+                "events": deep_events,
+                "impact_score": len(deep_events) * 10,
+            })
+            return {
+                "attributed": True,
+                "primary_channel": "媒体/新闻",
+                "primary_event": deep_events[0].get("title", ""),
+                "confidence": "medium",
+                "all_sources": sources,
+                "summary": _generate_news_summary(deep_events, peak),
+            }
+
         return {
             "attributed": False,
             "primary_channel": "Unknown",
@@ -1050,6 +1067,83 @@ async def _attribute_peak(
                 "可能来自：付费广告投放、线下活动、口碑传播、或数据源未覆盖的渠道。"
             ),
         }
+
+
+# ---------------------------------------------------------------------------
+# Deep investigation for unmatched peaks — Brave Search
+# ---------------------------------------------------------------------------
+
+async def _brave_investigate_peak(brand: str, domain: str, peak: dict) -> list:
+    """Search Brave for news/events near an unmatched traffic peak."""
+    try:
+        from .web_search import brave_search
+    except ImportError:
+        try:
+            from web_search import brave_search
+        except ImportError:
+            return []
+
+    peak_date = peak.get("peak_date_label", "")
+    if not peak_date:
+        return []
+
+    # Extract year-month for search query
+    ym = peak_date[:7]  # "2025-08"
+    results = []
+    seen_urls = set()
+
+    queries = [
+        f'"{brand}" {ym} launch OR release OR update OR funding OR announce',
+        f'"{domain}" {ym} news OR press OR feature',
+    ]
+
+    for q in queries:
+        try:
+            hits = await brave_search(q, count=5)
+            for h in hits:
+                url = h.get("url", "")
+                if not url or url in seen_urls:
+                    continue
+                title = h.get("title", "")
+                desc = h.get("description", "")
+                # Relevance check: must mention brand or domain
+                combined = (title + " " + desc).lower()
+                if brand.lower() not in combined and domain.lower() not in combined:
+                    continue
+                seen_urls.add(url)
+                # Extract source name from URL
+                import re as _re_src
+                host_match = _re_src.search(r'https?://(?:www\.)?([^/]+)', url)
+                source = host_match.group(1) if host_match else ""
+                results.append({
+                    "title": title,
+                    "url": url,
+                    "source": source,
+                    "snippet": desc[:150],
+                    "date": peak_date,
+                    "event_type": "媒体报道/新闻",
+                })
+        except Exception:
+            continue
+
+    return results[:5]
+
+
+def _generate_news_summary(events: list, peak: dict) -> str:
+    """Generate summary for peaks attributed via Brave news search."""
+    if not events:
+        return "未找到明确来源。"
+    top = events[0]
+    source = top.get("source", "")
+    title = top.get("title", "")
+    summary = f"疑似由媒体报道/产品更新驱动"
+    if source:
+        summary += f"（来源：{source}）"
+    if title:
+        summary += f"：「{title[:50]}」"
+    if len(events) > 1:
+        summary += f"，另有 {len(events)-1} 条相关报道"
+    return summary
 
 
 # ---------------------------------------------------------------------------
