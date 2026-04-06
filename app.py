@@ -667,6 +667,10 @@ async def _run_analysis(job_id: str):
         report["sections"]["funding"]    = job["results"].get("funding", {})
         report["sections"]["bizmodel"]   = job["results"].get("bizmodel", {})
 
+        # Recompute strategy radar now that ALL sections are available
+        from modules.report import _compute_strategy_radar
+        report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"])
+
         job["report"] = report
         try:
             job["markdown"] = report_to_markdown(report)
