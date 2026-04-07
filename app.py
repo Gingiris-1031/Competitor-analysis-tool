@@ -121,23 +121,27 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
     _brand = _re.sub(r'\.[a-z]{2,6}$', '', _brand)   # strip any TLD (.pro, .com, .io, .ai, .dev…)
     product_name = req.product_name or _brand.replace("-", " ").replace("_", " ").capitalize()
 
-    # --- Domain cache: return cached result if available and fresh ---
+    # --- Domain cache: return cached result if available, fresh, and AI succeeded ---
     cache_key = domain.lower().replace("www.", "")
     cached = _domain_cache.get(cache_key)
     if cached and (time.time() - cached["timestamp"]) < DOMAIN_CACHE_TTL:
         cached_job = cached["job"]
-        jobs[job_id] = {
-            "status": "completed",
-            "product_name": product_name,
-            "url": req.url if req.url.startswith("http") else f"https://{req.url}",
-            "progress": {k: "done" for k in cached_job.get("progress", {})},
-            "results": cached_job.get("results", {}),
-            "report": cached_job.get("report"),
-            "markdown": cached_job.get("markdown"),
-            "_cached": True,
-        }
-        _persist_report(job_id, jobs[job_id])
-        return {"job_id": job_id, "status": "started", "cached": True}
+        # Only use cache if AI summary succeeded — skip cache if AI failed
+        cached_ai = cached_job.get("results", {}).get("ai_summary", {})
+        ai_ok = isinstance(cached_ai, dict) and cached_ai.get("success")
+        if ai_ok:
+            jobs[job_id] = {
+                "status": "completed",
+                "product_name": product_name,
+                "url": req.url if req.url.startswith("http") else f"https://{req.url}",
+                "progress": {k: "done" for k in cached_job.get("progress", {})},
+                "results": cached_job.get("results", {}),
+                "report": cached_job.get("report"),
+                "markdown": cached_job.get("markdown"),
+                "_cached": True,
+            }
+            _persist_report(job_id, jobs[job_id])
+            return {"job_id": job_id, "status": "started", "cached": True}
     
     jobs[job_id] = {
         "status": "running",
