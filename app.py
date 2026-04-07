@@ -93,6 +93,25 @@ _domain_cache: dict = {}
 JOB_TIMEOUT = 5 * 60  # 5 minutes max per analysis job
 
 
+@app.get("/api/health")
+async def health_check():
+    """Debug: check which API keys are configured."""
+    keys = {
+        "TEAMOROUTER_API_KEY": bool(os.environ.get("TEAMOROUTER_API_KEY", "").strip()),
+        "DEEPSEEK_API_KEY": bool(os.environ.get("DEEPSEEK_API_KEY", "").strip()),
+        "TWITTERAPI_IO_KEY": bool(os.environ.get("TWITTERAPI_IO_KEY", "").strip()),
+        "SERPAPI_KEY": bool(os.environ.get("SERPAPI_KEY", "").strip()),
+        "DATAFORSEO_B64": bool(os.environ.get("DATAFORSEO_B64", "").strip()),
+        "BRAVE_SEARCH_API_KEY": bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
+        "APIFY_API_TOKEN": bool(os.environ.get("APIFY_API_TOKEN", "").strip()),
+        "SEOREVIEWTOOLS_KEY": bool(os.environ.get("SEOREVIEWTOOLS_KEY", "").strip()),
+        "PRODUCTHUNT_TOKEN": bool(os.environ.get("PRODUCTHUNT_TOKEN", "").strip()),
+        "SUPABASE_URL": bool(os.environ.get("SUPABASE_URL", "").strip()),
+    }
+    configured = sum(1 for v in keys.values() if v)
+    return {"status": "ok", "keys_configured": configured, "keys": keys}
+
+
 class AnalyzeRequest(BaseModel):
     url: str
     product_name: Optional[str] = None
