@@ -570,7 +570,9 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     if handle_hint:
         handles_to_try.append(handle_hint)
     handles_to_try.extend([
-        f"{brand}hq", f"{name_lower}hq", brand, name_lower,
+        f"{brand}hq", f"{name_lower}hq",
+        f"{brand}official", f"{name_lower}official",  # AFFiNEOfficial pattern
+        brand, name_lower,
         f"{brand}_dev", f"{brand}ai", f"get{brand}", f"{brand}app", f"use{brand}",
     ])
     handles_to_try = list(dict.fromkeys(handles_to_try))
@@ -597,12 +599,11 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                     if not prof.get("userName"):
                         continue
 
-                    # Bio relevance verification
+                    # Bio relevance verification — even hints get checked
+                    # (website may link to wrong account, e.g. x.com/affine → "waddafak?")
                     account_bio = (prof.get("description") or "").lower()
                     account_name_str = (prof.get("name") or "").lower()
-                    if handle_hint and handle == handle_hint:
-                        pass  # Trust website/Brave hint
-                    elif account_bio and len(account_bio) > 10:
+                    if account_bio and len(account_bio) > 5:
                         brand_lower = brand.lower()
                         name_lower_check = name.lower()
                         is_generic = len(brand) <= 5 or brand_lower in {
