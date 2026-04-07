@@ -541,8 +541,12 @@ def _build_github_insight(github_oss: dict) -> str:
 
 
 async def _call_llm(prompt: str) -> dict:
-    """调用 LLM — 优先 TeamoRouter（重试3次），fallback DeepSeek（重试2次）"""
+    """调用 LLM — 优先 TeamoRouter（重试2次），fallback DeepSeek（重试2次）"""
+    import logging
+    _log = logging.getLogger(__name__)
+
     teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
+    _log.warning("_call_llm: TEAMOROUTER_API_KEY present=%s len=%d", bool(teamo_key), len(teamo_key))
     if not teamo_key:
         try:
             teamo_key = open(os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
@@ -613,8 +617,10 @@ async def _call_llm(prompt: str) -> dict:
         if attempt < 1:
             await asyncio.sleep(3)
 
-    note = f"LLM 调用失败 (TeamoRouter: {last_teamo_err or 'skipped'} / DeepSeek: {last_ds_err or 'skipped'})"
-    return {"success": False, "content": "", "note": note[:200], "source": "error"}
+    _tk = bool(teamo_key)
+    _dk = bool(os.environ.get("DEEPSEEK_API_KEY", "").strip())
+    note = f"LLM 调用失败 (TeamoRouter[key={_tk}]: {last_teamo_err or 'skipped'} / DeepSeek[key={_dk}]: {last_ds_err or 'skipped'})"
+    return {"success": False, "content": "", "note": note[:250], "source": "error"}
 
 
 def _fallback_summary() -> dict:
