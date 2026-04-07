@@ -9,10 +9,10 @@ import asyncio
 import re
 
 # ---------------------------------------------------------------------------
-# Wayback timeline cache — persisted to disk (snapshots don't change)
+# Wayback cache — disk (fast) + Supabase (persistent across Railway restarts)
 # ---------------------------------------------------------------------------
 _CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "cache")
-_WAYBACK_CACHE_TTL = 7 * 24 * 3600  # 7 days
+_WAYBACK_CACHE_TTL = 30 * 24 * 3600  # 30 days (snapshots don't change)
 
 
 def _cache_key(domain: str) -> str:
@@ -20,6 +20,8 @@ def _cache_key(domain: str) -> str:
 
 
 def _read_cache(domain: str) -> dict | None:
+    """Read from disk first (fast), then Supabase (persistent)."""
+    # Disk cache
     path = _cache_key(domain)
     try:
         if os.path.exists(path):
@@ -29,14 +31,55 @@ def _read_cache(domain: str) -> dict | None:
                 return data.get("result")
     except Exception:
         pass
+
+    # Supabase cache (survives Railway restarts)
+    try:
+        from .supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            resp = sb.table("wayback_cache").select("data,created_at").eq("domain", domain.lower()).limit(1).execute()
+            rows = resp.data if resp else []
+            if rows:
+                row = rows[0]
+                # Check TTL
+                from datetime import datetime as _dt
+                created = _dt.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+                age_seconds = (datetime.now(_dt.now().astimezone().tzinfo) - created).total_seconds()
+                if age_seconds < _WAYBACK_CACHE_TTL:
+                    result = _json.loads(row["data"]) if isinstance(row["data"], str) else row["data"]
+                    # Warm disk cache
+                    _write_disk_cache(domain, result)
+                    return result
+    except Exception:
+        pass
+
     return None
 
 
-def _write_cache(domain: str, result: dict):
+def _write_disk_cache(domain: str, result: dict):
+    """Write to local disk."""
     try:
         os.makedirs(_CACHE_DIR, exist_ok=True)
         with open(_cache_key(domain), "w") as f:
             _json.dump({"_ts": time.time(), "result": result}, f)
+    except Exception:
+        pass
+
+
+def _write_cache(domain: str, result: dict):
+    """Write to both disk and Supabase."""
+    _write_disk_cache(domain, result)
+
+    # Supabase upsert (persistent)
+    try:
+        from .supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            sb.table("wayback_cache").upsert({
+                "domain": domain.lower(),
+                "data": _json.dumps(result),
+                "created_at": datetime.now().isoformat(),
+            }, on_conflict="domain").execute()
     except Exception:
         pass
 
