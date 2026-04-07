@@ -546,7 +546,8 @@ async def _call_llm(prompt: str) -> dict:
     _log = logging.getLogger(__name__)
 
     teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
-    _log.warning("_call_llm: TEAMOROUTER_API_KEY present=%s len=%d", bool(teamo_key), len(teamo_key))
+    _log.warning("_call_llm START: teamo=%s ds=%s prompt_len=%d",
+                 bool(teamo_key), bool(os.environ.get("DEEPSEEK_API_KEY","").strip()), len(prompt))
     if not teamo_key:
         try:
             teamo_key = open(os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
@@ -557,6 +558,7 @@ async def _call_llm(prompt: str) -> dict:
     if teamo_key:
         model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
         for attempt in range(2):
+            last_teamo_err = f"attempt {attempt} started"
             try:
                 async with httpx.AsyncClient(timeout=50) as client:
                     resp = await client.post(
