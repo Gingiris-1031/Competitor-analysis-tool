@@ -578,96 +578,143 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     handles_to_try = list(dict.fromkeys(handles_to_try))
 
     # ------------------------------------------------------------------
-    # Strategy 1: TwitterAPI.io REST API (<3s per call, $0.00018/profile)
+    # Strategy 1: TwitterAPI.io — try handles, validate with bio + website field
+    # Collect all valid candidates, pick best by followers count.
     # ------------------------------------------------------------------
     twitterapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
+    # Extract domain for website field cross-validation
+    _domain_clean = ""
+    try:
+        from urllib.parse import urlparse as _urlparse
+        # brand comes from domain, reconstruct it
+        for _tld in ["com", "io", "dev", "ai", "pro", "co", "app", "so", "xyz"]:
+            if f"{brand}.{_tld}" in name.lower() or brand:
+                _domain_clean = f"{brand}.{_tld}"
+                break
+        if not _domain_clean:
+            _domain_clean = brand
+    except Exception:
+        _domain_clean = brand
+
+    async def _check_handle(client, handle):
+        """Check a single handle via TwitterAPI.io. Returns profile dict or None."""
+        try:
+            resp = await client.get(
+                "https://api.twitterapi.io/twitter/user/info",
+                headers={"X-API-Key": twitterapi_key},
+                params={"userName": handle},
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            if data.get("status") != "success":
+                return None
+            prof = data.get("data", {})
+            if not prof.get("userName"):
+                return None
+
+            # --- Multi-signal relevance check ---
+            account_bio = (prof.get("description") or "").lower()
+            account_name_str = (prof.get("name") or "").lower()
+            account_website = (prof.get("url") or "").lower()  # User's website link
+            brand_lower = brand.lower()
+            name_lower_check = name.lower()
+
+            # Signal 1: website field contains product domain → strong match
+            website_match = any(d in account_website for d in [
+                f"{brand_lower}.com", f"{brand_lower}.io", f"{brand_lower}.dev",
+                f"{brand_lower}.ai", f"{brand_lower}.pro", f"{brand_lower}.co",
+                f"{brand_lower}.app", f"{brand_lower}.so",
+            ] if d)
+
+            # Signal 2: bio or display name mentions brand/product
+            bio_match = (
+                brand_lower in account_bio
+                or brand_lower in account_name_str
+                or name_lower_check in account_bio
+                or name_lower_check in account_name_str
+            )
+
+            # Signal 3: verified business account → higher trust
+            is_verified_biz = prof.get("verifiedType") == "Business"
+
+            # Accept if ANY strong signal matches
+            if not website_match and not bio_match and not is_verified_biz:
+                return None
+
+            return prof
+        except Exception:
+            return None
+
     if twitterapi_key:
+        candidates = []
         async with httpx.AsyncClient(timeout=10) as client:
-            for handle in handles_to_try[:4]:  # Try up to 4 handles (<3s each = <12s total)
+            # Round 1: try enumerated handles (up to 5, <3s each)
+            for handle in handles_to_try[:5]:
+                prof = await _check_handle(client, handle)
+                if prof:
+                    candidates.append(prof)
+
+            # Round 2: if no candidates found, use Brave Search to find handle
+            if not candidates:
                 try:
-                    resp = await client.get(
-                        "https://api.twitterapi.io/twitter/user/info",
+                    from .web_search import brave_find_twitter
+                    brave_handle = await brave_find_twitter(brand, name, domain="")
+                    if brave_handle and brave_handle not in [h.lower() for h in handles_to_try[:5]]:
+                        prof = await _check_handle(client, brave_handle)
+                        if prof:
+                            candidates.append(prof)
+                except Exception:
+                    pass
+
+        # Pick best candidate by followers count (most followers = likely official)
+        if candidates:
+            best = max(candidates, key=lambda p: p.get("followers", 0) or 0)
+            screen_name = best.get("userName", "")
+            result["detected"] = True
+            result["handle"] = f"@{screen_name}"
+            result["url"] = f"https://x.com/{screen_name}"
+            result["followers"] = best.get("followers")
+            result["following"] = best.get("following")
+            result["profile"] = {
+                "name": best.get("name", ""),
+                "description": (best.get("description") or "")[:200],
+                "verified": best.get("isBlueVerified", False),
+                "verified_type": best.get("verifiedType", ""),
+                "created_at": best.get("createdAt", ""),
+                "statuses_count": best.get("statusesCount", 0),
+                "listed_count": 0,
+            }
+            result["note"] = "✅ via TwitterAPI.io"
+
+            # Fetch top tweets for the winning account
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    tw_resp = await client.get(
+                        "https://api.twitterapi.io/twitter/user/last_tweets",
                         headers={"X-API-Key": twitterapi_key},
-                        params={"userName": handle},
+                        params={"userName": screen_name},
                     )
-                    if resp.status_code != 200:
-                        continue
-                    data = resp.json()
-                    if data.get("status") != "success":
-                        continue
-                    prof = data.get("data", {})
-                    if not prof.get("userName"):
-                        continue
+                    if tw_resp.status_code == 200:
+                        tw_data = tw_resp.json()
+                        tweets = tw_data.get("data", {}).get("tweets", []) if isinstance(tw_data.get("data"), dict) else []
+                        for tw in tweets[:10]:
+                            result["top_tweets"].append({
+                                "text": (tw.get("text") or "")[:200],
+                                "likes": tw.get("likeCount", 0),
+                                "retweets": tw.get("retweetCount", 0),
+                                "replies": tw.get("replyCount", 0),
+                                "views": tw.get("viewCount", 0),
+                                "bookmarks": tw.get("bookmarkCount", 0),
+                                "created_at": tw.get("createdAt", ""),
+                            })
+                        result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
+            except Exception:
+                pass
 
-                    # Bio relevance verification — even hints get checked
-                    # (website may link to wrong account, e.g. x.com/affine → "waddafak?")
-                    account_bio = (prof.get("description") or "").lower()
-                    account_name_str = (prof.get("name") or "").lower()
-                    if account_bio and len(account_bio) > 5:
-                        brand_lower = brand.lower()
-                        name_lower_check = name.lower()
-                        is_generic = len(brand) <= 5 or brand_lower in {
-                            "enter", "super", "start", "build", "magic", "spark",
-                            "power", "light", "smart", "cloud", "agent", "click",
-                        }
-                        if is_generic:
-                            if not any(f"{brand_lower}.{tld}" in account_bio for tld in
-                                       ["com", "io", "dev", "ai", "pro", "co", "app"]):
-                                continue
-                        else:
-                            if (brand_lower not in account_bio
-                                    and brand_lower not in account_name_str
-                                    and name_lower_check not in account_bio
-                                    and name_lower_check not in account_name_str):
-                                continue
-
-                    # ---- Populate result ----
-                    screen_name = prof.get("userName", handle)
-                    result["detected"] = True
-                    result["handle"] = f"@{screen_name}"
-                    result["url"] = f"https://x.com/{screen_name}"
-                    result["followers"] = prof.get("followers")
-                    result["following"] = prof.get("following")
-                    result["profile"] = {
-                        "name": prof.get("name", ""),
-                        "description": (prof.get("description") or "")[:200],
-                        "verified": prof.get("isBlueVerified", False),
-                        "verified_type": prof.get("verifiedType", ""),
-                        "created_at": prof.get("createdAt", ""),
-                        "statuses_count": prof.get("statusesCount", 0),
-                        "listed_count": 0,
-                    }
-                    result["note"] = "✅ via TwitterAPI.io"
-
-                    # Fetch top tweets
-                    try:
-                        tw_resp = await client.get(
-                            "https://api.twitterapi.io/twitter/user/last_tweets",
-                            headers={"X-API-Key": twitterapi_key},
-                            params={"userName": screen_name},
-                        )
-                        if tw_resp.status_code == 200:
-                            tw_data = tw_resp.json()
-                            tweets = tw_data.get("data", {}).get("tweets", []) if isinstance(tw_data.get("data"), dict) else []
-                            for tw in tweets[:10]:
-                                result["top_tweets"].append({
-                                    "text": (tw.get("text") or "")[:200],
-                                    "likes": tw.get("likeCount", 0),
-                                    "retweets": tw.get("retweetCount", 0),
-                                    "replies": tw.get("replyCount", 0),
-                                    "views": tw.get("viewCount", 0),
-                                    "bookmarks": tw.get("bookmarkCount", 0),
-                                    "created_at": tw.get("createdAt", ""),
-                                })
-                            result["top_tweets"].sort(key=lambda x: x.get("likes", 0), reverse=True)
-                    except Exception:
-                        pass  # Tweets are optional, profile is the priority
-
-                    log.info("Twitter @%s via TwitterAPI.io: %s followers", screen_name, prof.get("followers"))
-                    return result
-                except Exception as e:
-                    log.debug("TwitterAPI.io miss for @%s: %s", handle, e)
-                    continue
+            log.info("Twitter @%s via TwitterAPI.io: %s followers (from %d candidates)",
+                     screen_name, best.get("followers"), len(candidates))
+            return result
 
     # ------------------------------------------------------------------
     # Strategy 2: Brave Search fallback (instant, handle + estimated followers)
