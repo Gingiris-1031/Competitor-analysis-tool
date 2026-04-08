@@ -110,6 +110,7 @@ async def health_check():
         "SEOREVIEWTOOLS_KEY": bool(os.environ.get("SEOREVIEWTOOLS_KEY", "").strip()),
         "PRODUCTHUNT_TOKEN": bool(os.environ.get("PRODUCTHUNT_TOKEN", "").strip()),
         "SUPABASE_URL": bool(os.environ.get("SUPABASE_URL", "").strip()),
+        "POLAR_ACCESS_TOKEN": bool(os.environ.get("POLAR_ACCESS_TOKEN", "").strip()),
     }
     configured = sum(1 for v in keys.values() if v)
     return {"status": "ok", "keys_configured": configured, "keys": keys}

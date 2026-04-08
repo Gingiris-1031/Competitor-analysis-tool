@@ -41,7 +41,7 @@ async def create_checkout(product_key: str, user_email: str = "", success_url: s
         return {"error": f"Unknown product: {product_key}"}
 
     payload = {
-        "products": [{"product_id": product_id}],
+        "product_id": product_id,
     }
     if user_email:
         payload["customer_email"] = user_email
