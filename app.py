@@ -30,6 +30,9 @@ from modules.supabase_client import (
     verify_token_and_get_user, deduct_credit,
     get_user_profile, save_report_to_db,
 )
+from modules.polar_payment import (
+    create_checkout, handle_webhook_event, PRODUCTS, PLAN_CREDITS,
+)
 
 app = FastAPI(title="Analook — 竞品情报分析")
 
@@ -110,6 +113,67 @@ async def health_check():
     }
     configured = sum(1 for v in keys.values() if v)
     return {"status": "ok", "keys_configured": configured, "keys": keys}
+
+
+# =========================================================================
+# Payment endpoints — Polar.sh
+# =========================================================================
+
+@app.get("/api/pricing")
+async def get_pricing():
+    """Return pricing plans for the frontend."""
+    return {
+        "plans": [
+            {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 3, "features": ["3 reports/month", "Basic analysis"]},
+            {"key": "pro", "name": "Pro", "price": 29, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
+            {"key": "team", "name": "Team", "price": 99, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
+            {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
+        ],
+    }
+
+
+@app.post("/api/checkout")
+async def create_checkout_session(request: Request):
+    """Create a Polar checkout session."""
+    body = await request.json()
+    plan = body.get("plan", "")
+    if plan not in PRODUCTS:
+        return JSONResponse({"error": f"Invalid plan: {plan}"}, status_code=400)
+
+    # Get user info if authenticated
+    user_email = ""
+    user_id = ""
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        user = await verify_token_and_get_user(auth[7:])
+        if user:
+            user_email = user.get("email", "")
+            user_id = user.get("id", "")
+
+    success_url = body.get("success_url", "https://www.analook.com/?payment=success")
+
+    result = await create_checkout(plan, user_email=user_email, success_url=success_url, user_id=user_id)
+    if result.get("error"):
+        return JSONResponse({"error": result["error"]}, status_code=500)
+
+    return result
+
+
+@app.post("/api/webhook/polar")
+async def polar_webhook(request: Request):
+    """Handle Polar webhook events (payment confirmations, subscription changes)."""
+    body = await request.body()
+
+    # Parse event
+    try:
+        import json as _json_wb
+        event = _json_wb.loads(body)
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
+    # Process event
+    result = await handle_webhook_event(event)
+    return {"received": True, **result}
 
 
 class AnalyzeRequest(BaseModel):
