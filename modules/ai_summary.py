@@ -137,7 +137,12 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 这个 JSON 会被程序自动提取，必须严格遵守格式。"""
 
+    _log = logging.getLogger(__name__)
+    _log.warning("generate_ai_summary: prompt built, len=%d chars, calling _call_llm", len(prompt))
+
     result = await _call_llm(prompt)
+
+    _log.warning("generate_ai_summary: _call_llm returned success=%s source=%s", result.get("success"), result.get("source"))
 
     # Extract verdict JSON from AI response
     if result.get("success") and result.get("content"):

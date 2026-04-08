@@ -124,6 +124,22 @@ async def test_llm():
     return result
 
 
+@app.get("/api/test-llm-full")
+async def test_llm_full():
+    """Debug: test full generate_ai_summary with minimal data."""
+    try:
+        from modules.ai_summary import generate_ai_summary
+        result = await generate_ai_summary(
+            "TestProduct", "https://test.com",
+            {"domain": "test.com", "current_site": {"slogan": "Test product"}},
+            {"channels": {}}, {}, {},
+        )
+        return {"ai_success": result.get("success"), "ai_source": result.get("source"),
+                "ai_len": len(result.get("content", "")), "ai_note": result.get("note", "")[:200]}
+    except Exception as e:
+        return {"error": str(e)[:200]}
+
+
 # =========================================================================
 # Payment endpoints — Polar.sh
 # =========================================================================
