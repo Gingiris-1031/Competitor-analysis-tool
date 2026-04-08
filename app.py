@@ -177,6 +177,141 @@ async def polar_webhook(request: Request):
     return {"received": True, **result}
 
 
+# =========================================================================
+# Public API v1 — for agents (Claude Code, MCP, external integrations)
+# Auth: Bearer API key or Supabase JWT
+# =========================================================================
+
+@app.post("/api/v1/analyze")
+async def api_v1_analyze(request: Request):
+    """Agent API: Submit a competitor analysis. Returns job_id for polling.
+
+    Auth: Bearer token (Supabase JWT or API key)
+    Body: {"url": "example.com", "product_name": "Example"} (product_name optional)
+
+    Usage from Claude Code MCP:
+      curl -X POST https://www.analook.com/api/v1/analyze
+        -H "Authorization: Bearer <token>"
+        -H "Content-Type: application/json"
+        -d '{"url": "notion.so"}'
+    """
+    # Auth
+    auth = request.headers.get("Authorization", "")
+    user = None
+    if auth.startswith("Bearer "):
+        user = await verify_token_and_get_user(auth[7:])
+
+    # Parse body
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    url = body.get("url", "").strip()
+    if not url:
+        return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
+
+    product_name = body.get("product_name") or None
+
+    # Credit check (if authenticated)
+    if user:
+        has_credit = await deduct_credit(user["id"])
+        if not has_credit:
+            return JSONResponse({
+                "error": "Insufficient credits",
+                "upgrade_url": "https://www.analook.com/pricing.html",
+            }, status_code=402)
+
+    # Create job (reuse existing analyze logic)
+    job_id = uuid.uuid4().hex[:8]
+    if not url.startswith("http"):
+        url = f"https://{url}"
+
+    domain = urlparse(url).netloc
+    if not domain:
+        return JSONResponse({"error": f"Invalid URL: {url}"}, status_code=400)
+
+    import re as _re_api
+    _brand = _re_api.sub(r'^www\.', '', domain.lower())
+    _brand = _re_api.sub(r'\.[a-z]{2,6}$', '', _brand)
+    name = product_name or _brand.replace("-", " ").replace("_", " ").capitalize()
+
+    jobs[job_id] = {
+        "status": "running",
+        "product_name": name,
+        "url": url,
+        "progress": {
+            "website": "pending", "social": "pending", "propagation": "pending",
+            "traffic": "pending", "pricing": "pending", "traffic_peaks": "pending",
+            "growth_analysis": "pending", "report": "pending", "pr_news": "pending",
+        },
+        "results": {},
+        "report": None,
+        "markdown": None,
+        "user_id": user["id"] if user else None,
+    }
+
+    background_tasks = BackgroundTasks()
+    background_tasks.add_task(_run_analysis, job_id)
+    return JSONResponse(
+        {"job_id": job_id, "status": "started", "poll_url": f"/api/v1/status/{job_id}"},
+        background=background_tasks,
+    )
+
+
+@app.get("/api/v1/status/{job_id}")
+async def api_v1_status(job_id: str):
+    """Agent API: Poll analysis status."""
+    job = jobs.get(job_id)
+    if not job:
+        # Try persisted report
+        report = _load_persisted_report(job_id)
+        if report:
+            return {"status": "completed", "report_url": f"/api/v1/report/{job_id}"}
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+    return {
+        "status": job["status"],
+        "progress": job.get("progress", {}),
+        "product_name": job.get("product_name", ""),
+    }
+
+
+@app.get("/api/v1/report/{job_id}")
+async def api_v1_report(job_id: str):
+    """Agent API: Get the full analysis report as JSON."""
+    job = jobs.get(job_id)
+    if job and job.get("report"):
+        return job["report"]
+    # Try persisted
+    report = _load_persisted_report(job_id)
+    if report:
+        return report
+    return JSONResponse({"error": "Report not found"}, status_code=404)
+
+
+@app.get("/api/v1/report/{job_id}/markdown")
+async def api_v1_report_markdown(job_id: str):
+    """Agent API: Get the analysis report as Markdown text."""
+    job = jobs.get(job_id)
+    if job and job.get("markdown"):
+        return PlainTextResponse(job["markdown"])
+    return JSONResponse({"error": "Markdown not found"}, status_code=404)
+
+
+def _load_persisted_report(job_id: str) -> dict | None:
+    """Load report from disk JSON file."""
+    _reports_dir = os.path.join(os.path.dirname(__file__), "reports")
+    path = os.path.join(_reports_dir, f"{job_id}.json")
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                data = _json.load(f)
+            return data.get("report")
+        except Exception:
+            pass
+    return None
+
+
 class AnalyzeRequest(BaseModel):
     url: str
     product_name: Optional[str] = None
