@@ -566,7 +566,7 @@ async def _call_llm(prompt: str) -> dict:
         for attempt in range(2):
             last_teamo_err = f"attempt {attempt} started"
             try:
-                async with httpx.AsyncClient(timeout=50) as client:
+                async with httpx.AsyncClient(timeout=120) as client:
                     resp = await client.post(
                         "https://router.teamolab.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
@@ -603,7 +603,7 @@ async def _call_llm(prompt: str) -> dict:
     last_ds_err = None
     for attempt in range(2):
         try:
-            async with httpx.AsyncClient(timeout=50) as client:
+            async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
                     "https://api.deepseek.com/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
