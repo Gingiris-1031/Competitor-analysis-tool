@@ -84,10 +84,23 @@
 
     <main class="max-w-6xl mx-auto px-6 py-8">
 
-        <!-- Hero tagline -->
-        <div id="hero-section" class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-white mb-3">30 秒看透任何竞品</h2>
-            <p class="text-gray-400 text-base max-w-xl mx-auto">输入竞品网址 · 粘贴产品描述 · 上传 PDF — 自动生成官网演变、社媒渠道、流量趋势、AI 增长洞察完整报告</p>
+        <!-- Hero -->
+        <div id="hero-section" class="text-center py-10 mb-6">
+            <div class="inline-block bg-blue-900/30 border border-blue-700/40 text-blue-300 text-xs px-3 py-1 rounded-full mb-4">🚀 Trusted by 100+ indie hackers & growth teams</div>
+            <h2 class="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">Analyze any competitor<br>in 2 minutes</h2>
+            <p class="text-gray-400 text-lg max-w-2xl mx-auto mb-8">Enter a URL → Get a full competitive intelligence report with growth strategy, SEO analysis, social presence, and AI-powered insights.</p>
+
+            <!-- Feature pills -->
+            <div class="flex flex-wrap justify-center gap-3 mb-8 max-w-3xl mx-auto">
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🌐 Website Evolution</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">📊 SEO & Traffic</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🐦 Social Media</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🚀 Product Hunt</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">💻 GitHub / Open Source</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🧠 AI Strategy Verdict</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🎯 Strategy Radar Map</span>
+                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">📈 Growth Waves</span>
+            </div>
         </div>
 
         <!-- Input -->
@@ -354,6 +367,43 @@
     <script src="/js/render-peaks.js"></script>
     <script src="/js/render-propagation.js"></script>
     <script src="/js/render-strategy.js"></script>
+
+    <!-- How it works + CTA (visible below report area) -->
+    <section id="how-it-works" class="max-w-6xl mx-auto px-6 py-16">
+        <h3 class="text-2xl font-bold text-center text-white mb-10">How it works</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            <div class="text-center">
+                <div class="text-3xl mb-3">🔗</div>
+                <h4 class="text-lg font-semibold text-white mb-2">1. Enter a URL</h4>
+                <p class="text-sm text-gray-400">Paste any product's website. We handle the rest — no signup required for your first 3 reports.</p>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-3">⚡</div>
+                <h4 class="text-lg font-semibold text-white mb-2">2. AI analyzes everything</h4>
+                <p class="text-sm text-gray-400">15+ data sources scanned in parallel: Wayback Machine, Twitter, GitHub, Product Hunt, Google Trends, SEO tools.</p>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl mb-3">📊</div>
+                <h4 class="text-lg font-semibold text-white mb-2">3. Get actionable insights</h4>
+                <p class="text-sm text-gray-400">Strategy Radar, AI verdict, growth wave analysis, traffic quality scores — everything you need to outgrow your competitor.</p>
+            </div>
+        </div>
+
+        <!-- API section -->
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-8 mb-16">
+            <div class="flex flex-col md:flex-row items-center gap-8">
+                <div class="flex-1">
+                    <div class="inline-block bg-green-900/30 border border-green-700/40 text-green-300 text-xs px-3 py-1 rounded-full mb-3">API Available</div>
+                    <h4 class="text-xl font-bold text-white mb-2">Works with Claude Code & AI Agents</h4>
+                    <p class="text-sm text-gray-400 mb-4">One API call to get a full competitive intelligence report. Perfect for automated research workflows.</p>
+                    <code class="block bg-gray-800 text-green-300 text-xs p-3 rounded-lg font-mono overflow-x-auto">curl -X POST https://www.analook.com/api/v1/analyze \<br>&nbsp; -H "Content-Type: application/json" \<br>&nbsp; -d '{"url": "notion.so"}'</code>
+                </div>
+                <div class="flex-shrink-0">
+                    <a href="/pricing.html" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-lg transition-colors inline-block">View Pricing →</a>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <footer class="border-t border-gray-800 py-6 mt-16">
         <div class="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-600">
