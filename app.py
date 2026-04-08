@@ -116,6 +116,14 @@ async def health_check():
     return {"status": "ok", "keys_configured": configured, "keys": keys}
 
 
+@app.get("/api/test-llm")
+async def test_llm():
+    """Debug: direct LLM test to diagnose AI failure."""
+    from modules.ai_summary import _call_llm
+    result = await _call_llm("Reply with exactly: PONG")
+    return result
+
+
 # =========================================================================
 # Payment endpoints — Polar.sh
 # =========================================================================
