@@ -323,7 +323,8 @@ async def api_v1_report_markdown(job_id: str):
 
 
 def _load_persisted_report(job_id: str) -> dict | None:
-    """Load report from disk JSON file."""
+    """Load report from disk → Supabase (survives Railway restarts)."""
+    # Disk
     _reports_dir = os.path.join(os.path.dirname(__file__), "reports")
     path = os.path.join(_reports_dir, f"{job_id}.json")
     if os.path.exists(path):
@@ -333,6 +334,16 @@ def _load_persisted_report(job_id: str) -> dict | None:
             return data.get("report")
         except Exception:
             pass
+    # Supabase
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            result = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
+            if result.data and result.data[0].get("report"):
+                return result.data[0]["report"]
+    except Exception:
+        pass
     return None
 
 
@@ -1056,15 +1067,27 @@ async def get_status(job_id: str):
 
 @app.get("/api/report/{job_id}")
 async def get_report(job_id: str):
+    # 1. Memory
     job = jobs.get(job_id)
     if job and job.get("report"):
         return job["report"]
+    # 2. Disk
     path = os.path.join(REPORTS_DIR, f"{job_id}.json")
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             data = _json.load(f)
         if data.get("report"):
             return data["report"]
+    # 3. Supabase (survives Railway restarts)
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            result = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
+            if result.data and result.data[0].get("report"):
+                return result.data[0]["report"]
+    except Exception:
+        pass
     if job and not job.get("report"):
         return JSONResponse({"error": "Report not ready", "status": job["status"]}, status_code=202)
     return JSONResponse({"error": "Job not found"}, status_code=404)
