@@ -3,21 +3,21 @@ function renderProductHunt(ph) {
     if (!ph || !ph.found) {
         container.innerHTML = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
             <h3 class="text-lg font-semibold mb-2">🏆 Product Hunt</h3>
-            <p class="text-sm text-gray-500">${ph && ph.note ? esc(ph.note) : '未在 Product Hunt 上找到该产品'}</p>
+            <p class="text-sm text-gray-500">${ph && ph.note ? esc(ph.note) : 'Product not found on Product Hunt'}</p>
         </div>`;
         return;
     }
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold">🏆 Product Hunt 表现</h3>
-            <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">🚀 Product Hunt 深度分析</span>
+            <h3 class="text-lg font-semibold">🏆 Product Hunt Performance</h3>
+            <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">🚀 Product Hunt Deep Analysis</span>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Launch 日期</div><div class="text-sm font-mono text-blue-300 mt-1">${esc(ph.launch_date)}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Launch Date</div><div class="text-sm font-mono text-blue-300 mt-1">${esc(ph.launch_date)}</div></div>
             <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Upvotes</div><div class="text-sm font-mono text-orange-300 mt-1">⬆ ${(ph.votes||0).toLocaleString()}</div></div>
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">评论数</div><div class="text-sm font-mono text-green-300 mt-1">💬 ${(ph.comments||0).toLocaleString()}</div></div>
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">评分</div><div class="text-sm font-mono text-yellow-300 mt-1">${ph.reviews_rating ? '⭐ ' + ph.reviews_rating.toFixed(1) + ' (' + ph.reviews_count + ')' : 'N/A'}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Comments</div><div class="text-sm font-mono text-green-300 mt-1">💬 ${(ph.comments||0).toLocaleString()}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">Rating</div><div class="text-sm font-mono text-yellow-300 mt-1">${ph.reviews_rating ? '⭐ ' + ph.reviews_rating.toFixed(1) + ' (' + ph.reviews_count + ')' : 'N/A'}</div></div>
         </div>
 
         <div class="bg-gray-800 rounded-lg p-4 mb-4">
@@ -35,10 +35,10 @@ function renderProductHunt(ph) {
         html += `<div><span class="text-gray-500">Makers:</span> ${ph.makers.map(m => `<span class="ml-1">${esc(m.name)}</span>`).join(', ')}</div>`;
     }
     if (ph.url) {
-        html += `<a href="${esc(ph.url)}" target="_blank" class="text-blue-400 hover:underline font-medium">🔗 查看 Product Hunt 页面 ↗</a>`;
+        html += `<a href="${esc(ph.url)}" target="_blank" class="text-blue-400 hover:underline font-medium">🔗 View on Product Hunt ↗</a>`;
     }
     if (ph.website) {
-        html += `<a href="${esc(ph.website)}" target="_blank" class="text-blue-400 hover:underline ml-4">🌐 官网 ↗</a>`;
+        html += `<a href="${esc(ph.website)}" target="_blank" class="text-blue-400 hover:underline ml-4">🌐 Website ↗</a>`;
     }
 
     html += `</div>`;
@@ -52,21 +52,21 @@ function renderProductHunt(ph) {
         ].sort((a, b) => (a.launch_date || '').localeCompare(b.launch_date || ''));
 
         html += `<div class="mt-5 pt-5 border-t border-gray-700">
-            <div class="text-sm font-semibold text-gray-300 mb-3">📅 发布节点时间线（共 ${allLaunches.length} 次 Launch）</div>
+            <div class="text-sm font-semibold text-gray-300 mb-3">📅 Launch Timeline (${allLaunches.length} launches total)</div>
             <div class="relative pl-6 border-l-2 border-gray-700 space-y-4">`;
         for (let i = 0; i < allLaunches.length; i++) {
             const ol = allLaunches[i];
             const isBest = ol.is_best;
             const dotColor = isBest ? 'bg-orange-400' : 'bg-blue-400';
             const ringColor = isBest ? 'ring-orange-400/30' : 'ring-blue-400/30';
-            const label = i === 0 ? '首次发布' : i === allLaunches.length - 1 ? '最近发布' : `第 ${i + 1} 次`;
+            const label = i === 0 ? 'First Launch' : i === allLaunches.length - 1 ? 'Latest Launch' : `Launch #${i + 1}`;
             html += `<div class="relative">
                 <div class="absolute -left-[25px] top-1 w-3 h-3 rounded-full ${dotColor} ring-4 ${ringColor}"></div>
                 <div class="bg-gray-800/70 rounded-lg px-4 py-3 ${isBest ? 'border border-orange-500/30' : ''}">
                     <div class="flex items-center justify-between mb-1">
                         <div class="flex items-center gap-2">
                             <span class="text-xs font-mono text-blue-300">${esc(ol.launch_date || 'N/A')}</span>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded ${isBest ? 'bg-orange-900/50 text-orange-300' : 'bg-gray-700 text-gray-400'}">${label}${isBest ? ' · 最高票' : ''}</span>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded ${isBest ? 'bg-orange-900/50 text-orange-300' : 'bg-gray-700 text-gray-400'}">${label}${isBest ? ' · Top voted' : ''}</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-orange-300 font-mono">⬆ ${(ol.votes || 0).toLocaleString()}</span>

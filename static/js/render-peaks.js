@@ -5,10 +5,10 @@ function renderPeaks(tp) {
         container.innerHTML = `
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h3 class="text-base font-semibold text-white flex items-center gap-2 mb-3">
-                <span>📈</span> Google Trends 流量峰值分析
+                <span>📈</span> Google Trends Peak Analysis
             </h3>
             <div class="text-sm text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-4 py-3">
-                ⚠️ ${tp.error || 'Google Trends 数据暂时无法获取，请重新生成报告。'}
+                ⚠️ ${tp.error || 'Google Trends data temporarily unavailable. Please regenerate the report.'}
             </div>
         </div>`;
         return;
@@ -22,20 +22,20 @@ function renderPeaks(tp) {
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex items-center justify-between mb-1">
-            <h3 class="text-lg font-semibold">📈 Google Trends 流量峰值分析</h3>
-            <span class="text-[10px] bg-purple-900/40 text-purple-300 border border-purple-700/40 px-2.5 py-1 rounded-full font-medium">📊 多源交叉归因分析</span>
+            <h3 class="text-lg font-semibold">📈 Google Trends Peak Analysis</h3>
+            <span class="text-[10px] bg-purple-900/40 text-purple-300 border border-purple-700/40 px-2.5 py-1 rounded-full font-medium">📊 Multi-source Cross Attribution</span>
         </div>
-        <p class="text-xs text-gray-500 mb-5">品牌搜索热度 · 增长阶段 · Launch 关联</p>`;
+        <p class="text-xs text-gray-500 mb-5">Brand Search Interest · Growth Phases · Launch Correlation</p>`;
 
     // ── Summary stats strip ──────────────────────────────────────────────────
     html += `<div class="flex flex-wrap gap-3 mb-6">`;
     const stats = [
-        { label: '查询词', val: s.primary_query || '', color: 'text-blue-300' },
-        { label: '峰值热度', val: String(s.max_interest || 0), sub: s.max_interest_date || '', color: 'text-yellow-300' },
-        { label: '平均热度', val: String(s.avg_interest || 0), color: 'text-gray-300' },
-        { label: '近期趋势', val: s.recent_trend || 'N/A', color: s.recent_trend === '上升' ? 'text-green-300' : (s.recent_trend === '下降' ? 'text-red-300' : 'text-gray-300') },
-        { label: '当前阶段', val: s.current_phase || 'N/A', color: 'text-purple-300' },
-        { label: '检测峰值', val: String(s.total_peaks_detected || 0), sub: `已关联 ${s.matched_peaks || 0} / 未匹配 ${s.unmatched_peaks || 0}`, color: 'text-orange-300' },
+        { label: 'Query', val: s.primary_query || '', color: 'text-blue-300' },
+        { label: 'Peak Interest', val: String(s.max_interest || 0), sub: s.max_interest_date || '', color: 'text-yellow-300' },
+        { label: 'Avg Interest', val: String(s.avg_interest || 0), color: 'text-gray-300' },
+        { label: 'Recent Trend', val: s.recent_trend || 'N/A', color: s.recent_trend === '上升' ? 'text-green-300' : (s.recent_trend === '下降' ? 'text-red-300' : 'text-gray-300') },
+        { label: 'Current Phase', val: s.current_phase || 'N/A', color: 'text-purple-300' },
+        { label: 'Detected Peaks', val: String(s.total_peaks_detected || 0), sub: `Matched ${s.matched_peaks || 0} / Unmatched ${s.unmatched_peaks || 0}`, color: 'text-orange-300' },
     ];
     for (const st of stats) {
         html += `<div class="bg-gray-800 rounded-lg px-3 py-2 min-w-[90px]">
@@ -50,10 +50,10 @@ function renderPeaks(tp) {
     const tq = s.traffic_quality;
     if (tq) {
         const metrics = [
-            { label: '有机真实度', score: tq.organic_authenticity, emoji: '🎯', desc: '峰值来源可追溯性' },
-            { label: '增长持续性', score: tq.growth_sustainability, emoji: '📈', desc: '近期 vs 长期热度' },
-            { label: '渠道多样性', score: tq.channel_diversity, emoji: '🌐', desc: '流量渠道丰富度' },
-            { label: '品牌护城河', score: tq.brand_moat, emoji: '🏰', desc: '搜索热度趋势' },
+            { label: 'Organic Authenticity', score: tq.organic_authenticity, emoji: '🎯', desc: 'Peak source traceability' },
+            { label: 'Growth Sustainability', score: tq.growth_sustainability, emoji: '📈', desc: 'Recent vs long-term interest' },
+            { label: 'Channel Diversity', score: tq.channel_diversity, emoji: '🌐', desc: 'Traffic channel richness' },
+            { label: 'Brand Moat', score: tq.brand_moat, emoji: '🏰', desc: 'Search interest trend' },
         ];
         html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">`;
         for (const m of metrics) {
@@ -89,7 +89,7 @@ function renderPeaks(tp) {
         const peakTimestamps = new Set(peaks.map(p => p.peak_timestamp));
 
         html += `<div class="mb-6">
-            <h4 class="text-xs font-semibold text-gray-400 mb-2">📊 搜索热度时间线</h4>
+            <h4 class="text-xs font-semibold text-gray-400 mb-2">📊 Search Interest Timeline</h4>
             <div class="flex items-end gap-px overflow-x-auto pb-1" style="height:72px; min-width:0">`;
         for (const d of sampled) {
             const pct = Math.round((d.value / maxVal) * 100);
@@ -104,7 +104,7 @@ function renderPeaks(tp) {
         html += `</div>
             <div class="flex justify-between text-[9px] text-gray-600 mt-1">
                 <span>${esc(sampled[0]?.date_label || '')}</span>
-                <span class="text-orange-400/70">橙色 = 峰值周</span>
+                <span class="text-orange-400/70">Orange = peak week</span>
                 <span>${esc(sampled[sampled.length - 1]?.date_label || '')}</span>
             </div>
         </div>`;
@@ -113,6 +113,11 @@ function renderPeaks(tp) {
     // ── Growth phases ────────────────────────────────────────────────────────
     if (phases.length > 0) {
         const phaseColors = {
+            'Cold Start': 'bg-gray-700 text-gray-300',
+            'Ramp Up':   'bg-blue-900/60 text-blue-300',
+            'Explosion':   'bg-green-900/60 text-green-300',
+            'Plateau': 'bg-yellow-900/60 text-yellow-300',
+            'Decline':   'bg-red-900/40 text-red-300',
             '冷启动期': 'bg-gray-700 text-gray-300',
             '爬坡期':   'bg-blue-900/60 text-blue-300',
             '爆发期':   'bg-green-900/60 text-green-300',
@@ -120,13 +125,13 @@ function renderPeaks(tp) {
             '回落期':   'bg-red-900/40 text-red-300',
         };
         html += `<div class="mb-6">
-            <h4 class="text-xs font-semibold text-gray-400 mb-2">🔄 增长阶段划分</h4>
+            <h4 class="text-xs font-semibold text-gray-400 mb-2">🔄 Growth Phase Breakdown</h4>
             <div class="space-y-1.5">`;
         for (const ph of phases) {
             const cls = phaseColors[ph.phase] || 'bg-gray-800 text-gray-300';
             const channels = (ph.active_channels || []).join(' · ') || '—';
             const insights = ph.insights || [];
-            const peakBadge = ph.peak_count ? `<span class="text-[9px] bg-orange-900/50 text-orange-300 rounded px-1 ml-1">${ph.peak_count} 峰值</span>` : '';
+            const peakBadge = ph.peak_count ? `<span class="text-[9px] bg-orange-900/50 text-orange-300 rounded px-1 ml-1">${ph.peak_count} peaks</span>` : '';
             html += `<div class="${cls} rounded-lg px-3 py-2">
                 <div class="flex items-center justify-between">
                     <div>
@@ -134,8 +139,8 @@ function renderPeaks(tp) {
                         <span class="text-[10px] text-gray-500 ml-2 font-mono">${esc(ph.start_date)} → ${esc(ph.end_date)}</span>
                     </div>
                     <div class="text-right">
-                        <div class="text-[10px] text-gray-400">${ph.week_count} 周 · 均值 ${ph.avg_value}</div>
-                        <div class="text-[10px] text-gray-500">渠道: ${esc(channels)}</div>
+                        <div class="text-[10px] text-gray-400">${ph.week_count} wks · avg ${ph.avg_value}</div>
+                        <div class="text-[10px] text-gray-500">Channels: ${esc(channels)}</div>
                     </div>
                 </div>`;
             if (insights.length > 0) {
@@ -153,7 +158,7 @@ function renderPeaks(tp) {
     // ── Detected peaks (with attribution) ───────────────────────────────────
     if (peaks.length > 0) {
         html += `<div class="mb-6">
-            <h4 class="text-xs font-semibold text-gray-400 mb-2">🔍 检测到的峰值事件</h4>
+            <h4 class="text-xs font-semibold text-gray-400 mb-2">🔍 Detected Peak Events</h4>
             <div class="space-y-3">`;
         for (const pk of peaks) {
             const status = pk.status || 'unmatched';
@@ -166,26 +171,26 @@ function renderPeaks(tp) {
             let borderColor, badge;
             if (isAttributed) {
                 const conf = attr.confidence === 'high' ? 'text-green-400' : 'text-yellow-400';
-                const confLabel = attr.confidence === 'high' ? '高可信度' : '中等可信度';
+                const confLabel = attr.confidence === 'high' ? 'High confidence' : 'Medium confidence';
                 borderColor = 'border-green-600/60';
-                badge = `<span class="text-[9px] bg-green-900/50 ${conf} rounded px-1.5 py-0.5">✅ 已归因·${confLabel}</span>`;
+                badge = `<span class="text-[9px] bg-green-900/50 ${conf} rounded px-1.5 py-0.5">✅ Attributed · ${confLabel}</span>`;
             } else if (isPhMatched) {
                 borderColor = 'border-blue-600/60';
-                badge = `<span class="text-[9px] bg-blue-900/50 text-blue-400 rounded px-1.5 py-0.5">🏆 PH 发布</span>`;
+                badge = `<span class="text-[9px] bg-blue-900/50 text-blue-400 rounded px-1.5 py-0.5">🏆 PH Launch</span>`;
             } else {
                 borderColor = 'border-orange-600/60';
-                badge = `<span class="text-[9px] bg-orange-900/50 text-orange-400 rounded px-1.5 py-0.5">❓ 未匹配</span>`;
+                badge = `<span class="text-[9px] bg-orange-900/50 text-orange-400 rounded px-1.5 py-0.5">❓ Unmatched</span>`;
             }
 
             html += `<div class="bg-gray-800 rounded-lg px-3 py-2.5 border-l-2 ${borderColor}">
                 <div class="flex items-center justify-between mb-1.5">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-xs font-mono text-gray-300">${esc(pk.peak_date_label || '')}</span>
-                        <span class="text-xs font-bold text-orange-300">热度 ${pk.peak_value}</span>
+                        <span class="text-xs font-bold text-orange-300">Interest ${pk.peak_value}</span>
                         ${badge}
                         ${attr.primary_channel && isAttributed ? `<span class="text-[9px] text-gray-500">via ${esc(attr.primary_channel)}</span>` : ''}
                     </div>
-                    <span class="text-[10px] text-gray-500">${pk.weeks_in_event || 1} 周</span>
+                    <span class="text-[10px] text-gray-500">${pk.weeks_in_event || 1} wks</span>
                 </div>`;
 
             // Attribution sources
@@ -233,14 +238,14 @@ function renderPeaks(tp) {
                 html += `<div class="space-y-0.5">`;
                 for (const m of pk.matched_launches) {
                     const delta = m.delta_days != null
-                        ? (m.delta_days >= 0 ? `峰值晚于 Launch ${m.delta_days} 天` : `峰值早于 Launch ${Math.abs(m.delta_days)} 天`)
+                        ? (m.delta_days >= 0 ? `Peak ${m.delta_days} days after Launch` : `Peak ${Math.abs(m.delta_days)} days before Launch`)
                         : '';
                     html += `<div class="text-[10px] text-gray-400">📌 ${esc((m.label || '').slice(0, 60))} <span class="text-gray-500">${esc(delta)}</span></div>`;
                 }
                 html += `</div>`;
             } else {
                 // Unmatched fallback
-                const msg = attr.summary || pk.hypothesis || '未找到明确来源';
+                const msg = attr.summary || pk.hypothesis || 'No clear source found';
                 html += `<div class="text-[10px] text-orange-300/70 mt-0.5">${esc(msg)}</div>`;
             }
 
@@ -257,14 +262,14 @@ function renderPeaks(tp) {
 
         if (investigated.length > 0) {
             html += `<div class="mb-4">
-                <h4 class="text-xs font-semibold text-gray-400 mb-2">🔎 深度调查发现的事件</h4>
+                <h4 class="text-xs font-semibold text-gray-400 mb-2">🔎 Events Found via Deep Investigation</h4>
                 <div class="space-y-2">`;
             for (const pk of investigated) {
                 const attr = pk.attribution || {};
                 html += `<div class="bg-gray-800 rounded-lg px-3 py-2.5 border-l-2 border-yellow-600/60">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="text-xs font-mono text-yellow-300">${esc(pk.peak_date_label || '')}</span>
-                        <span class="text-[9px] bg-yellow-900/50 text-yellow-400 rounded px-1.5 py-0.5">🔎 深度调查</span>
+                        <span class="text-[9px] bg-yellow-900/50 text-yellow-400 rounded px-1.5 py-0.5">🔎 Deep Investigation</span>
                     </div>
                     <div class="text-xs text-gray-300 mb-1.5">${esc(attr.summary || '')}</div>`;
                 // Show found events
@@ -283,8 +288,8 @@ function renderPeaks(tp) {
 
         if (stillUnmatched.length > 0) {
             html += `<div class="bg-orange-900/10 border border-orange-800/30 rounded-lg p-3">
-                <div class="text-xs text-orange-300 font-medium mb-1">⚠️ ${stillUnmatched.length} 个未归因的流量峰值</div>
-                <div class="text-[10px] text-gray-400">可能来自：付费广告投放、线下活动、口碑传播、或数据源未覆盖的渠道</div>
+                <div class="text-xs text-orange-300 font-medium mb-1">⚠️ ${stillUnmatched.length} unattributed traffic peaks</div>
+                <div class="text-[10px] text-gray-400">May come from: paid ads, offline events, word-of-mouth, or channels not covered by data sources</div>
             </div>`;
         }
     }

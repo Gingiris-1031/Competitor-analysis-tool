@@ -10,13 +10,13 @@ function renderGrowth(ga) {
     const lw = ga.launch_waves || {};
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
-        <h3 class="text-lg font-semibold mb-1">🚀 增长深度分析</h3>
-        <p class="text-xs text-gray-500 mb-6">渠道拆解 · 0→1 故事线 · 多波 Launch 时间线</p>`;
+        <h3 class="text-lg font-semibold mb-1">🚀 Growth Deep Analysis</h3>
+        <p class="text-xs text-gray-500 mb-6">Channel Breakdown · 0→1 Story · Launch Waves Timeline</p>`;
 
     // ── 1. Channel Breakdown ─────────────────────────────────────────────────
     if (cb && cb.active_channels && cb.active_channels.length) {
         html += `<div class="mb-8">
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">📡 增长渠道拆解</h4>`;
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">📡 Channel Breakdown</h4>`;
 
         // Active channel pills + dominant badge
         html += `<div class="flex flex-wrap gap-2 mb-4">`;
@@ -28,7 +28,7 @@ function renderGrowth(ga) {
             const badge = isDominant
                 ? 'bg-blue-600 text-white font-semibold'
                 : 'bg-gray-800 text-gray-300';
-            const tag = isDominant ? ' 👑 主导' : '';
+            const tag = isDominant ? ' 👑 Dominant' : '';
             html += `<span class="text-xs px-3 py-1 rounded-full ${badge}">${esc(ch)}${tag}</span>`;
         }
         html += `</div>`;
@@ -44,15 +44,15 @@ function renderGrowth(ga) {
                 const metrics = [];
                 if (m.followers != null)        metrics.push(['Followers', m.followers.toLocaleString()]);
                 if (m.total_tweets)             metrics.push(['Tweets', m.total_tweets.toLocaleString()]);
-                if (m.top_tweet_likes)          metrics.push(['Top 推文 Likes', m.top_tweet_likes.toLocaleString()]);
-                if (m.avg_engagement)           metrics.push(['平均互动', m.avg_engagement.toLocaleString()]);
+                if (m.top_tweet_likes)          metrics.push(['Top Tweet Likes', m.top_tweet_likes.toLocaleString()]);
+                if (m.avg_engagement)           metrics.push(['Avg Engagement', m.avg_engagement.toLocaleString()]);
                 if (m.stars_total)              metrics.push(['Total Stars', m.stars_total.toLocaleString()]);
                 if (m.top_repo_stars)           metrics.push(['Top Repo', m.top_repo_stars.toLocaleString()]);
-                if (m.total_mentions)           metrics.push(['提及次数', m.total_mentions.toLocaleString()]);
-                if (m.subreddit_members)        metrics.push(['Sub 成员', m.subreddit_members.toLocaleString()]);
-                if (m.monthly_traffic)          metrics.push(['月均流量', m.monthly_traffic.toLocaleString()]);
-                if (m.total_keywords)           metrics.push(['排名词', m.total_keywords.toLocaleString()]);
-                if (m.equivalent_ad_cost)       metrics.push(['等效广告', '$' + m.equivalent_ad_cost.toLocaleString()]);
+                if (m.total_mentions)           metrics.push(['Mentions', m.total_mentions.toLocaleString()]);
+                if (m.subreddit_members)        metrics.push(['Sub Members', m.subreddit_members.toLocaleString()]);
+                if (m.monthly_traffic)          metrics.push(['Monthly Traffic', m.monthly_traffic.toLocaleString()]);
+                if (m.total_keywords)           metrics.push(['Ranked KW', m.total_keywords.toLocaleString()]);
+                if (m.equivalent_ad_cost)       metrics.push(['Equiv. Ad Cost', '$' + m.equivalent_ad_cost.toLocaleString()]);
                 if (m.subscribers != null)      metrics.push(['Subscribers', String(m.subscribers)]);
                 if (m.video_count != null)      metrics.push(['Videos', String(m.video_count)]);
 
@@ -67,7 +67,7 @@ function renderGrowth(ga) {
                 // Content categories (Twitter)
                 const cats = m.content_categories || {};
                 if (Object.keys(cats).length) {
-                    const catLabels = { launch: '🚀 发布', product_update: '⚙️ 更新', community: '👥 社区', tutorial: '📖 教程', kol_collab: '🤝 KOL', other: '💬 其他' };
+                    const catLabels = { launch: '🚀 Launch', product_update: '⚙️ Update', community: '👥 Community', tutorial: '📖 Tutorial', kol_collab: '🤝 KOL', other: '💬 Other' };
                     html += `<div class="mt-2 pt-2 border-t border-gray-700 flex flex-wrap gap-1">`;
                     for (const [cat, count] of Object.entries(cats).sort((a, b) => b[1] - a[1])) {
                         html += `<span class="text-[9px] bg-gray-700 rounded px-1.5 py-0.5">${catLabels[cat] || cat} ×${count}</span>`;
@@ -83,13 +83,13 @@ function renderGrowth(ga) {
         const topContent = cb.top_content || [];
         if (topContent.length) {
             html += `<div>
-                <h5 class="text-xs font-semibold text-gray-400 mb-2">🏆 Top 内容表现（跨平台）</h5>
+                <h5 class="text-xs font-semibold text-gray-400 mb-2">🏆 Top Content Performance (Cross-platform)</h5>
                 <div class="overflow-x-auto"><table class="w-full text-xs">
                     <thead><tr class="bg-gray-800 text-gray-400">
-                        <th class="px-2 py-1.5 text-left">平台</th>
-                        <th class="px-2 py-1.5 text-left">内容摘要</th>
+                        <th class="px-2 py-1.5 text-left">Platform</th>
+                        <th class="px-2 py-1.5 text-left">Content Summary</th>
                         <th class="px-2 py-1.5 text-right">❤️</th>
-                        <th class="px-2 py-1.5 text-right">其他</th>
+                        <th class="px-2 py-1.5 text-right">Other</th>
                     </tr></thead>
                     <tbody>`;
             for (const c of topContent) {
@@ -116,18 +116,18 @@ function renderGrowth(ga) {
     // ── 2. 0→1 Story ────────────────────────────────────────────────────────
     if (z2o && (z2o.timeline && z2o.timeline.length || z2o.current_traffic)) {
         html += `<div class="mb-8">
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">📖 0→1 成长故事线</h4>`;
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">📖 0→1 Growth Story</h4>`;
 
         // Key stats strip
         html += `<div class="flex flex-wrap gap-3 mb-4">`;
         if (z2o.first_seen && z2o.first_seen !== 'N/A') {
-            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">域名首次出现</div><div class="text-sm font-mono text-blue-300">${esc(z2o.first_seen)}</div></div>`;
+            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Domain First Seen</div><div class="text-sm font-mono text-blue-300">${esc(z2o.first_seen)}</div></div>`;
         }
         if (z2o.current_traffic) {
-            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">当前月均流量</div><div class="text-sm font-mono text-green-300">${z2o.current_traffic.toLocaleString()}</div></div>`;
+            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Current Monthly Traffic</div><div class="text-sm font-mono text-green-300">${z2o.current_traffic.toLocaleString()}</div></div>`;
         }
         if (z2o.growth_multiple) {
-            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">流量增长倍数</div><div class="text-sm font-mono text-yellow-300">${z2o.growth_multiple}x</div></div>`;
+            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Traffic Growth Multiple</div><div class="text-sm font-mono text-yellow-300">${z2o.growth_multiple}x</div></div>`;
         }
         html += `</div>`;
 
@@ -164,7 +164,7 @@ function renderGrowth(ga) {
         const inflections = z2o.key_inflection_points || [];
         if (inflections.length) {
             html += `<div class="mt-4">
-                <h5 class="text-xs font-semibold text-gray-400 mb-2">⚡ 关键拐点</h5>
+                <h5 class="text-xs font-semibold text-gray-400 mb-2">⚡ Key Inflection Points</h5>
                 <div class="space-y-2">`;
             for (const ip of inflections) {
                 const pct = ip.growth_pct || 0;
@@ -188,13 +188,13 @@ function renderGrowth(ga) {
     if (lw && lw.total_waves > 0) {
         const waves = lw.launches || [];
         html += `<div>
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">🌊 多波 Launch 时间轴</h4>`;
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">🌊 Launch Waves Timeline</h4>`;
 
         // Summary bar
         html += `<div class="flex flex-wrap gap-3 mb-5">
-            <div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Launch 波次</div><div class="text-sm font-mono text-blue-300">${lw.total_waves}</div></div>`;
+            <div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Launch Waves</div><div class="text-sm font-mono text-blue-300">${lw.total_waves}</div></div>`;
         if (lw.launch_cadence) {
-            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">发布节奏</div><div class="text-sm text-yellow-300">${esc(lw.launch_cadence)}</div></div>`;
+            html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Launch Cadence</div><div class="text-sm text-yellow-300">${esc(lw.launch_cadence)}</div></div>`;
         }
         html += `</div>`;
 
@@ -292,13 +292,13 @@ function renderGrowth(ga) {
         html += `</div>`;
 
         // Expandable detail cards
-        html += `<details class="mt-4"><summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-300">📋 展开波次详情</summary><div class="space-y-3 mt-3">`;
+        html += `<details class="mt-4"><summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-300">📋 Expand wave details</summary><div class="space-y-3 mt-3">`;
         for (const wave of waves) {
             const impact = wave.total_impact || {};
             const impactBits = [];
             if (impact.ph_votes) impactBits.push(`⬆ ${impact.ph_votes.toLocaleString()} PH votes`);
             if (impact.twitter_likes) impactBits.push(`❤️ ${impact.twitter_likes.toLocaleString()} likes`);
-            if (impact.traffic_peak) impactBits.push(`📈 ${impact.traffic_peak.toLocaleString()} 流量/月`);
+            if (impact.traffic_peak) impactBits.push(`📈 ${impact.traffic_peak.toLocaleString()} traffic/mo`);
 
             html += `<div class="bg-gray-800 rounded-lg p-3 border border-gray-700">
                 <div class="flex items-center gap-2 mb-1.5">
@@ -323,7 +323,7 @@ function renderGrowth(ga) {
 
     // Empty state
     if (!cb.active_channels?.length && !z2o.timeline?.length && !lw.total_waves) {
-        html += `<div class="text-sm text-gray-500 text-center py-8">暂无足够数据生成增长分析</div>`;
+        html += `<div class="text-sm text-gray-500 text-center py-8">Insufficient data to generate growth analysis</div>`;
     }
 
     html += `</div>`;

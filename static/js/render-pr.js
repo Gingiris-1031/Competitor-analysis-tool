@@ -1,4 +1,4 @@
-/* render-pr.js — PR & 媒体曝光渲染模块 */
+/* render-pr.js — PR & Media coverage render module */
 
 function renderPR(data) {
     const el = document.getElementById('section-pr');
@@ -8,10 +8,10 @@ function renderPR(data) {
         el.innerHTML = `
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h3 class="text-base font-semibold text-white flex items-center gap-2 mb-3">
-                <span>📰</span> 媒体 & 社区曝光
+                <span>📰</span> Media & Community Coverage
             </h3>
             <div class="text-sm text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-4 py-3">
-                ⏱ 数据获取超时，建议重新生成报告，或稍后刷新查看。
+                ⏱ Data retrieval timed out. Please regenerate the report or refresh later.
             </div>
         </div>`;
         return;
@@ -27,9 +27,9 @@ function renderPR(data) {
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                <span>📰</span> 媒体 & 社区曝光
+                <span>📰</span> Media & Community Coverage
             </h3>
-            <span class="text-xs text-gray-500 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full">${total} 条记录</span>
+            <span class="text-xs text-gray-500 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full">${total} records</span>
         </div>
 
         ${insights.length ? `
@@ -40,7 +40,7 @@ function renderPR(data) {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             ${_renderMentionColumn('🟠 HackerNews', hn, 'hn')}
             ${_renderMentionColumn('📰 Google News', news, 'news')}
-            ${_renderMentionColumn('🗞 科技媒体', press, 'press')}
+            ${_renderMentionColumn('🗞 Tech Media', press, 'press')}
         </div>
     </div>`;
 }
@@ -50,7 +50,7 @@ function _renderMentionColumn(title, items, type) {
         return `
         <div class="bg-gray-800/30 border border-gray-700/40 rounded-lg p-4">
             <div class="text-xs font-medium text-gray-500 mb-3">${title}</div>
-            <p class="text-xs text-gray-600">暂无数据</p>
+            <p class="text-xs text-gray-600">No data available</p>
         </div>`;
     }
 

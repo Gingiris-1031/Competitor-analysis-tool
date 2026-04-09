@@ -71,7 +71,7 @@ function renderStrategyRadar(radar) {
     // Center score
     const centerScore = `
         <text x="${cx}" y="${cy - 8}" text-anchor="middle" fill="#e5e7eb" font-size="28" font-weight="bold">${avg}</text>
-        <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6b7280" font-size="10">综合评分</text>
+        <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6b7280" font-size="10">Overall Score</text>
     `;
 
     const svg = `<svg viewBox="0 0 400 360" style="width:100%; max-width:400px; height:auto;">
@@ -81,7 +81,7 @@ function renderStrategyRadar(radar) {
     // Build the card
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold">🎯 策略雷达图</h3>
+            <h3 class="text-lg font-semibold">🎯 Strategy Radar</h3>
             <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">Strategy Radar</span>
         </div>
         <div class="flex flex-col md:flex-row items-center gap-6">

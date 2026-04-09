@@ -1,5 +1,5 @@
 /**
- * render-pricing.js — 定价结构展示模块
+ * render-pricing.js — Pricing structure display module
  */
 
 function renderPricing(pricing) {
@@ -9,15 +9,15 @@ function renderPricing(pricing) {
 
     const modelLabel = {
         'freemium': '🆓 Freemium',
-        'subscription': '💳 订阅制',
-        'usage-based': '📊 按量计费',
-        'open-source': '🌐 开源',
-        'unknown': '❓ 未知',
+        'subscription': '💳 Subscription',
+        'usage-based': '📊 Usage-based',
+        'open-source': '🌐 Open Source',
+        'unknown': '❓ Unknown',
     }[pricing.model] || pricing.model || '❓';
 
     const tags = [];
-    if (pricing.free_plan)    tags.push('<span class="text-xs bg-green-900/40 text-green-300 border border-green-700/40 px-2 py-0.5 rounded-full">有免费套餐</span>');
-    if (pricing.free_trial)   tags.push('<span class="text-xs bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2 py-0.5 rounded-full">免费试用</span>');
+    if (pricing.free_plan)    tags.push('<span class="text-xs bg-green-900/40 text-green-300 border border-green-700/40 px-2 py-0.5 rounded-full">Free Plan</span>');
+    if (pricing.free_trial)   tags.push('<span class="text-xs bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2 py-0.5 rounded-full">Free Trial</span>');
     if (pricing.annual_discount) tags.push(`<span class="text-xs bg-yellow-900/40 text-yellow-300 border border-yellow-700/40 px-2 py-0.5 rounded-full">${pricing.annual_discount}</span>`);
 
     const tiers = pricing.tiers || [];
@@ -27,10 +27,10 @@ function renderPricing(pricing) {
         <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${Math.min(tiers.length, 4)} gap-4">
             ${tiers.map(t => {
                 const price = t.price_monthly === 0
-                    ? '<span class="text-2xl font-bold text-green-400">免费</span>'
+                    ? '<span class="text-2xl font-bold text-green-400">Free</span>'
                     : `<span class="text-2xl font-bold text-white">$${t.price_monthly}</span><span class="text-xs text-gray-500">/月</span>`;
                 const annualNote = t.price_annual_monthly
-                    ? `<p class="text-xs text-gray-500 mt-0.5">年付 $${t.price_annual_monthly}/月</p>`
+                    ? `<p class="text-xs text-gray-500 mt-0.5">Annual: $${t.price_annual_monthly}/mo</p>`
                     : '';
                 const features = (t.features || []).slice(0, 6).map(f =>
                     `<li class="flex gap-2 text-xs text-gray-300"><span class="text-blue-400 flex-shrink-0">✓</span>${_esc(f)}</li>`
@@ -40,7 +40,7 @@ function renderPricing(pricing) {
                     : 'border-gray-700';
                 return `
                 <div class="relative bg-gray-800 rounded-xl border ${highlight} p-5 flex flex-col">
-                    ${t.highlight ? '<div class="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs bg-blue-600 text-white px-3 py-0.5 rounded-full">推荐</div>' : ''}
+                    ${t.highlight ? '<div class="absolute -top-2.5 left-1/2 -translate-x-1/2 text-xs bg-blue-600 text-white px-3 py-0.5 rounded-full">Recommended</div>' : ''}
                     <h4 class="font-semibold text-white mb-2">${_esc(t.name)}</h4>
                     <div class="mb-1">${price}</div>
                     ${annualNote}
@@ -49,7 +49,7 @@ function renderPricing(pricing) {
             }).join('')}
         </div>`;
     } else if (!pricing.found) {
-        tiersHtml = `<p class="text-sm text-gray-500 mt-4">未检测到公开定价页，可能为企业询价或私有部署模式。</p>`;
+        tiersHtml = `<p class="text-sm text-gray-500 mt-4">No public pricing page detected. May use enterprise pricing or private deployment model.</p>`;
     }
 
     const insights = pricing.insights || [];
@@ -63,13 +63,13 @@ function renderPricing(pricing) {
         </div>` : '';
 
     const sourceHtml = pricing.source_url ? `
-        <p class="text-xs text-gray-600 mt-4">数据来源：<a href="${pricing.source_url}" target="_blank" class="text-blue-500 hover:underline">${pricing.source_url}</a></p>
+        <p class="text-xs text-gray-600 mt-4">Data Source:<a href="${pricing.source_url}" target="_blank" class="text-blue-500 hover:underline">${pricing.source_url}</a></p>
     ` : '';
 
     el.innerHTML = `
     <div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex flex-wrap items-center gap-3 mb-4">
-            <h3 class="text-base font-semibold text-white">💰 定价结构</h3>
+            <h3 class="text-base font-semibold text-white">💰 Pricing Structure</h3>
             <span class="text-xs bg-purple-900/40 text-purple-300 border border-purple-700/40 px-2 py-0.5 rounded-full">${_esc(modelLabel)}</span>
             ${tags.join('')}
         </div>

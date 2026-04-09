@@ -1,4 +1,4 @@
-/* render-github.js — GitHub OSS 分析渲染模块 */
+/* render-github.js — GitHub OSS analysis render module */
 
 function renderGithub(data) {
     const el = document.getElementById('section-github');
@@ -25,11 +25,11 @@ function renderGithub(data) {
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                <span>⭐</span> GitHub 开源分析
+                <span>⭐</span> GitHub Open Source
             </h3>
             ${repoUrl ? `<a href="${_escAttr(repoUrl)}" target="_blank" rel="noopener"
                 class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 hover:border-blue-600 px-3 py-1 rounded-lg transition-colors">
-                查看仓库 ↗
+                View Repo ↗
             </a>` : ''}
         </div>
 
@@ -47,8 +47,8 @@ function renderGithub(data) {
         <div class="flex flex-wrap gap-2 mb-5 text-xs">
             ${language ? `<span class="bg-gray-800 text-gray-300 border border-gray-700 px-2.5 py-1 rounded-full">💻 ${_esc(language)}</span>` : ''}
             ${license ? `<span class="bg-gray-800 text-gray-300 border border-gray-700 px-2.5 py-1 rounded-full">📄 ${_esc(license)}</span>` : ''}
-            ${created ? `<span class="bg-gray-800 text-gray-400 border border-gray-700 px-2.5 py-1 rounded-full">🗓 创建 ${_esc(created)}</span>` : ''}
-            ${pushed ? `<span class="bg-gray-800 text-gray-400 border border-gray-700 px-2.5 py-1 rounded-full">🔄 最近推送 ${_esc(pushed)}</span>` : ''}
+            ${created ? `<span class="bg-gray-800 text-gray-400 border border-gray-700 px-2.5 py-1 rounded-full">🗓 Created${_esc(created)}</span>` : ''}
+            ${pushed ? `<span class="bg-gray-800 text-gray-400 border border-gray-700 px-2.5 py-1 rounded-full">🔄 Last Push${_esc(pushed)}</span>` : ''}
             ${topics.slice(0, 5).map(t => `<span class="bg-indigo-950/60 text-indigo-300 border border-indigo-800/50 px-2.5 py-1 rounded-full">${_esc(t)}</span>`).join('')}
         </div>
 
@@ -81,10 +81,10 @@ function _renderRelease(rel) {
     <div class="bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-3 mb-4 flex items-center justify-between">
         <div class="flex items-center gap-2">
             <span class="text-green-400 text-sm">🚀</span>
-            <span class="text-sm text-gray-200">最新发布：<strong class="text-white">${_esc(rel.tag || rel.name || '—')}</strong></span>
+            <span class="text-sm text-gray-200">Latest Release:<strong class="text-white">${_esc(rel.tag || rel.name || '—')}</strong></span>
             ${rel.date ? `<span class="text-xs text-gray-500">${_esc(rel.date)}</span>` : ''}
         </div>
-        ${rel.url ? `<a href="${_escAttr(rel.url)}" target="_blank" rel="noopener" class="text-xs text-blue-400 hover:text-blue-300">查看 ↗</a>` : ''}
+        ${rel.url ? `<a href="${_escAttr(rel.url)}" target="_blank" rel="noopener" class="text-xs text-blue-400 hover:text-blue-300">View ↗</a>` : ''}
     </div>`;
 }
 
@@ -103,7 +103,7 @@ function _renderStarChart(history, totalStars) {
         const cum = h.cumulative || 0;
         const label = h.month ? h.month.slice(2) : '';  // "2022-08" → "22-08"
         return `
-        <div class="flex flex-col items-center gap-0.5 flex-1" title="${_esc(h.month)}: +${_fmtNum(gain)} stars（累计 ${_fmtNum(cum)}）">
+        <div class="flex flex-col items-center gap-0.5 flex-1" title="${_esc(h.month)}: +${_fmtNum(gain)} stars（total ${_fmtNum(cum)})">
             <div class="w-full flex items-end justify-center" style="height:60px">
                 <div class="${barColor} w-full rounded-t transition-all" style="height:${Math.max(pct, 2)}%"></div>
             </div>
@@ -114,8 +114,8 @@ function _renderStarChart(history, totalStars) {
     return `
     <div class="mb-5">
         <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-gray-400">Star 增长趋势</span>
-            <span class="text-xs text-gray-600">⭐ 峰值 = 重大发布节点</span>
+            <span class="text-xs font-medium text-gray-400">Star Growth Trend</span>
+            <span class="text-xs text-gray-600">⭐ Peak = major release</span>
         </div>
         <div class="flex items-end gap-px overflow-hidden" style="height:76px">
             ${bars}
@@ -142,7 +142,7 @@ function _renderMilestones(milestones) {
 
     return `
     <div class="mb-5">
-        <div class="text-xs font-medium text-gray-400 mb-3">里程碑时间轴</div>
+        <div class="text-xs font-medium text-gray-400 mb-3">Milestone Timeline</div>
         <div class="pl-2">
             ${items}
         </div>
@@ -155,7 +155,7 @@ function _renderInsights(insights) {
     ).join('');
     return `
     <div class="bg-gray-800/40 border border-gray-700/50 rounded-lg px-4 py-3 mt-2">
-        <div class="text-xs font-medium text-gray-400 mb-2">自动洞察</div>
+        <div class="text-xs font-medium text-gray-400 mb-2">Auto Insights</div>
         <ul class="space-y-1.5 list-none">
             ${items}
         </ul>

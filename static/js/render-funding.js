@@ -1,4 +1,4 @@
-/* render-funding.js — 融资信息渲染模块 */
+/* render-funding.js — Funding info render module */
 
 function renderFunding(data) {
     const el = document.getElementById('section-funding');
@@ -16,7 +16,7 @@ function renderFunding(data) {
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                <span>💵</span> 融资信息
+                <span>💵</span> Funding Info
             </h3>
             ${cbUrl ? `<a href="${_fuEscAttr(cbUrl)}" target="_blank" rel="noopener"
                 class="text-xs text-blue-400 hover:text-blue-300 border border-blue-800 hover:border-blue-600 px-3 py-1 rounded-lg transition-colors">
@@ -27,15 +27,15 @@ function renderFunding(data) {
         <!-- Summary badges -->
         <div class="flex flex-wrap gap-3 mb-5">
             ${total ? `<div class="bg-green-950/50 border border-green-800/50 rounded-lg px-4 py-2.5 text-center">
-                <div class="text-xs text-green-400 mb-0.5">累计融资</div>
+                <div class="text-xs text-green-400 mb-0.5">Total Raised</div>
                 <div class="text-lg font-bold text-green-300">${_fmtMoney(total)}</div>
             </div>` : ''}
             ${latest ? `<div class="bg-blue-950/50 border border-blue-800/50 rounded-lg px-4 py-2.5 text-center">
-                <div class="text-xs text-blue-400 mb-0.5">最近轮次</div>
+                <div class="text-xs text-blue-400 mb-0.5">Latest Round</div>
                 <div class="text-lg font-bold text-blue-300">${_fuEsc(latest)}</div>
             </div>` : ''}
             ${rounds.length ? `<div class="bg-gray-800/60 border border-gray-700 rounded-lg px-4 py-2.5 text-center">
-                <div class="text-xs text-gray-400 mb-0.5">融资轮次</div>
+                <div class="text-xs text-gray-400 mb-0.5">Rounds</div>
                 <div class="text-lg font-bold text-white">${rounds.length}</div>
             </div>` : ''}
         </div>
@@ -53,7 +53,7 @@ function renderFunding(data) {
 function _renderRounds(rounds) {
     const items = rounds.map(r => {
         const amt = r.amount ? `<span class="text-green-400 font-medium">${_fmtMoney(r.amount)}</span>` : '';
-        const src = r.source ? `<a href="${_fuEscAttr(r.source)}" target="_blank" rel="noopener" class="text-blue-500 hover:text-blue-400 text-xs">来源 ↗</a>` : '';
+        const src = r.source ? `<a href="${_fuEscAttr(r.source)}" target="_blank" rel="noopener" class="text-blue-500 hover:text-blue-400 text-xs">Source ↗</a>` : '';
         return `
         <div class="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
             <span class="text-sm font-medium text-white">${_fuEsc(r.round)}</span>
@@ -63,7 +63,7 @@ function _renderRounds(rounds) {
 
     return `
     <div class="mb-4">
-        <div class="text-xs font-medium text-gray-400 mb-2">融资轮次明细</div>
+        <div class="text-xs font-medium text-gray-400 mb-2">Funding Round Details</div>
         <div class="bg-gray-800/40 border border-gray-700/50 rounded-lg px-4 py-1">${items}</div>
     </div>`;
 }
@@ -74,7 +74,7 @@ function _renderInvestors(investors) {
     ).join('');
     return `
     <div class="mb-4">
-        <div class="text-xs font-medium text-gray-400 mb-2">已知投资方</div>
+        <div class="text-xs font-medium text-gray-400 mb-2">Known Investors</div>
         <div class="flex flex-wrap gap-2">${chips}</div>
     </div>`;
 }

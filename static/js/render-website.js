@@ -6,30 +6,30 @@ function renderWebsite(ws) {
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold">🌐 官网演变分析</h3>
-            <span class="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium">🔍 Wayback Machine 独家数据</span>
+            <h3 class="text-lg font-semibold">🌐 Website Evolution</h3>
+            <span class="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium">🔍 Wayback Machine Exclusive Data</span>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">域名</div><div class="text-sm font-mono mt-1">${esc(ws.domain)}</div></div>
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">首次出现</div><div class="text-sm font-mono mt-1">${esc(ws.first_seen)}</div></div>
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">历史快照</div><div class="text-sm font-mono mt-1">${ws.total_snapshots} 个</div></div>
-            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">分析快照</div><div class="text-sm font-mono mt-1">${allPoints.length} 个</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Domain</div><div class="text-sm font-mono mt-1">${esc(ws.domain)}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">First Seen</div><div class="text-sm font-mono mt-1">${esc(ws.first_seen)}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Historical Snapshots</div><div class="text-sm font-mono mt-1">${ws.total_snapshots}</div></div>
+            <div class="bg-gray-800 rounded-lg p-3"><div class="text-xs text-gray-400">Analyzed Snapshots</div><div class="text-sm font-mono mt-1">${allPoints.length}</div></div>
         </div>`;
 
     const hasSnapshots = allPoints.filter(p => !p.is_current && p.date).length > 0;
     if (allPoints.length > 0 && hasSnapshots) {
         html += `<div class="mb-6">
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">📸 官网演变时间线</h4>
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">📸 Website Evolution Timeline</h4>
             <div class="ws-timeline-scroll" style="display:flex; gap:16px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;">`;
 
         for (let i = 0; i < allPoints.length; i++) {
             const p = allPoints[i];
             const isCurrent = !!p.is_current;
-            const label = isCurrent ? '当前' : (p.date || '—');
+            const label = isCurrent ? 'Current' : (p.date || '—');
             const previewUrl = p.preview_url || '';
             const archiveUrl = p.archive_url || '';
             const f = p.features || {};
-            const featureLabels = {pricing:'💰定价',blog:'📝博客',docs:'📖文档',changelog:'📋更新',faq:'❓FAQ',trial:'🎯试用',demo:'🖥Demo',logos:'🏢Logo墙',case_study:'📊案例'};
+            const featureLabels = {pricing:'💰Pricing',blog:'📝Blog',docs:'📖Docs',changelog:'📋Changelog',faq:'❓FAQ',trial:'🎯Trial',demo:'🖥Demo',logos:'🏢Logos',case_study:'📊Case Study'};
             const activeFeatures = Object.entries(featureLabels).filter(([k]) => f[k]);
 
             // Build the iframe source URL
@@ -58,14 +58,14 @@ function renderWebsite(ws) {
                     tabindex="-1"
                     onload="this.parentElement.classList.add('ws-thumb-loaded')"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'"></iframe>
-                <div style="display:none; align-items:center; justify-content:center; height:100%; color:#4b5563; font-size:11px;">📷 截图不可用</div>`;
+                <div style="display:none; align-items:center; justify-content:center; height:100%; color:#4b5563; font-size:11px;">📷 Screenshot unavailable</div>`;
             } else {
-                html += `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#4b5563; font-size:11px;">📷 无存档链接</div>`;
+                html += `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#4b5563; font-size:11px;">📷 No archive link</div>`;
             }
 
             // Current badge
             if (isCurrent) {
-                html += `<div style="position:absolute; top:6px; right:6px; background:#2563eb; color:white; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; z-index:2;">📍 当前</div>`;
+                html += `<div style="position:absolute; top:6px; right:6px; background:#2563eb; color:white; font-size:9px; font-weight:700; padding:2px 8px; border-radius:4px; z-index:2;">📍 Current</div>`;
             }
 
             // Loading spinner (hidden after iframe loads)
@@ -84,7 +84,7 @@ function renderWebsite(ws) {
             html += `<div style="display:flex; align-items:center; justify-content:space-between;">
                 <span style="font-size:14px; font-weight:600; color:${isCurrent ? '#60a5fa' : '#e5e7eb'};">${esc(label)}</span>`;
             if (archiveUrl && !isCurrent) {
-                html += `<a href="${esc(archiveUrl)}" target="_blank" rel="noopener" style="font-size:10px; color:#6b7280; text-decoration:none;" onmouseenter="this.style.color='#60a5fa'" onmouseleave="this.style.color='#6b7280'">↗ 存档</a>`;
+                html += `<a href="${esc(archiveUrl)}" target="_blank" rel="noopener" style="font-size:10px; color:#6b7280; text-decoration:none;" onmouseenter="this.style.color='#60a5fa'" onmouseleave="this.style.color='#6b7280'">↗ Archive</a>`;
             }
             html += `</div>`;
 
@@ -96,7 +96,7 @@ function renderWebsite(ws) {
 
             // Section count + features in one row
             html += `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:auto;">`;
-            html += `<span style="font-size:10px; color:#6b7280;">📄 ${p.section_count || 0} 板块</span>`;
+            html += `<span style="font-size:10px; color:#6b7280;">📄 ${p.section_count || 0} Sections</span>`;
             for (const [, v] of activeFeatures.slice(0, 4)) {
                 html += `<span style="background:rgba(22,101,52,0.3); color:#86efac; padding:1px 5px; border-radius:3px; font-size:9px;">${v}</span>`;
             }
@@ -111,25 +111,25 @@ function renderWebsite(ws) {
         }
 
         html += `</div>`; // end scroll container
-        html += `<div style="text-align:center; font-size:10px; color:#4b5563; margin-top:4px;">← 横向滑动查看更多快照 →</div>`;
+        html += `<div style="text-align:center; font-size:10px; color:#4b5563; margin-top:4px;">Scroll to see more →</div>`;
         html += `</div>`;
     }
 
     // Current site summary (only show if no snapshots — fallback view)
     if (!hasSnapshots && current && !current.error) {
-        html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">📍 当前官网</h4>
+        html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">📍 Current Website</h4>
             <div class="bg-gray-800 rounded-lg p-4 space-y-2">
                 <div class="text-sm"><span class="text-gray-400">Slogan:</span> <span class="text-blue-300">${esc(current.slogan||'N/A')}</span></div>
-                <div class="text-sm"><span class="text-gray-400">标题:</span> ${esc(current.title||'N/A')}</div>
+                <div class="text-sm"><span class="text-gray-400">Title:</span> ${esc(current.title||'N/A')}</div>
                 ${current.meta_description ? `<div class="text-xs text-gray-400">${esc(current.meta_description)}</div>` : ''}
             </div></div>`;
-        html += `<div class="text-xs text-yellow-400/60 mb-4">⚠️ Wayback Machine 无历史快照（可能是 JS 渲染站点或重定向域名）</div>`;
+        html += `<div class="text-xs text-yellow-400/60 mb-4">⚠️ No Wayback Machine snapshots found (may be a JS-rendered site or redirected domain)</div>`;
     }
 
     // Key changes
     const changes = ws.key_changes || [];
     if (changes.length) {
-        html += `<div class="mt-4"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 关键变化记录</h4><div class="space-y-3">`;
+        html += `<div class="mt-4"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 Key Changes</h4><div class="space-y-3">`;
         for (const c of changes) {
             html += `<div class="bg-gray-800 rounded-lg p-3">
                 <div class="text-xs text-blue-400 mb-1">${esc(c.from_date)} → ${esc(c.to_date)}</div>
@@ -151,10 +151,10 @@ function wsOpenFullPreview(url, label) {
     modal.style.cssText = 'position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.92);';
     modal.innerHTML = `
         <div style="display:flex; align-items:center; justify-content:space-between; width:90vw; max-width:1200px; margin-bottom:8px;">
-            <span style="color:#9ca3af; font-size:13px;">📸 ${label} · 点击外部或按 ESC 关闭</span>
+            <span style="color:#9ca3af; font-size:13px;">📸 ${label} · Click outside or press ESC to close</span>
             <div style="display:flex; gap:8px;">
-                <a href="${url.replace('if_/', '')}" target="_blank" rel="noopener" style="color:#60a5fa; font-size:12px; text-decoration:none; padding:4px 12px; border:1px solid rgba(96,165,250,0.3); border-radius:6px;">↗ 新标签打开</a>
-                <button onclick="this.closest('[style*=fixed]').remove()" style="color:#9ca3af; font-size:12px; padding:4px 12px; border:1px solid rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; background:transparent;">✕ 关闭</button>
+                <a href="${url.replace('if_/', '')}" target="_blank" rel="noopener" style="color:#60a5fa; font-size:12px; text-decoration:none; padding:4px 12px; border:1px solid rgba(96,165,250,0.3); border-radius:6px;">↗ Open in new tab</a>
+                <button onclick="this.closest('[style*=fixed]').remove()" style="color:#9ca3af; font-size:12px; padding:4px 12px; border:1px solid rgba(255,255,255,0.1); border-radius:6px; cursor:pointer; background:transparent;">✕ Close</button>
             </div>
         </div>
         <div style="width:90vw; max-width:1200px; height:75vh; background:#111; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);">

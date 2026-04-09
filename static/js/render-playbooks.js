@@ -1,44 +1,44 @@
-/* render-playbooks.js — Gingiris 工具包上下文推荐（转化优先设计） */
+/* render-playbooks.js — Gingiris Toolkit Context Recommendation (conversion-first design) */
 
 const _PLAYBOOKS = {
     oss: {
         title: "Open-Source Project Integrated Marketing Action Manual",
-        desc:  "开源项目从 0 到 10K Stars 的完整营销执行框架：社区冷启动、GitHub Trending、HN/PH 发布节奏、开发者内容策略",
+        desc:  "Complete marketing execution framework for OSS projects from 0 to 10K Stars: community cold start, GitHub Trending, HN/PH launch cadence, developer content strategy",
         url:   "https://gingiris.gumroad.com/l/vhmkew",
-        tag:   "🌟 开源增长",
-        cta:   "获取开源营销手册",
-        why:   "你刚分析的竞品是开源产品 — 这份手册覆盖完整复制路径",
+        tag:   "🌟 OSS Growth",
+        cta:   "Get OSS Marketing Playbook",
+        why:   "The product you just analyzed is open source — this playbook covers the full replication path",
     },
     ph: {
         title: "Product Hunt Launch Action Guide",
-        desc:  "Product Hunt 发布全流程：选时机、造势期、发布当天执行 SOP、复盘优化，含真实案例拆解",
+        desc:  "Complete Product Hunt launch workflow: timing, pre-launch buildup, launch day SOP, post-launch review, with real case studies",
         url:   "https://gingiris.gumroad.com/l/zxamur",
-        tag:   "🚀 PH 发布",
-        cta:   "获取 PH 发布手册",
-        why:   "竞品通过 Product Hunt 完成冷启动 — 这份手册教你复制同样的路径",
+        tag:   "🚀 PH Launch",
+        cta:   "Get PH Launch Playbook",
+        why:   "The competitor cold-started via Product Hunt — this playbook teaches you to replicate the same path",
     },
     launch: {
         title: "AI Product Global Launch Guide (with Case Studies)",
-        desc:  "AI 产品出海全球发布策略：多波 Launch 节奏、社区造势、媒体触达，含 10+ 真实案例拆解",
+        desc:  "AI product global launch strategy: multi-wave launch cadence, community buildup, media outreach, with 10+ real case studies",
         url:   "https://gingiris.gumroad.com/l/nxkifd",
-        tag:   "🌍 全球发布",
-        cta:   "获取发布策略指南",
-        why:   "竞品经历多次 Launch 爆发期 — 这份指南帮你规划同样的增长节点",
+        tag:   "🌍 Global Launch",
+        cta:   "Get Launch Strategy Guide",
+        why:   "The competitor experienced multiple launch spikes — this guide helps you plan the same growth milestones",
     },
     b2b: {
         title: "AI Global B2B Product Full-Lifecycle Growth Guide",
-        desc:  "B2B SaaS 全生命周期增长策略：ICP 定义、GTM 路径、Enterprise 销售动作、客户成功体系",
+        desc:  "B2B SaaS full lifecycle growth strategy: ICP definition, GTM path, Enterprise sales playbook, customer success framework",
         url:   "https://gingiris.gumroad.com/l/zaarq",
-        tag:   "🏢 B2B 增长",
-        cta:   "获取 B2B 增长指南",
-        why:   "竞品已验证 B2B 企业级变现路径 — 这份指南帮你系统复制",
+        tag:   "🏢 B2B Growth",
+        cta:   "Get B2B Growth Guide",
+        why:   "The competitor has validated a B2B enterprise monetization path — this guide helps you systematically replicate it",
     },
     bundle: {
         title: "Gingiris Complete Global Launch Playbook Bundle",
-        desc:  "包含以上全部手册 + 独家工具模板，一次获取 Gingiris 完整增长方法论",
+        desc:  "Includes all playbooks above + exclusive tool templates, get the complete Gingiris growth methodology in one bundle",
         url:   "https://gingiris.gumroad.com/l/gingiris-complete-global-launch-bundle",
-        tag:   "📦 全套合集",
-        cta:   "获取完整 Playbook Bundle",
+        tag:   "📦 Complete Bundle",
+        cta:   "Get Complete Playbook Bundle",
         why:   "",
     },
 };
@@ -49,7 +49,7 @@ function renderPlaybooks(report) {
 
     const sections = report.sections || {};
     const meta     = report.meta    || {};
-    const name     = meta.product_name || '竞品';
+    const name     = meta.product_name || 'competitor';
 
     const pick   = _pickPlaybook(sections);
     const main   = _PLAYBOOKS[pick];
@@ -60,15 +60,15 @@ function renderPlaybooks(report) {
 
         <!-- Header -->
         <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs font-medium text-indigo-400 uppercase tracking-widest">Gingiris 工具包推荐</span>
+            <span class="text-xs font-medium text-indigo-400 uppercase tracking-widest">Gingiris Toolkit Recommendation</span>
         </div>
         <p class="text-sm text-gray-400 mb-5">
-            你刚完成了对 <strong class="text-white">${_pbEsc(name)}</strong> 的深度拆解 — 以下是帮你直接复制这套增长路径的执行手册
+            You just completed a deep analysis of <strong class="text-white">${_pbEsc(name)}</strong> — here are the actionable playbooks to replicate this growth path
         </p>
 
         <!-- Primary recommendation -->
         <div class="bg-gray-800/60 border border-indigo-700/50 rounded-xl p-5 mb-4 relative overflow-hidden">
-            <div class="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-medium px-3 py-1 rounded-bl-lg">最相关推荐</div>
+            <div class="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-medium px-3 py-1 rounded-bl-lg">Most Relevant</div>
 
             <div class="flex items-start gap-4">
                 <div class="text-2xl flex-shrink-0 mt-0.5">📘</div>
@@ -93,18 +93,18 @@ function renderPlaybooks(report) {
             <div class="flex items-center gap-3">
                 <span class="text-lg">📦</span>
                 <div>
-                    <div class="text-sm font-medium text-gray-200">想要完整方法论？</div>
-                    <div class="text-xs text-gray-500">Gingiris Complete Global Launch Playbook Bundle — 全套合集，一次获取</div>
+                    <div class="text-sm font-medium text-gray-200">Want the complete methodology?</div>
+                    <div class="text-xs text-gray-500">Gingiris Complete Global Launch Playbook Bundle — Complete bundle, get everything at once</div>
                 </div>
             </div>
             <a href="${_pbEscAttr(bundle.url)}" target="_blank" rel="noopener"
                onclick="_trackPlaybook('bundle')"
                class="flex-shrink-0 ml-4 text-xs text-indigo-400 hover:text-indigo-300 border border-indigo-800 hover:border-indigo-600 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
-                查看合集 →
+                View Bundle →
             </a>
         </div>
 
-        <p class="text-xs text-gray-600 mt-3 text-center">由 <a href="https://gingiris.com" target="_blank" class="hover:text-gray-400 transition-colors">Gingiris</a> 出品 · 专注出海产品增长方法论</p>
+        <p class="text-xs text-gray-600 mt-3 text-center">By <a href="https://gingiris.com" target="_blank" class="hover:text-gray-400 transition-colors">Gingiris</a> · Focused on global product growth methodology</p>
     </div>`;
 }
 
