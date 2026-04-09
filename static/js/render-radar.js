@@ -1,6 +1,5 @@
 /**
  * Strategy Radar Map — 6-dimension SVG radar chart
- * Renders at the TOP of the report for instant strategic overview.
  */
 function renderStrategyRadar(radar) {
     const container = document.getElementById('section-radar');
@@ -13,17 +12,16 @@ function renderStrategyRadar(radar) {
     const n = dims.length;
     const avg = radar.avg_score || 0;
 
-    // SVG parameters
-    const cx = 160, cy = 145, maxR = 120;
+    // SVG parameters — wider viewBox to prevent label clipping
+    const cx = 200, cy = 180, maxR = 110;
     const angleStep = (2 * Math.PI) / n;
-    const startAngle = -Math.PI / 2; // top
+    const startAngle = -Math.PI / 2;
 
-    // Helper: polar to cartesian
     function polar(angle, r) {
         return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
     }
 
-    // Grid rings (20, 40, 60, 80, 100)
+    // Grid rings
     let gridLines = '';
     for (const ring of [20, 40, 60, 80, 100]) {
         const r = (ring / 100) * maxR;
@@ -49,7 +47,7 @@ function renderStrategyRadar(radar) {
     }
     const dataPolygon = `<polygon points="${dataPoints.join(' ')}" fill="rgba(59,130,246,0.15)" stroke="rgba(59,130,246,0.7)" stroke-width="2"/>`;
 
-    // Data dots + score labels
+    // Data dots
     let dots = '';
     for (let i = 0; i < n; i++) {
         const r = (dims[i].score / 100) * maxR;
@@ -57,18 +55,17 @@ function renderStrategyRadar(radar) {
         dots += `<circle cx="${x}" cy="${y}" r="4" fill="#3b82f6" stroke="#1e3a5f" stroke-width="1.5"/>`;
     }
 
-    // Axis labels (outside the chart)
+    // Axis labels — positioned further out, with score on same line
     let labels = '';
     for (let i = 0; i < n; i++) {
-        const labelR = maxR + 28;
+        const labelR = maxR + 32;
         const [x, y] = polar(startAngle + i * angleStep, labelR);
         const d = dims[i];
         const anchor = x < cx - 10 ? 'end' : x > cx + 10 ? 'start' : 'middle';
-        labels += `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="central" fill="#9ca3af" font-size="11">${d.emoji} ${d.label}</text>`;
-        // Score below label
-        const [sx, sy] = polar(startAngle + i * angleStep, labelR + 14);
         const scoreColor = d.score >= 60 ? '#86efac' : d.score >= 30 ? '#fde68a' : '#fca5a5';
-        labels += `<text x="${sx}" y="${sy}" text-anchor="${anchor}" dominant-baseline="central" fill="${scoreColor}" font-size="12" font-weight="bold">${d.score}</text>`;
+        // Label + score on two lines
+        labels += `<text x="${x}" y="${y - 7}" text-anchor="${anchor}" dominant-baseline="central" fill="#9ca3af" font-size="11">${d.label}</text>`;
+        labels += `<text x="${x}" y="${y + 9}" text-anchor="${anchor}" dominant-baseline="central" fill="${scoreColor}" font-size="13" font-weight="bold">${d.score}</text>`;
     }
 
     // Center score
@@ -77,7 +74,7 @@ function renderStrategyRadar(radar) {
         <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6b7280" font-size="10">综合评分</text>
     `;
 
-    const svg = `<svg viewBox="0 0 320 290" style="width:320px; height:290px;">
+    const svg = `<svg viewBox="0 0 400 360" style="width:100%; max-width:400px; height:auto;">
         ${gridLines}${axisLines}${dataPolygon}${dots}${labels}${centerScore}
     </svg>`;
 
@@ -88,8 +85,8 @@ function renderStrategyRadar(radar) {
             <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">Strategy Radar</span>
         </div>
         <div class="flex flex-col md:flex-row items-center gap-6">
-            <div class="flex-shrink-0">${svg}</div>
-            <div class="flex-1 space-y-2 w-full">`;
+            <div class="flex-shrink-0 w-full md:w-auto flex justify-center">${svg}</div>
+            <div class="flex-1 space-y-2.5 w-full">`;
 
     // Dimension bars
     for (const d of dims) {
