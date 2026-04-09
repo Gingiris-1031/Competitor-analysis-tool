@@ -1230,6 +1230,8 @@ async def ask_question(req: QARequest):
 
 
 # Serve static files
+app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
+app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
