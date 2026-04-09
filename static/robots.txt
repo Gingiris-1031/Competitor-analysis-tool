@@ -1,0 +1,29 @@
+# Analook — Allow search engines and AI crawlers
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /js/
+
+# Allow AI search engines (GEO optimization)
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://www.analook.com/sitemap.xml

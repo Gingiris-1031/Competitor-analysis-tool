@@ -184,53 +184,139 @@ function renderGrowth(ga) {
         html += `</div>`;
     }
 
-    // ── 3. Launch Waves ──────────────────────────────────────────────────────
+    // ── 3. Launch Waves — Timeline Bubble Chart ─────────────────────────────
     if (lw && lw.total_waves > 0) {
+        const waves = lw.launches || [];
         html += `<div>
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">🌊 多波 Launch 分析</h4>`;
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">🌊 多波 Launch 时间轴</h4>`;
 
         // Summary bar
-        html += `<div class="flex flex-wrap gap-3 mb-4">
-            <div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">总 Launch 波次</div><div class="text-sm font-mono text-blue-300">${lw.total_waves}</div></div>`;
+        html += `<div class="flex flex-wrap gap-3 mb-5">
+            <div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">Launch 波次</div><div class="text-sm font-mono text-blue-300">${lw.total_waves}</div></div>`;
         if (lw.launch_cadence) {
             html += `<div class="bg-gray-800 rounded-lg px-3 py-2"><div class="text-[10px] text-gray-500">发布节奏</div><div class="text-sm text-yellow-300">${esc(lw.launch_cadence)}</div></div>`;
         }
         html += `</div>`;
 
-        // Wave cards
-        html += `<div class="space-y-3">`;
-        for (const wave of (lw.launches || [])) {
-            const channels = (wave.channels || []).join(' · ');
+        // Channel colors
+        const chColors = {
+            'Product Hunt': {bg: '#f97316', text: '#fff'},
+            'Twitter': {bg: '#3b82f6', text: '#fff'}, 'Twitter/X': {bg: '#3b82f6', text: '#fff'},
+            'Hacker News': {bg: '#ef4444', text: '#fff'},
+            'GitHub': {bg: '#22c55e', text: '#fff'},
+            'Organic Traffic Spike': {bg: '#a855f7', text: '#fff'},
+            'SEO': {bg: '#a855f7', text: '#fff'},
+        };
+        const defaultColor = {bg: '#6b7280', text: '#fff'};
+
+        // Calculate max impact for bubble sizing
+        const maxImpact = Math.max(...waves.map(w => {
+            const imp = w.total_impact || {};
+            return (imp.ph_votes || 0) + (imp.twitter_likes || 0) + (imp.traffic_peak || 0);
+        }), 1);
+
+        // Timeline visualization
+        html += `<div class="relative" style="padding: 20px 0;">`;
+        // Horizontal timeline line
+        html += `<div style="position:absolute; top:50%; left:0; right:0; height:2px; background:rgba(255,255,255,0.08);"></div>`;
+
+        // Waves as bubbles on the timeline
+        html += `<div style="display:flex; align-items:center; justify-content:space-around; min-height:180px; position:relative;">`;
+
+        for (let wi = 0; wi < waves.length; wi++) {
+            const wave = waves[wi];
+            const impact = wave.total_impact || {};
+            const totalImpact = (impact.ph_votes || 0) + (impact.twitter_likes || 0) + (impact.traffic_peak || 0);
+            const bubbleSize = Math.max(48, Math.min(100, 48 + (totalImpact / maxImpact) * 52));
+            const primaryChannel = (wave.channels || ['Unknown'])[0];
+            const color = chColors[primaryChannel] || defaultColor;
+            const dateLabel = (wave.date_range || '').split(' ~ ')[0] || '';
+
+            // Impact summary
+            const impactParts = [];
+            if (impact.ph_votes) impactParts.push(`${impact.ph_votes.toLocaleString()} PH`);
+            if (impact.twitter_likes) impactParts.push(`${impact.twitter_likes.toLocaleString()} likes`);
+            if (impact.traffic_peak) impactParts.push(`${impact.traffic_peak.toLocaleString()} traffic`);
+
+            // Alternate above/below timeline
+            const isAbove = wi % 2 === 0;
+            const alignStyle = isAbove ? 'flex-direction:column-reverse;' : 'flex-direction:column;';
+
+            html += `<div style="display:flex; ${alignStyle} align-items:center; gap:8px; flex:1; max-width:140px;">`;
+
+            // Info label
+            html += `<div style="text-align:center;">
+                <div style="font-size:10px; color:#9ca3af; font-family:monospace;">${esc(dateLabel)}</div>
+                <div style="font-size:9px; color:#6b7280; margin-top:2px;">${impactParts.join(' · ') || ''}</div>
+            </div>`;
+
+            // Bubble
+            html += `<div style="width:${bubbleSize}px; height:${bubbleSize}px; border-radius:50%; background:${color.bg}; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 0 20px ${color.bg}40; cursor:default; position:relative; z-index:1;" title="${wave.channels?.join(', ')}">
+                <div style="font-size:11px; font-weight:700; color:${color.text};">W${wave.wave_number}</div>
+                <div style="font-size:8px; color:${color.text}; opacity:0.8;">${esc(primaryChannel).replace('Twitter/X','Twitter')}</div>
+            </div>`;
+
+            // Connector dot on timeline
+            html += `<div style="width:8px; height:8px; border-radius:50%; background:${color.bg}; border:2px solid #111827;"></div>`;
+
+            html += `</div>`;
+
+            // Interval label between waves
+            if (wi < waves.length - 1) {
+                const nextDate = (waves[wi + 1].date_range || '').split(' ~ ')[0];
+                if (dateLabel && nextDate) {
+                    try {
+                        const d1 = new Date(dateLabel), d2 = new Date(nextDate);
+                        const days = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+                        if (days > 0 && days < 9999) {
+                            html += `<div style="font-size:8px; color:#4b5563; white-space:nowrap; position:relative; z-index:2;">${days}d</div>`;
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+
+        html += `</div></div>`;
+
+        // Channel legend
+        const usedChannels = new Set();
+        waves.forEach(w => (w.channels || []).forEach(c => usedChannels.add(c)));
+        html += `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; justify-content:center;">`;
+        for (const ch of usedChannels) {
+            const c = chColors[ch] || defaultColor;
+            html += `<div style="display:flex; align-items:center; gap:4px;">
+                <div style="width:8px; height:8px; border-radius:50%; background:${c.bg};"></div>
+                <span style="font-size:10px; color:#9ca3af;">${esc(ch)}</span>
+            </div>`;
+        }
+        html += `</div>`;
+
+        // Expandable detail cards
+        html += `<details class="mt-4"><summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-300">📋 展开波次详情</summary><div class="space-y-3 mt-3">`;
+        for (const wave of waves) {
             const impact = wave.total_impact || {};
             const impactBits = [];
-            if (impact.ph_votes)       impactBits.push(`⬆ ${impact.ph_votes.toLocaleString()} PH votes`);
-            if (impact.twitter_likes)  impactBits.push(`❤️ ${impact.twitter_likes.toLocaleString()} likes`);
-            if (impact.traffic_peak)   impactBits.push(`📈 ${impact.traffic_peak.toLocaleString()} 流量/月`);
+            if (impact.ph_votes) impactBits.push(`⬆ ${impact.ph_votes.toLocaleString()} PH votes`);
+            if (impact.twitter_likes) impactBits.push(`❤️ ${impact.twitter_likes.toLocaleString()} likes`);
+            if (impact.traffic_peak) impactBits.push(`📈 ${impact.traffic_peak.toLocaleString()} 流量/月`);
 
-            html += `<div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-                <div class="flex items-start justify-between mb-2">
-                    <div>
-                        <span class="text-xs font-semibold text-blue-400">Wave ${wave.wave_number}</span>
-                        <span class="text-[10px] text-gray-500 ml-2 font-mono">${esc(wave.date_range || '')}</span>
-                    </div>
-                    <div class="flex flex-wrap gap-1 justify-end">
-                        ${(wave.channels || []).map(c => `<span class="text-[9px] bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">${esc(c)}</span>`).join('')}
-                    </div>
+            html += `<div class="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="text-xs font-semibold text-blue-400">Wave ${wave.wave_number}</span>
+                    <span class="text-[10px] text-gray-500 font-mono">${esc(wave.date_range || '')}</span>
+                    ${(wave.channels || []).map(c => `<span class="text-[9px] bg-gray-700 rounded px-1.5 py-0.5 text-gray-300">${esc(c)}</span>`).join('')}
                 </div>
-                ${impactBits.length ? `<div class="text-[10px] text-green-400 mb-2">${impactBits.join('  ·  ')}</div>` : ''}
-                <div class="space-y-1">`;
+                ${impactBits.length ? `<div class="text-[10px] text-green-400 mb-1.5">${impactBits.join('  ·  ')}</div>` : ''}
+                <div class="space-y-0.5">`;
             for (const ev of (wave.events || [])) {
-                const date = (ev.date || '').slice(0, 10);
-                const name = (ev.name || '').slice(0, 80);
-                html += `<div class="text-xs text-gray-400 flex gap-2">
-                    <span class="font-mono text-gray-600 shrink-0">${esc(date)}</span>
-                    <span class="text-gray-500 shrink-0">${esc(ev.channel || '')}</span>
-                    <span class="text-gray-300 truncate">${esc(name)}</span>
+                html += `<div class="text-[10px] text-gray-400 flex gap-2">
+                    <span class="font-mono text-gray-600 shrink-0">${esc((ev.date||'').slice(0,10))}</span>
+                    <span class="text-gray-300 truncate">${esc((ev.name||'').slice(0,80))}</span>
                 </div>`;
             }
             html += `</div></div>`;
         }
-        html += `</div>`;
+        html += `</div></details>`;
 
         html += `</div>`;
     }

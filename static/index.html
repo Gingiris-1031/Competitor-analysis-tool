@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="dark">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analook — 30秒看透竞品增长策略</title>
-    <meta name="description" content="输入竞品网址或粘贴产品描述，自动分析官网演变、社媒渠道、流量趋势、增长策略。由 Gingiris 驱动。">
-    <meta property="og:title" content="Analook — 竞品深度调研工具">
+    <title>Analook — AI Competitive Intelligence in 2 Minutes</title>
+    <meta name="description" content="Analyze any competitor's growth strategy, SEO, social media, and market positioning in minutes. Free competitive analysis tool powered by AI.">
+    <meta name="keywords" content="competitive intelligence, competitor analysis, SEO analysis, growth strategy, product hunt, similarweb alternative, competitive analysis tool">
+    <meta property="og:title" content="Analook — AI Competitive Intelligence Tool">
     <meta property="og:description" content="输入竞品网址，30–50 秒获得完整竞品情报报告">
     <meta property="og:url" content="https://www.analook.com">
     <meta property="og:image" content="https://www.analook.com/assets/og-image.png">
@@ -40,6 +41,72 @@
         .ws-thumb-loaded .ws-thumb-spinner { display: none !important; }
         .ws-thumb-container:hover { outline: 2px solid rgba(96,165,250,0.4); outline-offset: -2px; }
     </style>
+    <!-- Schema.org structured data for SEO + GEO (AI search engines) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Analook",
+        "url": "https://www.analook.com",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "AI-powered competitive intelligence tool. Analyze any product's growth strategy, SEO, social media, and market positioning in 2 minutes.",
+        "offers": [
+            {"@type": "Offer", "price": "0", "priceCurrency": "USD", "description": "Free — 3 reports/month"},
+            {"@type": "Offer", "price": "29", "priceCurrency": "USD", "description": "Pro — 30 reports/month"},
+            {"@type": "Offer", "price": "5", "priceCurrency": "USD", "description": "Single report"}
+        ],
+        "creator": {
+            "@type": "Organization",
+            "name": "Gingiris",
+            "url": "https://gingiris.com"
+        },
+        "featureList": [
+            "Website evolution analysis via Wayback Machine",
+            "SEO and traffic analysis via DataForSEO",
+            "Social media presence detection (Twitter, GitHub, Reddit, YouTube)",
+            "Product Hunt launch tracking",
+            "Google Trends peak detection and attribution",
+            "AI-powered strategic verdict and growth pattern analysis",
+            "Strategy radar map with 6-dimension scoring",
+            "Traffic quality scoring",
+            "GitHub open source community analysis"
+        ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What is Analook?",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook is an AI-powered competitive intelligence tool that analyzes any product's growth strategy, SEO, social media presence, and market positioning in about 2 minutes. It aggregates data from 15+ sources including Wayback Machine, DataForSEO, Twitter, GitHub, Product Hunt, and Google Trends."}
+            },
+            {
+                "@type": "Question",
+                "name": "How much does Analook cost?",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook offers a free tier with 3 reports per month. The Pro plan costs $29/month for 30 reports, and individual reports can be purchased for $5 each. No credit card required to start."}
+            },
+            {
+                "@type": "Question",
+                "name": "What data sources does Analook use?",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook aggregates data from 15+ sources: Wayback Machine for website history, DataForSEO and SEO Review Tools for traffic/SEO, TwitterAPI.io for social media, Product Hunt API, GitHub API, Google Trends via SerpApi, Brave Search, HN Algolia, and AI language models for strategic analysis."}
+            },
+            {
+                "@type": "Question",
+                "name": "Is Analook a SimilarWeb alternative?",
+                "acceptedAnswer": {"@type": "Answer", "text": "Yes, Analook can serve as a more affordable alternative to SimilarWeb for competitive intelligence. While SimilarWeb focuses on traffic data, Analook provides a broader analysis including growth strategy, social media, Product Hunt launches, and AI-powered strategic insights at a fraction of the cost ($5/report vs $125+/month)."}
+            },
+            {
+                "@type": "Question",
+                "name": "Can I use Analook with Claude Code or AI agents?",
+                "acceptedAnswer": {"@type": "Answer", "text": "Yes, Analook offers a REST API at /api/v1/analyze that can be called from Claude Code, MCP servers, or any AI agent. Simply POST a URL and get a full competitive intelligence report as JSON."}
+            }
+        ]
+    }
+    </script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
     <header class="border-b border-gray-800 py-4">
