@@ -36,6 +36,10 @@
   sb.auth.onAuthStateChange((_event, newSession) => {
     _session = newSession;
     _updateUI(newSession?.user ?? null);
+    // 登录/登出切换后，重新从服务端拉历史
+    if (typeof window.syncServerHistory === 'function') {
+      window.syncServerHistory();
+    }
   });
 
   // ── 公开接口 ──────────────────────────────────────────────────────────────

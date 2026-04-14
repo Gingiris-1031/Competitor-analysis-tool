@@ -28,7 +28,7 @@ from modules.funding import analyze_funding
 from modules.bizmodel import analyze_bizmodel
 from modules.supabase_client import (
     verify_token_and_get_user, deduct_credit,
-    get_user_profile, save_report_to_db,
+    get_user_profile, save_report_to_db, list_user_reports,
 )
 from modules.polar_payment import (
     create_checkout, handle_webhook_event, PRODUCTS, PLAN_CREDITS,
@@ -320,6 +320,19 @@ async def api_v1_report_markdown(job_id: str):
     if job and job.get("markdown"):
         return PlainTextResponse(job["markdown"])
     return JSONResponse({"error": "Markdown not found"}, status_code=404)
+
+
+@app.get("/api/v1/reports")
+async def api_v1_list_reports(request: Request):
+    """
+    List current user's recent reports (server-side history).
+    Requires Bearer token. Returns [{id, url, product_name, created_at, status}].
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    rows = await list_user_reports(user["id"], limit=50)
+    return {"reports": rows}
 
 
 def _load_persisted_report(job_id: str) -> dict | None:

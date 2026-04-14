@@ -47,16 +47,26 @@ function fillExample(domain) {
     clearError();
 }
 
-// ── History (localStorage) ──────────────────────────────────────────────────
+// ── History (server-side when logged in, localStorage fallback) ────────────
 const HISTORY_KEY = 'analook_history';
 const MAX_HISTORY = 5;
+// null = 未同步过，使用 localStorage; [] = 已同步且服务端为空，要显示空; [...] = 服务端数据
+let _serverHistory = null;
+let _historySyncSeq = 0; // 防止旧请求覆盖新请求 / 登出后回写
 
 function saveToHistory(jobId, url, productName) {
     let hist = loadHistoryRaw();
-    hist = hist.filter(h => h.url !== url);
+    hist = hist.filter(h => h.jobId !== jobId);
     hist.unshift({ jobId, url, productName: productName || url, ts: Date.now() });
     hist = hist.slice(0, MAX_HISTORY);
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist)); } catch {}
+    // 登录用户：乐观更新服务端缓存（按 jobId 去重，避免同 URL 多 job 误删）
+    if (_serverHistory !== null) {
+        _serverHistory = [
+            { jobId, url, productName: productName || url, ts: Date.now() },
+            ..._serverHistory.filter(h => h.jobId !== jobId),
+        ].slice(0, MAX_HISTORY);
+    }
     renderHistory();
 }
 
@@ -64,8 +74,58 @@ function loadHistoryRaw() {
     try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
 }
 
+/**
+ * 拉取服务端历史（登录用户）。
+ * - 未登录：把 _serverHistory 置 null，回退到 localStorage
+ * - 登录且同步成功：_serverHistory 设为数组（可为空数组）
+ * - 网络错误：保持 _serverHistory 为 null（fallback localStorage）
+ */
+async function syncServerHistory() {
+    const seq = ++_historySyncSeq;
+    const token = window._analookAuth?.getToken?.();
+    if (!token) {
+        _serverHistory = null;
+        renderHistory();
+        return;
+    }
+    try {
+        const res = await fetch('/api/v1/reports', { headers: { Authorization: `Bearer ${token}` } });
+        // 如果中途有更新的 sync 请求/登出，丢弃这次结果
+        if (seq !== _historySyncSeq) return;
+        // 二次校验 token（防止 await 期间登出导致写入旧用户数据）
+        if (!window._analookAuth?.getToken?.()) {
+            _serverHistory = null;
+            renderHistory();
+            return;
+        }
+        if (!res.ok) {
+            _serverHistory = null;
+            renderHistory();
+            return;
+        }
+        const data = await res.json();
+        if (seq !== _historySyncSeq) return;
+        _serverHistory = (data.reports || []).slice(0, MAX_HISTORY).map(r => {
+            const t = r.created_at ? new Date(r.created_at).getTime() : NaN;
+            return {
+                jobId: r.id,
+                url: r.url || '',
+                productName: r.product_name || r.url || '',
+                ts: Number.isFinite(t) ? t : Date.now(),
+            };
+        });
+        renderHistory();
+    } catch (e) {
+        if (seq === _historySyncSeq) {
+            _serverHistory = null;
+            renderHistory();
+        }
+    }
+}
+
 function renderHistory() {
-    const hist = loadHistoryRaw();
+    // _serverHistory !== null 表示已同步成功（可能是空数组），此时不要回退 localStorage
+    const hist = (_serverHistory !== null) ? _serverHistory : loadHistoryRaw();
     const section = document.getElementById('history-section');
     const list = document.getElementById('history-list');
     if (!section || !list || hist.length === 0) {
@@ -558,6 +618,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     renderHistory();
+    // 暴露给 auth.js 调用：首次同步交给 auth.js 的 onAuthStateChange 触发
+    window.syncServerHistory = syncServerHistory;
 
     const pathMatch = window.location.pathname.match(/^\/report\/([a-f0-9]+)/);
     if (pathMatch) {

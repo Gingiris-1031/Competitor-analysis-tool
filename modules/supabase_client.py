@@ -83,6 +83,29 @@ async def get_user_profile(user_id: str) -> dict | None:
         return None
 
 
+async def list_user_reports(user_id: str, limit: int = 50) -> list[dict]:
+    """
+    列出用户最近的报告（用于登录用户的历史记录同步）。
+    返回字段精简，避免把大 report JSON 一次拉回。
+    """
+    sb = get_supabase()
+    if not sb:
+        return []
+    try:
+        result = (
+            sb.table("reports")
+            .select("id, url, product_name, created_at, status")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        log.error("拉取用户报告列表失败 user=%s: %s", user_id, e)
+        return []
+
+
 async def save_report_to_db(
     job_id: str,
     user_id: str | None,
