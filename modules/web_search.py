@@ -67,27 +67,49 @@ async def brave_find_twitter(brand: str, product_name: str, domain: str = "") ->
     return None
 
 
-async def brave_find_ph_slug(brand: str, product_name: str, domain: str = "") -> str | None:
-    """Use Brave Search to find the Product Hunt product slug."""
+async def brave_find_ph_slugs(brand: str, product_name: str, domain: str = "", limit: int = 5) -> list:
+    """Use Brave Search to find multiple Product Hunt slug candidates (fuzzy).
+
+    Returns up to `limit` unique slugs ordered by appearance across queries.
+    Broader than `brave_find_ph_slug` — good for fuzzy fallback when the
+    canonical slug differs from brand/domain (e.g. "ChatGPT" → "chatgpt-4").
+    """
     _skip_slugs = {"coming-soon", "login", "posts", "leaderboard", "upcoming", "newsletter", "launch"}
     queries = []
     if domain:
         queries.append(f'"{domain}" site:producthunt.com')
     queries.append(f'"{brand}" site:producthunt.com/products')
+    queries.append(f'"{product_name}" site:producthunt.com/products')
     queries.append(f'"{brand}" producthunt launch')
+    # Fuzzy: also search brand+common suffix patterns
+    queries.append(f'{brand} producthunt ai')
+    found: list = []
+    seen: set = set()
     for query in queries:
-        results = await brave_search(query, count=5)
+        if len(found) >= limit:
+            break
+        try:
+            results = await brave_search(query, count=5)
+        except Exception:
+            continue
         for r in results:
             url = r.get("url", "")
-            m = _PH_PRODUCT_RE.search(url)
-            if m:
-                slug = m.group(1)
-                if slug not in _skip_slugs:
-                    return slug
-            m2 = _PH_POST_RE.search(url)
-            if m2 and m2.group(1) not in _skip_slugs:
-                return m2.group(1)
-    return None
+            for regex in (_PH_PRODUCT_RE, _PH_POST_RE):
+                m = regex.search(url)
+                if m:
+                    slug = m.group(1)
+                    if slug and slug not in _skip_slugs and slug not in seen:
+                        seen.add(slug)
+                        found.append(slug)
+                        if len(found) >= limit:
+                            return found
+    return found
+
+
+async def brave_find_ph_slug(brand: str, product_name: str, domain: str = "") -> str | None:
+    """Backward-compatible wrapper — returns first slug from brave_find_ph_slugs."""
+    slugs = await brave_find_ph_slugs(brand, product_name, domain=domain, limit=1)
+    return slugs[0] if slugs else None
 
 
 async def brave_find_social(brand: str, product_name: str, domain: str = "") -> dict:

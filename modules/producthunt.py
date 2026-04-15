@@ -112,22 +112,23 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
     brand = _extract_brand(domain)
     name_slug = product_name.lower().replace(" ", "-")
 
-    # ── Step 0: Use Brave Search to find the canonical PH slug ──
+    # ── Step 0: Use Brave Search to find candidate PH slugs (fuzzy, multi) ──
     try:
-        from .web_search import brave_find_ph_slug
+        from .web_search import brave_find_ph_slugs
     except ImportError:
         try:
-            from web_search import brave_find_ph_slug
+            from web_search import brave_find_ph_slugs
         except ImportError:
-            brave_find_ph_slug = None
+            brave_find_ph_slugs = None
 
-    brave_slug = None
-    if brave_find_ph_slug:
+    brave_slugs: list = []
+    if brave_find_ph_slugs:
         try:
-            brave_slug = await brave_find_ph_slug(brand, product_name, domain=domain)
-            log.debug("Brave found PH slug: %s for %s", brave_slug, brand)
+            brave_slugs = await brave_find_ph_slugs(brand, product_name, domain=domain, limit=5)
+            log.debug("Brave found PH slugs: %s for %s", brave_slugs, brand)
         except Exception:
-            pass
+            brave_slugs = []
+    brave_slug = brave_slugs[0] if brave_slugs else None
 
     token = _get_token()
     if not token:
@@ -135,9 +136,34 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
+    # Build expanded URL variants for fuzzy match: strip/add www,
+    # strip subdomain, try http scheme. Covers PH posts that registered
+    # with a slightly different URL (subdomain, http, trailing slash).
+    _domain_bare = domain[4:] if domain.startswith("www.") else domain
+    # Known two-level TLDs where the "root" would be a public suffix
+    # (e.g. co.uk → https://co.uk). Skip root-extraction for those.
+    _TWO_LEVEL_TLDS = {"co.uk", "co.jp", "com.au", "com.br", "com.cn", "com.mx",
+                       "com.tw", "co.nz", "co.in", "co.za", "co.kr", "com.sg"}
+    _parts = _domain_bare.split(".")
+    _root_candidate = None
+    if len(_parts) >= 3:
+        _tail2 = ".".join(_parts[-2:])
+        if _tail2 in _TWO_LEVEL_TLDS:
+            # e.g. foo.co.uk → foo.co.uk (already root, skip)
+            _root_candidate = None if len(_parts) == 3 else ".".join(_parts[-3:])
+        else:
+            _root_candidate = _tail2
+    url_variants = list(dict.fromkeys(filter(None, [
+        f"https://{domain}",
+        f"https://www.{_domain_bare}",
+        f"https://{_domain_bare}",
+        f"http://{_domain_bare}",
+        f"https://{_root_candidate}" if _root_candidate else None,
+    ])))
+
     async with httpx.AsyncClient(timeout=30) as client:
         # ── Step 0: URL-based search FIRST (most reliable for exact domain match) ──
-        for url_variant in [f"https://{domain}", f"https://www.{domain}"]:
+        for url_variant in url_variants:
             try:
                 result = await _query_by_url(client, headers, url_variant)
                 if result.get("found"):
@@ -149,9 +175,11 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         product_slug = None
         seed_hit = None
 
-        # Core slugs first (most likely), then version/variant slugs
+        # Core slugs first (most likely), then version/variant slugs.
+        # brave_slugs (multi) go first — widest net for fuzzy matches like
+        # "chatgpt" → "chatgpt-4", or brand-name mismatches.
         core_slugs = list(dict.fromkeys(filter(None, [
-            brave_slug, brand, name_slug,
+            *brave_slugs, brand, name_slug,
             f"{brand}-2", f"{brand}-2-0", f"{brand}-ai",
         ])))
         variant_slugs = list(dict.fromkeys(filter(None, [
@@ -271,9 +299,17 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
         if result.get("found"):
             return result
 
+        # Final fuzzy fallback: probe every brave-discovered slug individually
+        # (covers cases where brave found "foo-launch-2024" but our slug
+        # enumeration never generated it).
+        for bs in brave_slugs:
+            hit = await _query_post(client, headers, bs)
+            if hit.get("found"):
+                return _build_result([hit], bs, brand, product_name)
+
     return {
         "found": False,
-        "slugs_tried": [brand, name_slug],
+        "slugs_tried": [brand, name_slug, *brave_slugs],
         "note": "未在 Product Hunt 上找到该产品。可手动搜索：producthunt.com/search?q=" + brand
     }
 

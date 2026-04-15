@@ -596,18 +596,52 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     except Exception:
         _domain_clean = brand
 
+    # Track API-level errors across all handle probes so we can distinguish
+    # "the API is misbehaving" (should surface as a warning) from
+    # "the account genuinely doesn't match" (silent skip).
+    # NOTE: This list is shared across both the primary enumeration loop AND
+    # the brave_find_twitter fallback call (both reuse _check_handle). That
+    # means a single transient 429 anywhere makes "api_error" the verdict —
+    # intentional: we'd rather over-warn than silently claim Co-Star has no
+    # presence when the API was just rate-limited.
+    api_errors: list[str] = []
+
     async def _check_handle(client, handle):
-        """Check a single handle via TwitterAPI.io. Returns profile dict or None."""
+        """Check a single handle via TwitterAPI.io.
+
+        Returns:
+            - profile dict: handle validated and matched
+            - None:         handle fetched OK but didn't match relevance rules
+                            (API status 200, just no signal match)
+        Side effect:
+            appends an error tag to `api_errors` if the call failed at the
+            transport/API layer (429/401/5xx/timeout/etc). Callers should
+            check `api_errors` to decide whether a "not found" conclusion
+            is trustworthy.
+        """
         try:
             resp = await client.get(
                 "https://api.twitterapi.io/twitter/user/info",
                 headers={"X-API-Key": twitterapi_key},
                 params={"userName": handle},
             )
+            if resp.status_code in (429, 401, 403):
+                api_errors.append(f"http_{resp.status_code}")
+                return None
+            if resp.status_code >= 500:
+                api_errors.append(f"http_{resp.status_code}")
+                return None
             if resp.status_code != 200:
+                # 404 on a user lookup = handle doesn't exist, that's fine
                 return None
             data = resp.json()
             if data.get("status") != "success":
+                # Distinguish "handle doesn't exist" (expected, silent skip)
+                # from real API problems (log as error so caller can warn).
+                msg = (data.get("message") or data.get("msg") or "").lower()
+                if "not found" in msg or "not exist" in msg or "no user" in msg:
+                    return None  # legitimate miss, not an API issue
+                api_errors.append("bad_payload")
                 return None
             prof = data.get("data", {})
             if not prof.get("userName"):
@@ -643,7 +677,14 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 return None
 
             return prof
-        except Exception:
+        except httpx.TimeoutException:
+            api_errors.append("timeout")
+            return None
+        except httpx.HTTPError as e:
+            api_errors.append(f"network:{type(e).__name__}")
+            return None
+        except Exception as e:
+            api_errors.append(f"exc:{type(e).__name__}")
             return None
 
     if twitterapi_key:
@@ -733,10 +774,34 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             result["handle"] = f"@{handle}" if not handle.startswith("@") else handle
             result["url"] = f"https://x.com/{handle.lstrip('@')}"
             result["followers"] = followers
-            result["note"] = "粉丝数来自 Brave Search（TwitterAPI.io 未找到匹配账号）" if followers else "仅 Brave 确认账号存在"
+            # If TwitterAPI.io had errors, say so — user should know follower
+            # count couldn't be verified against the source of truth.
+            if api_errors and not followers:
+                result["note"] = f"⚠️ TwitterAPI.io 返回错误（{api_errors[0]}），账号存在但粉丝数未抓到。可重试或查看 api_status"
+                result["api_status"] = "degraded"
+            elif followers:
+                result["note"] = "粉丝数来自 Brave Search（TwitterAPI.io 未找到匹配账号）"
+                result["api_status"] = "brave_fallback"
+            else:
+                result["note"] = "仅 Brave 确认账号存在"
+                result["api_status"] = "partial"
         else:
             tried_str = ", ".join(handles_to_try[:3])
-            result["note"] = f"未找到 Twitter 账号（尝试了 {tried_str}）"
+            # Distinguish "API is broken" from "genuinely no account".
+            # If every TwitterAPI.io probe errored at the transport/API layer,
+            # we can't conclude the account doesn't exist — it might be
+            # @costarastrology (1M+ followers) that we just couldn't reach.
+            if api_errors and twitterapi_key:
+                err_sample = api_errors[0]
+                result["note"] = (
+                    f"⚠️ 未能可靠检测 — TwitterAPI.io 全部请求失败（{err_sample}，"
+                    f"共 {len(api_errors)} 次）。大概率是 API 限流/鉴权问题，"
+                    f"而非账号不存在。请稍后重试或检查 TWITTERAPI_IO_KEY。"
+                )
+                result["api_status"] = "api_error"
+            else:
+                result["note"] = f"未找到 Twitter 账号（尝试了 {tried_str}）"
+                result["api_status"] = "not_found"
         result["key_posts_framework"] = {
             "note": "🔍 需 API 充值或手动补充",
             "needed_data": [
