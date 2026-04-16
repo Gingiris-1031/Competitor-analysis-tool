@@ -68,10 +68,28 @@ function renderTraffic(tr) {
             ['Referring IPs', bl.referring_ips, 'text-gray-300'],
         ];
         for (const [label, val, color] of metrics) {
-            if (val !== null && val !== undefined) {
-                const display = typeof val === 'number' ? val.toLocaleString() : val;
-                html += `<div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">${label}</div><div class="text-sm font-mono ${color} mt-1">${display}</div></div>`;
+            if (val === null || val === undefined) continue;
+            let display;
+            if (typeof val === 'number') {
+                display = val.toLocaleString();
+            } else if (typeof val === 'string') {
+                display = val;
+            } else if (typeof val === 'object') {
+                // Backend occasionally emits the raw DataForSEO backlinks dict
+                // ({backlinks, referring_domains, …}) for this slot. Extract
+                // a sensible scalar or skip rather than printing [object Object].
+                const n = val.backlinks ?? val.total ?? val.count ?? val.value;
+                if (typeof n === 'number') {
+                    display = n.toLocaleString();
+                } else if (typeof n === 'string') {
+                    display = n;
+                } else {
+                    continue; // no extractable scalar — hide the card
+                }
+            } else {
+                display = String(val);
             }
+            html += `<div class="bg-gray-800 rounded-lg p-3"><div class="text-[10px] text-gray-400">${label}</div><div class="text-sm font-mono ${color} mt-1">${display}</div></div>`;
         }
         html += `</div>`;
     }

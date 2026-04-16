@@ -53,6 +53,32 @@ def _format_social(data: dict) -> dict:
 
 
 def _format_traffic(data: dict) -> dict:
+    # DataForSEO returns backlinks as a nested dict
+    # ({cost, backlinks: N, referring_domains, domain_rank, referring_ips, ...}).
+    # SRT / flat callers return it as a scalar int. seo_metrics must expose
+    # scalars to the UI — otherwise the frontend fallback renders [object
+    # Object]. Normalize here.
+    _bl = data.get("backlinks")
+    if isinstance(_bl, dict):
+        _bl_count = _bl.get("backlinks")
+        # Use explicit None check — a legitimate 0 from DataForSEO should not
+        # be silently replaced by SRT's value.
+        _rd_nested = _bl.get("referring_domains")
+        _rd_count = _rd_nested if _rd_nested is not None else data.get("referring_domains")
+    else:
+        _bl_count = _bl
+        _rd_count = data.get("referring_domains")
+
+    seo_metrics: dict = {}
+    for k in ("domain_authority", "spam_score", "indexed_pages", "tld_distribution",
+              "organic_traffic_estimate"):
+        if data.get(k) is not None:
+            seo_metrics[k] = data[k]
+    if _bl_count is not None:
+        seo_metrics["backlinks"] = _bl_count
+    if _rd_count is not None:
+        seo_metrics["referring_domains"] = _rd_count
+
     result = {
         "title": "流量与 SEO 分析",
         "source": "DataForSEO + SEO Review Tools",
@@ -62,13 +88,9 @@ def _format_traffic(data: dict) -> dict:
         "historical": data.get("historical", {}),
         "growth_analysis": data.get("growth_analysis", {}),
         "total_cost": data.get("total_cost", 0),
-        # Merged SEO metrics (DA, spam score, fallback traffic/backlinks)
-        "seo_metrics": {
-            k: data[k] for k in (
-                "domain_authority", "spam_score", "indexed_pages", "tld_distribution",
-                "organic_traffic_estimate", "backlinks", "referring_domains",
-            ) if data.get(k) is not None
-        },
+        # Merged SEO metrics (DA, spam score, fallback traffic/backlinks).
+        # IMPORTANT: all values are scalars so the UI can render them directly.
+        "seo_metrics": seo_metrics,
     }
     return result
 
