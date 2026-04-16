@@ -1,4 +1,8 @@
 fastapi==0.115.0
+# Pin starlette to the range fastapi 0.115 requires. Without this pin,
+# mcp's loose `starlette` dep pulls starlette 1.0+ which removed APIs
+# fastapi 0.115 relies on (on_startup kwarg).
+starlette>=0.37.2,<0.39
 uvicorn==0.30.0
 httpx==0.27.0
 beautifulsoup4==4.12.3
@@ -7,3 +11,4 @@ pypdf==4.3.1
 supabase>=2.4.0
 pytrends>=4.9.2
 python-whois>=0.9.4
+mcp>=1.8

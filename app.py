@@ -34,7 +34,27 @@ from modules.polar_payment import (
     create_checkout, handle_webhook_event, PRODUCTS, PLAN_CREDITS,
 )
 
-app = FastAPI(title="Analook — 竞品情报分析")
+# Propagate the MCP sub-app's lifespan (StreamableHTTPSessionManager.run())
+# through FastAPI's own lifespan — Starlette Mount does NOT call sub-app
+# lifespans automatically, so without this the MCP endpoint raises
+# "Task group is not initialized" on the first request.
+from contextlib import asynccontextmanager as _asynccontextmanager
+
+@_asynccontextmanager
+async def _analook_lifespan(app_):
+    try:
+        from modules.mcp_app import mcp as _mcp
+        async with _mcp.session_manager.run():
+            yield
+    except Exception as _mcp_lifespan_err:
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            "MCP lifespan not started (%s) — MCP endpoint will be unavailable, HTTP API unaffected",
+            _mcp_lifespan_err,
+        )
+        yield
+
+app = FastAPI(title="Analook — 竞品情报分析", lifespan=_analook_lifespan)
 
 
 # ---------------------------------------------------------------------------
@@ -1243,6 +1263,17 @@ async def ask_question(req: QARequest):
 
 
 # Serve static files
+# Remote MCP server — mount BEFORE the catch-all static "/" mount.
+# Exposes competitor-analysis tools over Streamable HTTP at /mcp for
+# Claude Desktop / Cursor / other MCP clients. Auth via Bearer header.
+try:
+    from modules.mcp_app import build_mcp_app
+    app.mount("/mcp", build_mcp_app(), name="mcp")
+except Exception as _mcp_err:
+    # Non-fatal: if mcp dep is missing or mounting fails, keep HTTP API running.
+    import logging as _log
+    _log.getLogger(__name__).warning("MCP server not mounted: %s", _mcp_err)
+
 app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
 app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
