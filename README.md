@@ -15,9 +15,30 @@
 [![Last Commit](https://img.shields.io/github/last-commit/Gingiris/Competitor-analysis-tool?color=blue)](https://github.com/Gingiris/Competitor-analysis-tool/commits/main)
 [![Deployed on Railway](https://img.shields.io/badge/Deploy-Railway-blueviolet)](https://railway.app)
 
-**[English](#english) | [中文](#中文版)**
+**[English](#english) | [中文](#中文版)** · **[🤖 MCP Server](#-remote-mcp-server)** · **[📖 Docs](https://www.analook.com/docs/mcp.html)**
 
 </div>
+
+## 🤖 Remote MCP Server
+
+Analook is available as a **Remote MCP server** — use it from Claude Desktop, Cursor, or any MCP-compatible client. No install, no local process.
+
+```json
+{
+  "mcpServers": {
+    "analook": {
+      "url": "https://www.analook.com/mcp",
+      "headers": { "Authorization": "Bearer <YOUR_ANALOOK_TOKEN>" }
+    }
+  }
+}
+```
+
+**5 tools**: `analyze_competitor`, `get_report_status`, `get_report`, `get_report_markdown`, `list_my_reports`.
+
+Full docs & token instructions → **[analook.com/docs/mcp](https://www.analook.com/docs/mcp.html)**
+
+---
 
 > 💡 **出海增长咨询 · 1v1 Session 约课 $200** — [Telegram @Iris_carrot](https://t.me/Iris_carrot)
 >
