@@ -19,13 +19,18 @@ Tools:
   - get_report_markdown(job_id)               public → markdown text
   - list_my_reports()                         auth-required → user's history
 """
-from __future__ import annotations
+# NOTE: do NOT add `from __future__ import annotations` here.
+# FastMCP's Tool.from_function introspects param annotations at registration
+# time via `issubclass(param.annotation, Context)`. With the future import,
+# annotations become strings and issubclass raises TypeError — on some mcp
+# versions (e.g. 1.12.x) this aborts server mount with no useful error,
+# which is exactly what happened to us in prod on Railway.
 
 import contextvars
 import logging
 import os
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -71,7 +76,7 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 mcp = FastMCP("Analook", streamable_http_path="/")
 
 
-async def _resolve_user() -> dict | None:
+async def _resolve_user() -> Optional[dict]:
     """Verify current request's Bearer token via Supabase. Returns user dict or None."""
     token = _current_token.get()
     if not token:
