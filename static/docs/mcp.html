@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Analook MCP Server — Competitor Analysis for AI Agents</title>
+<meta name="description" content="Use Analook from Claude Desktop, Cursor, or any MCP-compatible client. Zero install — just add the URL + your token." />
+<link rel="icon" href="/favicon.ico" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    body { background: #0a0a0a; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.55; }
+    code.inline { background: #1f2937; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; color: #93c5fd; }
+    .copy-btn { transition: all 0.15s; }
+    .copy-btn:hover { background: #1e40af; }
+    .copy-btn.copied { background: #059669; }
+    .tool-card { background: #0f172a; border: 1px solid #1f2937; }
+    .tool-card:hover { border-color: #334155; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 text-lg font-semibold">
+        <span>🔍</span><span>Analook</span>
+        <span class="text-xs text-gray-500 font-normal ml-2">MCP Docs</span>
+    </a>
+    <div class="flex items-center gap-4">
+        <a href="/comparison.html" class="text-sm text-gray-400 hover:text-white">Compare</a>
+        <a href="/" class="text-sm text-gray-400 hover:text-white">← Analyzer</a>
+    </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-6 py-10">
+
+    <div class="mb-10">
+        <h1 class="text-3xl font-bold mb-3">Analook MCP Server</h1>
+        <p class="text-gray-400 leading-relaxed">
+            Use Analook from Claude Desktop, Cursor, or any MCP-compatible client — no installs, no local processes.
+            One HTTPS endpoint, one Bearer token, five tools for running and reading competitor analyses from inside
+            your agent workflow.
+        </p>
+        <div class="mt-4 flex items-center gap-3 text-sm">
+            <span class="bg-blue-900/40 text-blue-300 border border-blue-800 px-3 py-1 rounded-full">
+                Endpoint: <code class="inline">https://analook.com/mcp</code>
+            </span>
+            <span class="bg-gray-800 text-gray-400 border border-gray-700 px-3 py-1 rounded-full">
+                Transport: Streamable HTTP
+            </span>
+            <span class="bg-gray-800 text-gray-400 border border-gray-700 px-3 py-1 rounded-full">
+                Protocol: MCP 2024-11-05
+            </span>
+        </div>
+    </div>
+
+    <!-- Claude Desktop -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">🖥️ Claude Desktop</h2>
+        <p class="text-sm text-gray-400 mb-3">
+            Edit <code class="inline">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+            (macOS) or <code class="inline">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows) and add:
+        </p>
+        <div class="relative">
+            <pre id="cfg-claude" class="bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-x-auto"><code>{
+  "mcpServers": {
+    "analook": {
+      "url": "https://analook.com/mcp",
+      "headers": {
+        "Authorization": "Bearer &lt;YOUR_ANALOOK_TOKEN&gt;"
+      }
+    }
+  }
+}</code></pre>
+            <button class="copy-btn absolute top-3 right-3 text-xs bg-blue-600 text-white px-3 py-1 rounded" data-copy="cfg-claude">Copy</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Restart Claude Desktop after editing. Then ask Claude: "use Analook to analyze linear.app".</p>
+    </section>
+
+    <!-- Cursor -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">⌨️ Cursor</h2>
+        <p class="text-sm text-gray-400 mb-3">
+            Open Settings → MCP → Add new MCP server. Use the same JSON as above, or manually:
+        </p>
+        <div class="relative">
+            <pre id="cfg-cursor" class="bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-x-auto"><code>Name:     analook
+URL:      https://analook.com/mcp
+Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
+            <button class="copy-btn absolute top-3 right-3 text-xs bg-blue-600 text-white px-3 py-1 rounded" data-copy="cfg-cursor">Copy</button>
+        </div>
+    </section>
+
+    <!-- Get token -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">🔑 Getting your token</h2>
+        <ol class="list-decimal list-inside text-sm text-gray-300 space-y-2 ml-2">
+            <li>Sign in to <a href="/" class="text-blue-400 underline">analook.com</a></li>
+            <li>Open your browser DevTools (⌘⌥I / F12) → Application → Local Storage → <code class="inline">analook.com</code></li>
+            <li>Copy the value of <code class="inline">sb-*-auth-token</code> → the <code class="inline">access_token</code> field</li>
+            <li>Paste into the <code class="inline">Bearer &lt;...&gt;</code> slot above</li>
+        </ol>
+        <p class="text-xs text-gray-500 mt-3">
+            Tokens expire in ~1 hour by default. A dedicated long-lived API key endpoint is on the roadmap — ping us if you need it sooner.
+        </p>
+    </section>
+
+    <!-- Tools -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-4">🛠️ Available tools</h2>
+        <div class="space-y-3">
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-blue-300">analyze_competitor(url, product_name?)</code>
+                    <span class="text-xs text-amber-400">⚡ 1 credit · auth required</span>
+                </div>
+                <p class="text-sm text-gray-400">Kick off a full analysis across 15+ data sources. Returns <code class="inline">job_id</code>.</p>
+                <p class="text-xs text-gray-500 mt-2">Example: <code class="inline">analyze_competitor(url="lovable.dev")</code></p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-blue-300">get_report_status(job_id)</code>
+                    <span class="text-xs text-gray-500">public</span>
+                </div>
+                <p class="text-sm text-gray-400">Poll until <code class="inline">status="completed"</code>. Typical run is 2–5 min.</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-blue-300">get_report(job_id)</code>
+                    <span class="text-xs text-gray-500">public</span>
+                </div>
+                <p class="text-sm text-gray-400">Full structured JSON report — website, SEO/traffic, social, Product Hunt, GitHub, pricing, funding, AI insights, growth playbooks.</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-blue-300">get_report_markdown(job_id)</code>
+                    <span class="text-xs text-gray-500">public</span>
+                </div>
+                <p class="text-sm text-gray-400">Human-readable Markdown — pipe directly to agents or paste into docs.</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-blue-300">list_my_reports()</code>
+                    <span class="text-xs text-amber-400">auth required</span>
+                </div>
+                <p class="text-sm text-gray-400">List your last 50 reports (id, url, product_name, created_at, status).</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Example workflow -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">💡 Example agent workflow</h2>
+        <p class="text-sm text-gray-400 mb-3">Ask your agent: <em>"Analyze my top 3 competitors and tell me where I'm losing."</em></p>
+        <div class="relative">
+            <pre id="ex-flow" class="bg-gray-900 border border-gray-800 rounded-lg p-4 overflow-x-auto"><code>1. analyze_competitor(url="linear.app")        → job_id: "abc123"
+2. analyze_competitor(url="notion.so")         → job_id: "def456"
+3. analyze_competitor(url="asana.com")         → job_id: "ghi789"
+4. [wait 3 min]
+5. get_report("abc123"), get_report("def456"), get_report("ghi789")
+6. Agent synthesizes: "Linear leads on DX (open-source energy + GitHub stars),
+   Notion on content (blog traffic 3x yours), Asana on enterprise (pricing tier
+   gap). Your weak spot: zero Product Hunt presence across 3 launches — all 3
+   competitors launched 4+ times."</code></pre>
+            <button class="copy-btn absolute top-3 right-3 text-xs bg-blue-600 text-white px-3 py-1 rounded" data-copy="ex-flow">Copy</button>
+        </div>
+    </section>
+
+    <!-- Rate / limits -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">📊 Limits & pricing</h2>
+        <ul class="text-sm text-gray-400 space-y-1.5 list-disc list-inside">
+            <li>1 credit per <code class="inline">analyze_competitor</code> call (same as the web UI)</li>
+            <li>Read-only tools (<code class="inline">get_report*</code>, <code class="inline">list_my_reports</code>) are unlimited</li>
+            <li>Reports persist forever by default (server-side storage) — use the job_id in any future session</li>
+            <li>Free tier: 3 analyses/month · Pro: 30/month · Team: unlimited (see <a href="/pricing.html" class="text-blue-400 underline">pricing</a>)</li>
+        </ul>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section class="mb-10">
+        <h2 class="text-xl font-semibold mb-3">🛠️ Troubleshooting</h2>
+        <dl class="text-sm space-y-4">
+            <div>
+                <dt class="text-gray-300 font-medium">AUTH_REQUIRED on every call</dt>
+                <dd class="text-gray-500 mt-0.5">Token expired (~1h). Refresh from DevTools as described above.</dd>
+            </div>
+            <div>
+                <dt class="text-gray-300 font-medium">INSUFFICIENT_CREDITS</dt>
+                <dd class="text-gray-500 mt-0.5">Top up at <a href="/pricing.html" class="text-blue-400 underline">/pricing</a> or wait for monthly reset.</dd>
+            </div>
+            <div>
+                <dt class="text-gray-300 font-medium">Tool responds but agent says "not connected"</dt>
+                <dd class="text-gray-500 mt-0.5">Fully restart the MCP client — Claude Desktop caches server state across reloads.</dd>
+            </div>
+            <div>
+                <dt class="text-gray-300 font-medium">Still stuck?</dt>
+                <dd class="text-gray-500 mt-0.5">Email <a href="mailto:iris@gingiris.com" class="text-blue-400 underline">iris@gingiris.com</a> with your job_id and the failing call.</dd>
+            </div>
+        </dl>
+    </section>
+
+    <p class="text-xs text-gray-600 border-t border-gray-800 pt-6">
+        Built on the official <a href="https://modelcontextprotocol.io" class="underline">Model Context Protocol</a> · Source on
+        <a href="https://github.com/Gingiris/Competitor-analysis-tool" class="underline">GitHub</a>.
+    </p>
+</main>
+
+<script>
+document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = document.getElementById(btn.dataset.copy);
+        if (!target) return;
+        navigator.clipboard.writeText(target.innerText).then(() => {
+            const old = btn.textContent;
+            btn.textContent = 'Copied ✓';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = old;
+                btn.classList.remove('copied');
+            }, 1500);
+        });
+    });
+});
+</script>
+</body>
+</html>

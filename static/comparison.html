@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Multi-Competitor Comparison — Analook</title>
+<meta name="description" content="Compare up to 4 competitors side by side across traffic, SEO, social, Product Hunt, pricing and more." />
+<link rel="icon" href="/favicon.ico" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    body { background: #0a0a0a; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    .metric-row td { border-top: 1px solid #1f2937; }
+    .metric-row:hover td { background: rgba(30, 41, 59, 0.3); }
+    .col-header { background: linear-gradient(180deg, rgba(59,130,246,0.1), transparent); }
+    .winner { color: #34d399; font-weight: 600; }
+    .loser  { color: #9ca3af; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 text-lg font-semibold">
+        <span>🔍</span><span>Analook</span>
+        <span class="text-xs text-gray-500 font-normal ml-2">Comparison</span>
+    </a>
+    <a href="/" class="text-sm text-gray-400 hover:text-white">← Back to analyzer</a>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Input panel -->
+    <div id="input-panel" class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+        <h1 class="text-xl font-semibold mb-2">Multi-Competitor Comparison</h1>
+        <p class="text-sm text-gray-400 mb-5">
+            Paste 2–4 competitor URLs (or Analook report IDs you already ran) and we'll stack them side-by-side.
+            Running a fresh analysis costs 1 credit per URL.
+        </p>
+        <div id="input-rows" class="space-y-2 mb-4">
+            <!-- populated by JS -->
+        </div>
+        <div class="flex items-center gap-3">
+            <button id="add-row-btn" class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg">
+                + Add competitor
+            </button>
+            <button id="compare-btn" class="ml-auto bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
+                Compare
+            </button>
+        </div>
+        <div id="compare-err" class="hidden mt-3 text-sm text-red-400"></div>
+    </div>
+
+    <!-- Status / progress while fetching -->
+    <div id="status-panel" class="hidden bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
+        <div id="status-list" class="text-sm text-gray-300 space-y-1"></div>
+    </div>
+
+    <!-- Comparison table -->
+    <div id="result-panel" class="hidden overflow-x-auto">
+        <table id="compare-table" class="w-full text-sm border-collapse">
+            <thead id="compare-thead"></thead>
+            <tbody id="compare-tbody"></tbody>
+        </table>
+        <p class="mt-4 text-xs text-gray-500">
+            Traffic and backlink numbers from DataForSEO · Social from TwitterAPI.io + Brave · Product Hunt official API ·
+            <a href="/" class="underline">run a fresh analysis →</a>
+        </p>
+    </div>
+</main>
+
+<script src="/js/auth.js"></script>
+<script src="/js/comparison.js"></script>
+</body>
+</html>
