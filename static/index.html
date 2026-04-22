@@ -123,8 +123,8 @@
             <div class="flex items-center gap-3">
                 <a href="/comparison.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Compare</a>
                 <a href="/docs/mcp.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">MCP</a>
+                <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Pricing</a>
                 <a href="/zh/" class="text-xs text-gray-500 hover:text-white transition-colors">中文</a>
-                <!-- <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Pricing</a> -->
                 <!-- Not logged in: show sign-in button -->
                 <button id="auth-btn"
                         class="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium transition-colors">
@@ -584,6 +584,60 @@
             </div>
         </div>
     </footer>
+
+    <!-- Payment return handler — shows toast and refreshes credits after Polar redirect -->
+    <script>
+    (function handlePaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get('payment');
+      if (!payment) return;
+
+      // Clean URL so a refresh doesn't re-trigger the toast
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('plan');
+      window.history.replaceState({}, '', url.toString());
+
+      const plan = params.get('plan') || '';
+      const isSuccess = payment === 'success';
+      const msg = isSuccess
+        ? (plan === 'single_report'
+            ? '✅ Payment received — your 1 report credit is on its way!'
+            : '✅ Subscription active — credits updated. Go analyze some competitors!')
+        : '⚠️ Payment canceled. No charge was made.';
+
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-sm font-medium transition-opacity ' +
+        (isSuccess ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white');
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; }, 6000);
+      setTimeout(() => { toast.remove(); }, 7000);
+
+      // Webhook is eventually-consistent — poll credits up to 10s to reflect
+      // the new balance without forcing the user to reload.
+      if (isSuccess) {
+        let tries = 0;
+        const poll = setInterval(async () => {
+          tries++;
+          const token = window._analookAuth?.getToken?.();
+          if (!token) { if (tries >= 10) clearInterval(poll); return; }
+          try {
+            const res = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+              const p = await res.json();
+              const el = document.getElementById('credits-display');
+              if (el) {
+                el.classList.remove('hidden');
+                el.textContent = `⚡ ${p.credits_balance ?? 0} 积分`;
+              }
+            }
+          } catch {}
+          if (tries >= 10) clearInterval(poll);
+        }, 1000);
+      }
+    })();
+    </script>
 </body>
 </html>
 

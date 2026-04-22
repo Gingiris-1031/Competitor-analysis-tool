@@ -8,6 +8,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pricing — Analook</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <!-- Supabase config (same values as index.html, needed by auth.js) -->
+    <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
+    <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
 </head>
@@ -96,16 +99,43 @@
         </div>
     </footer>
 
+    <!-- Supabase auth (shared module — populates window._analookAuth) -->
+    <script src="/js/auth.js"></script>
     <script>
     async function checkout(plan) {
         const btn = event.target;
+        const origText = btn.textContent;
         btn.disabled = true;
         btn.textContent = '⏳ Loading...';
+
+        // Attach Supabase auth token if logged in — lets the webhook map the
+        // purchase to a user_id (metadata) instead of relying on the email
+        // fallback, which breaks when the user pays with a different email.
+        const headers = {'Content-Type': 'application/json'};
+        const token = window._analookAuth?.getToken?.();
+        if (!token) {
+            const proceed = confirm(
+                'Sign in first so we can credit your account automatically.\n\n' +
+                'Click OK to sign in, or Cancel to continue as guest (you may need to contact support if credits are not applied).'
+            );
+            if (proceed) {
+                // Bounce to homepage where the auth modal lives, then return here.
+                window.location.href = '/?auth=1&return=/pricing.html';
+                return;
+            }
+        } else {
+            headers['Authorization'] = 'Bearer ' + token;
+        }
+
         try {
             const resp = await fetch('/api/checkout', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({plan, success_url: window.location.origin + '/?payment=success'}),
+                headers,
+                body: JSON.stringify({
+                    plan,
+                    success_url: window.location.origin + '/?payment=success&plan=' + plan,
+                    cancel_url: window.location.origin + '/pricing.html?payment=canceled',
+                }),
             });
             const data = await resp.json();
             if (data.url) {
@@ -113,12 +143,12 @@
             } else {
                 alert('Error: ' + (data.error || 'Unknown error'));
                 btn.disabled = false;
-                btn.textContent = 'Try again';
+                btn.textContent = origText;
             }
         } catch(e) {
             alert('Network error: ' + e.message);
             btn.disabled = false;
-            btn.textContent = 'Try again';
+            btn.textContent = origText;
         }
     }
     </script>

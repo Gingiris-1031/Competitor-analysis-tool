@@ -1,9 +1,12 @@
 """竞品调研 MVP 工具 — FastAPI 后端"""
 import asyncio
 import json as _json
+import logging
 import os
 import time
 import uuid
+
+log = logging.getLogger(__name__)
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
@@ -32,6 +35,7 @@ from modules.supabase_client import (
 )
 from modules.polar_payment import (
     create_checkout, handle_webhook_event, PRODUCTS, PLAN_CREDITS,
+    verify_webhook_signature, mark_event_seen,
 )
 
 # Propagate the MCP sub-app's lifespan (StreamableHTTPSessionManager.run())
@@ -196,8 +200,15 @@ async def create_checkout_session(request: Request):
             user_id = user.get("id", "")
 
     success_url = body.get("success_url", "https://www.analook.com/?payment=success")
+    cancel_url = body.get("cancel_url", "https://www.analook.com/pricing.html?payment=canceled")
 
-    result = await create_checkout(plan, user_email=user_email, success_url=success_url, user_id=user_id)
+    result = await create_checkout(
+        plan,
+        user_email=user_email,
+        success_url=success_url,
+        user_id=user_id,
+        cancel_url=cancel_url,
+    )
     if result.get("error"):
         return JSONResponse({"error": result["error"]}, status_code=500)
 
@@ -206,17 +217,40 @@ async def create_checkout_session(request: Request):
 
 @app.post("/api/webhook/polar")
 async def polar_webhook(request: Request):
-    """Handle Polar webhook events (payment confirmations, subscription changes)."""
-    body = await request.body()
+    """Handle Polar webhook events (payment confirmations, subscription changes).
 
-    # Parse event
+    Security: verifies Standard Webhooks signature via POLAR_WEBHOOK_SECRET.
+    Idempotent: repeated webhook-id is acknowledged without re-processing, so
+    Polar's retry-on-failure doesn't double-credit users.
+    """
+    body = await request.body()
+    headers = {k.lower(): v for k, v in request.headers.items()}
+
+    # --- Signature verification (production) ---
+    secret = os.environ.get("POLAR_WEBHOOK_SECRET", "").strip()
+    if secret:
+        if not verify_webhook_signature(body, headers, secret):
+            log.warning("Polar webhook: invalid signature, id=%s", headers.get("webhook-id", ""))
+            return JSONResponse({"error": "Invalid signature"}, status_code=401)
+    else:
+        # Missing secret in prod is a severe misconfig — log loudly but don't 500
+        # (so Polar keeps retrying while we fix env vars rather than giving up).
+        log.warning("Polar webhook: POLAR_WEBHOOK_SECRET not set — signature NOT verified")
+
+    # --- Idempotency (Polar retries on non-2xx; Standard Webhooks id is unique) ---
+    event_id = headers.get("webhook-id", "")
+    if not mark_event_seen(event_id):
+        log.info("Polar webhook: duplicate event_id=%s, skipping", event_id)
+        return {"received": True, "duplicate": True}
+
+    # --- Parse event ---
     try:
         import json as _json_wb
         event = _json_wb.loads(body)
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
-    # Process event
+    # --- Process ---
     result = await handle_webhook_event(event)
     return {"received": True, **result}
 

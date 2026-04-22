@@ -1,14 +1,39 @@
 """Polar.sh 支付集成 — Checkout + Webhook + 信用额度管理"""
 import os
+import base64
 import hmac
 import hashlib
+import time
 import httpx
 import logging
+from collections import OrderedDict
 from datetime import datetime
 
 log = logging.getLogger(__name__)
 
 POLAR_API = "https://api.polar.sh/v1"
+
+# In-memory idempotency store (webhook-id -> timestamp). LRU-capped at 2000.
+# Polar retries webhooks on failure; Standard Webhooks guarantees unique ids per event.
+_seen_events: "OrderedDict[str, float]" = OrderedDict()
+_SEEN_MAX = 2000
+_SEEN_TTL = 24 * 60 * 60  # 24h — Polar stops retrying well before this
+
+
+def mark_event_seen(event_id: str) -> bool:
+    """Record an event id. Returns True if new, False if already seen (duplicate)."""
+    if not event_id:
+        return True  # Unidentifiable event — process anyway
+    now = time.time()
+    # Evict expired
+    while _seen_events and (now - next(iter(_seen_events.values()))) > _SEEN_TTL:
+        _seen_events.popitem(last=False)
+    if event_id in _seen_events:
+        return False
+    _seen_events[event_id] = now
+    while len(_seen_events) > _SEEN_MAX:
+        _seen_events.popitem(last=False)
+    return True
 
 # Product IDs (configured in Polar dashboard)
 PRODUCTS = {
@@ -30,7 +55,13 @@ def _get_token() -> str:
     return os.environ.get("POLAR_ACCESS_TOKEN", "").strip()
 
 
-async def create_checkout(product_key: str, user_email: str = "", success_url: str = "", user_id: str = "") -> dict:
+async def create_checkout(
+    product_key: str,
+    user_email: str = "",
+    success_url: str = "",
+    user_id: str = "",
+    cancel_url: str = "",
+) -> dict:
     """Create a Polar checkout session. Returns {url, id} or {error}."""
     token = _get_token()
     if not token:
@@ -47,8 +78,14 @@ async def create_checkout(product_key: str, user_email: str = "", success_url: s
         payload["customer_email"] = user_email
     if success_url:
         payload["success_url"] = success_url
+    if cancel_url:
+        payload["cancel_url"] = cancel_url
+    # Metadata lets us reconcile even if the customer changes email during checkout.
+    # Always include product_key so webhook can verify mapping independently.
+    metadata = {"product_key": product_key}
     if user_id:
-        payload["metadata"] = {"user_id": user_id}
+        metadata["user_id"] = user_id
+    payload["metadata"] = metadata
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
@@ -69,12 +106,60 @@ async def create_checkout(product_key: str, user_email: str = "", success_url: s
         return {"error": f"Polar error: {str(e)[:100]}"}
 
 
-def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> bool:
-    """Verify Polar webhook signature (HMAC-SHA256)."""
-    if not secret or not signature:
+def verify_webhook_signature(
+    payload: bytes,
+    headers: dict,
+    secret: str,
+    tolerance_seconds: int = 5 * 60,
+) -> bool:
+    """Verify Polar webhook per Standard Webhooks spec (https://standardwebhooks.com).
+
+    Polar sends three headers:
+      - webhook-id:        unique message id (also used for idempotency)
+      - webhook-timestamp: unix seconds (enforced within ±5min to block replays)
+      - webhook-signature: space-separated "v1,<base64(HMAC-SHA256)>" values
+
+    Signed payload = f"{id}.{timestamp}.{body}".
+    Secret format is "whsec_<base64>"; we base64-decode after the prefix.
+    Headers dict must have lowercase keys.
+    """
+    if not secret:
         return False
-    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(f"sha256={expected}", signature)
+    msg_id = headers.get("webhook-id", "")
+    ts = headers.get("webhook-timestamp", "")
+    sig_header = headers.get("webhook-signature", "")
+    if not (msg_id and ts and sig_header):
+        return False
+    # Replay protection
+    try:
+        if abs(time.time() - int(ts)) > tolerance_seconds:
+            return False
+    except ValueError:
+        return False
+    # Decode secret (Polar format: "whsec_<base64>")
+    if secret.startswith("whsec_"):
+        try:
+            secret_bytes = base64.b64decode(secret[len("whsec_"):])
+        except Exception:
+            return False
+    else:
+        secret_bytes = secret.encode()
+    # Compute expected signature
+    try:
+        signed_payload = f"{msg_id}.{ts}.{payload.decode('utf-8')}".encode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    expected = base64.b64encode(
+        hmac.new(secret_bytes, signed_payload, hashlib.sha256).digest()
+    ).decode()
+    # Match any "v1,<sig>" in the header (Polar may rotate keys; header can carry both)
+    for sig in sig_header.split():
+        if not sig.startswith("v1,"):
+            continue
+        provided = sig[len("v1,"):]
+        if hmac.compare_digest(expected, provided):
+            return True
+    return False
 
 
 async def handle_webhook_event(event: dict) -> dict:

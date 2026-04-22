@@ -122,7 +122,7 @@
             </div>
             <!-- Nav + Auth -->
             <div class="flex items-center gap-3">
-                <!-- <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Pricing</a> -->
+                <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">定价</a>
                 <!-- 未登录：显示登录按钮 -->
                 <button id="auth-btn"
                         class="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium transition-colors">
@@ -582,6 +582,57 @@
             </div>
         </div>
     </footer>
+
+    <!-- Payment return handler — 支付成功/取消的提示与积分刷新 -->
+    <script>
+    (function handlePaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get('payment');
+      if (!payment) return;
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('payment');
+      url.searchParams.delete('plan');
+      window.history.replaceState({}, '', url.toString());
+
+      const plan = params.get('plan') || '';
+      const isSuccess = payment === 'success';
+      const msg = isSuccess
+        ? (plan === 'single_report'
+            ? '✅ 支付成功 — 单次报告积分已到账！'
+            : '✅ 订阅已激活 — 积分已更新，去分析竞品吧！')
+        : '⚠️ 支付已取消，未扣款。';
+
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-sm font-medium transition-opacity ' +
+        (isSuccess ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white');
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; }, 6000);
+      setTimeout(() => { toast.remove(); }, 7000);
+
+      if (isSuccess) {
+        let tries = 0;
+        const poll = setInterval(async () => {
+          tries++;
+          const token = window._analookAuth?.getToken?.();
+          if (!token) { if (tries >= 10) clearInterval(poll); return; }
+          try {
+            const res = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+              const p = await res.json();
+              const el = document.getElementById('credits-display');
+              if (el) {
+                el.classList.remove('hidden');
+                el.textContent = `⚡ ${p.credits_balance ?? 0} 积分`;
+              }
+            }
+          } catch {}
+          if (tries >= 10) clearInterval(poll);
+        }, 1000);
+      }
+    })();
+    </script>
 </body>
 </html>
 
