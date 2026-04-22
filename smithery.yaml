@@ -1,0 +1,53 @@
+# Smithery.ai manifest — https://smithery.ai
+# This file lets Smithery discover and surface the Analook MCP server.
+name: analook
+version: 1.0.0
+displayName: "Analook — Competitor Intelligence"
+description: |
+  Competitor intelligence for AI agents — website, SEO, traffic, social,
+  Product Hunt, pricing, funding. Zero-install remote MCP at analook.com/mcp.
+homepage: https://www.analook.com
+docs: https://www.analook.com/docs/mcp.html
+repository: https://github.com/Gingiris/Competitor-analysis-tool
+license: MIT
+
+tags:
+  - research
+  - competitive-intelligence
+  - seo
+  - marketing
+  - web-analysis
+  - sales
+  - ai-agents
+
+# Remote Streamable HTTP transport — no local install
+transport:
+  type: streamable-http
+  url: https://www.analook.com/mcp
+
+# Bearer token auth (Supabase JWT from analook.com account)
+auth:
+  type: bearer
+  header: Authorization
+  description: |
+    Get your token by signing in at analook.com → DevTools → Local Storage →
+    sb-*-auth-token → access_token field. See /docs/mcp for details.
+
+tools:
+  - name: analyze_competitor
+    description: "Run a full competitor analysis (1 credit, auth required)"
+  - name: get_report_status
+    description: "Poll a running analysis job"
+  - name: get_report
+    description: "Get the full JSON report"
+  - name: get_report_markdown
+    description: "Get the report as human-readable Markdown"
+  - name: list_my_reports
+    description: "List your last 50 reports (auth required)"
+
+examplePrompts:
+  - "Analyze lovable.dev and tell me their top 3 growth channels."
+  - "Compare linear.app, notion.so, and asana.com side by side."
+  - "Run Analook on my latest competitor launch and summarize the SEO gaps."
+  - "List my last 10 reports and pull the one for vercel.com."
+  - "Pull report abc12345 as markdown and save to a note."
