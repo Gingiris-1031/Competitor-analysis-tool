@@ -140,6 +140,59 @@ async def health_check():
     return {"status": "ok", "keys_configured": configured, "keys": keys}
 
 
+@app.get("/api/debug/auth")
+async def debug_auth(request: Request):
+    """
+    Debug: surface why a Bearer token fails the supabase verification chain.
+    Returns redacted env-var fingerprints + the actual exception (if any).
+    Remove after diagnosis. No secrets returned — only key prefix + length.
+    """
+    out: dict = {}
+    # 1. Env var fingerprints
+    sb_url = os.environ.get("SUPABASE_URL", "").strip()
+    sb_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    out["env"] = {
+        "SUPABASE_URL_set": bool(sb_url),
+        "SUPABASE_URL_host": (sb_url.split("://", 1)[-1].split("/", 1)[0] if sb_url else None),
+        "SUPABASE_SERVICE_KEY_set": bool(sb_key),
+        "SUPABASE_SERVICE_KEY_len": len(sb_key) if sb_key else 0,
+        "SUPABASE_SERVICE_KEY_prefix": sb_key[:12] if sb_key else None,
+        "SUPABASE_SERVICE_KEY_format": (
+            "legacy_jwt" if sb_key.startswith("eyJ") else
+            "new_secret" if sb_key.startswith("sb_secret_") else
+            "unknown"
+        ) if sb_key else "missing",
+    }
+    # 2. Supabase client init
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    out["client_initialized"] = sb is not None
+    if sb is None:
+        out["verdict"] = "Supabase client failed to initialize — check env vars above"
+        return out
+    # 3. If a Bearer token was passed, try to verify it and capture the actual error
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        token = auth[7:].strip()
+        try:
+            resp = sb.auth.get_user(token)
+            user = resp.user
+            out["verify_result"] = {
+                "ok": user is not None,
+                "user_id": str(user.id) if user else None,
+                "email": user.email if user else None,
+            }
+        except Exception as e:
+            out["verify_result"] = {
+                "ok": False,
+                "exception_type": type(e).__name__,
+                "exception_msg": str(e)[:500],
+            }
+    else:
+        out["verify_result"] = "no Bearer token in Authorization header"
+    return out
+
+
 @app.get("/api/test-llm")
 async def test_llm():
     """Debug: direct LLM test to diagnose AI failure."""
