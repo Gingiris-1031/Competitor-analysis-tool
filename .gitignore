@@ -3,3 +3,5 @@ __pycache__/
 .env
 reports/*.json
 .venv/
+
+# Railway redeploy trigger: 2026-04-27T05:02:13Z
