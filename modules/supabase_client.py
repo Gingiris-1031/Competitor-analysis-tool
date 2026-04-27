@@ -7,6 +7,17 @@ log = logging.getLogger(__name__)
 _client = None
 
 
+def supabase_required() -> bool:
+    """
+    True when the deployment INTENDS to use Supabase. We use SUPABASE_URL
+    presence as the signal: if it's set, prod is meant to authenticate via
+    Supabase. If get_supabase() then returns None (key missing/invalid), we
+    must REFUSE auth-required requests with a 503 instead of silently
+    falling into dev-mode — otherwise reports & credits get dropped.
+    """
+    return bool(os.environ.get("SUPABASE_URL", "").strip())
+
+
 def get_supabase():
     """返回 Supabase Admin 客户端（懒加载单例）。环境变量未配置时返回 None。"""
     global _client

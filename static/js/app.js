@@ -623,9 +623,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const pathMatch = window.location.pathname.match(/^\/report\/([a-f0-9]+)/);
     if (pathMatch) {
-        loadSharedReport(pathMatch[1]).catch(() => {
-            document.querySelector('main').innerHTML =
-                '<div class="text-center py-8 text-red-400">报告不存在或已过期</div>';
+        const jobId = pathMatch[1];
+        loadSharedReport(jobId).catch(() => {
+            // Friendly 404 — common cause is a report from before the
+            // Supabase persistence fix (job_ids in old localStorage history
+            // point to reports that never made it to the server).
+            document.querySelector('main').innerHTML = `
+                <div class="max-w-2xl mx-auto py-12 px-6 text-center">
+                    <div class="text-5xl mb-4">📭</div>
+                    <h2 class="text-xl font-semibold text-white mb-3">This report can't be loaded</h2>
+                    <p class="text-gray-400 leading-relaxed mb-6">
+                        Job <code class="bg-gray-800 px-2 py-0.5 rounded text-blue-300">${esc(jobId)}</code>
+                        wasn't found on the server. It may have expired,
+                        or it was generated during a backend issue
+                        (April 2026 Supabase mis-config — reports from that
+                        window weren't persisted).
+                    </p>
+                    <a href="/" class="inline-block bg-blue-600 hover:bg-blue-500 text-white font-medium px-5 py-2.5 rounded-lg">
+                        ← Run a fresh analysis
+                    </a>
+                </div>`;
         });
     }
 });

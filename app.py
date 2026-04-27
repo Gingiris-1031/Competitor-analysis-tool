@@ -76,18 +76,55 @@ async def _extract_user(request: Request) -> dict | None:
     return await verify_token_and_get_user(token)
 
 
+def _service_degraded_response() -> JSONResponse | None:
+    """Return a 503 if Supabase is supposed to be configured but isn't.
+    Use this at the top of any endpoint that needs Supabase to function —
+    avoids returning a misleading 401 when the actual issue is server-side.
+    Returns None when service is healthy or in dev mode."""
+    from modules.supabase_client import get_supabase, supabase_required
+    if supabase_required() and get_supabase() is None:
+        return JSONResponse(
+            {
+                "error": "服务暂时不可用：Supabase 未正确配置",
+                "code": "SERVICE_DEGRADED",
+                "hint": "Backend cannot reach Supabase. Check SUPABASE_URL / SUPABASE_SERVICE_KEY.",
+            },
+            status_code=503,
+        )
+    return None
+
+
 async def _require_credits(request: Request):
     """
     检查用户积分。返回 (user, error_response)。
-    - user = None & error = None  → Supabase 未配置，放行（开发模式）
-    - user = dict & error = None  → 验证成功，积分已扣减
-    - user = None & error = JSONResponse → 拦截，直接返回给客户端
+    - user = None & error = None         → Supabase NOT configured (dev mode), 放行
+    - user = dict & error = None         → 验证成功，积分已扣减
+    - user = None & error = JSONResponse → 拦截
+        - 503 if Supabase IS supposed to be configured but client init failed
+              (this used to silently fall to dev mode and drop reports/credits)
+        - 401 if Supabase OK but user not authenticated
+        - 402 if user authenticated but out of credits
     """
     user = await _extract_user(request)
 
-    # Supabase 未配置（本地开发） → 放行
-    from modules.supabase_client import get_supabase
-    if not get_supabase():
+    from modules.supabase_client import get_supabase, supabase_required
+    sb = get_supabase()
+
+    if not sb:
+        # Branch 1: dev mode (no SUPABASE_URL in env) → allow anonymous use.
+        # Branch 2: SUPABASE_URL is set but client init failed → REFUSE.
+        # The old code merged these two branches → reports for real users
+        # were silently dropped during prod misconfig (the bug we just hit).
+        if supabase_required():
+            return None, JSONResponse(
+                {
+                    "error": "服务暂时不可用：Supabase 未正确配置",
+                    "code": "SERVICE_DEGRADED",
+                    "hint": "Backend cannot reach Supabase. Reports cannot be saved. "
+                            "Check SUPABASE_URL / SUPABASE_SERVICE_KEY env vars.",
+                },
+                status_code=503,
+            )
         return None, None
 
     # 未登录 → 要求登录
@@ -122,7 +159,16 @@ JOB_TIMEOUT = 5 * 60  # 5 minutes max per analysis job
 
 @app.get("/api/health")
 async def health_check():
-    """Debug: check which API keys are configured."""
+    """Service health for monitoring + frontend banner.
+
+    Returns 200 with status='ok' when Supabase auth/persistence is wired up.
+    Returns 503 with status='degraded' when Supabase is supposed to be
+    configured (SUPABASE_URL is set) but the client failed to initialize —
+    in that state user reports get dropped. Frontends should show a red
+    banner so users know the service is degraded.
+    """
+    from modules.supabase_client import get_supabase, supabase_required
+
     keys = {
         "TEAMOROUTER_API_KEY": bool(os.environ.get("TEAMOROUTER_API_KEY", "").strip()),
         "DEEPSEEK_API_KEY": bool(os.environ.get("DEEPSEEK_API_KEY", "").strip()),
@@ -136,73 +182,49 @@ async def health_check():
         "SUPABASE_URL": bool(os.environ.get("SUPABASE_URL", "").strip()),
         "POLAR_ACCESS_TOKEN": bool(os.environ.get("POLAR_ACCESS_TOKEN", "").strip()),
     }
-    configured = sum(1 for v in keys.values() if v)
-    return {"status": "ok", "keys_configured": configured, "keys": keys}
+
+    supabase_ok = get_supabase() is not None
+    degraded = supabase_required() and not supabase_ok
+
+    body = {
+        "status": "degraded" if degraded else "ok",
+        "supabase_ok": supabase_ok,
+        "supabase_required": supabase_required(),
+        "keys_configured": sum(1 for v in keys.values() if v),
+        "keys": keys,
+    }
+    if degraded:
+        body["warning"] = (
+            "SUPABASE_URL is set but client failed to initialize — "
+            "reports & credits cannot be persisted. Check SUPABASE_SERVICE_KEY."
+        )
+    # NOTE: always return HTTP 200. Railway's platform healthcheck may be
+    # pointed at this endpoint and would restart the container on 503,
+    # creating a redeploy loop. Frontend / monitoring should read body.status
+    # for degradation. Use /api/health/strict if you want HTTP-status-based
+    # alerting from a tool that supports it.
+    return body
 
 
-@app.get("/api/debug/auth")
-async def debug_auth(request: Request):
+@app.get("/api/health/strict")
+async def health_check_strict():
+    """Like /api/health, but returns HTTP 503 when degraded.
+
+    Use this from external monitors (Pingdom / UptimeRobot / Healthchecks.io)
+    that page on non-2xx. Do NOT point Railway's container healthcheck here
+    or a misconfigured Supabase will restart the service in a loop.
     """
-    Debug: surface why a Bearer token fails the supabase verification chain.
-    Returns redacted env-var fingerprints + the actual exception (if any).
-    Remove after diagnosis. No secrets returned — only key prefix + length.
-    """
-    out: dict = {}
-    # 1. Env var fingerprints
-    sb_url = os.environ.get("SUPABASE_URL", "").strip()
-    sb_key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
-    out["env"] = {
-        "SUPABASE_URL_set": bool(sb_url),
-        "SUPABASE_URL_host": (sb_url.split("://", 1)[-1].split("/", 1)[0] if sb_url else None),
-        "SUPABASE_SERVICE_KEY_set": bool(sb_key),
-        "SUPABASE_SERVICE_KEY_len": len(sb_key) if sb_key else 0,
-        "SUPABASE_SERVICE_KEY_prefix": sb_key[:12] if sb_key else None,
-        "SUPABASE_SERVICE_KEY_format": (
-            "legacy_jwt" if sb_key.startswith("eyJ") else
-            "new_secret" if sb_key.startswith("sb_secret_") else
-            "unknown"
-        ) if sb_key else "missing",
-    }
-    # 1b. List ALL env vars that look Supabase-related so we can detect typos
-    # in the Railway dashboard (e.g. SUPABASE_SERVICE_ROLE_KEY, trailing space).
-    out["all_supabase_env_keys"] = sorted([
-        k for k in os.environ.keys()
-        if "SUPABASE" in k.upper() or "SUPA" in k.upper()
-    ])
-    # 1c. Deploy fingerprint — confirms which build is running
-    out["deploy"] = {
-        "git_sha": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:8] or "unknown",
-        "service": os.environ.get("RAILWAY_SERVICE_NAME", "unknown"),
-        "environment": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown"),
-    }
-    # 2. Supabase client init
-    from modules.supabase_client import get_supabase
-    sb = get_supabase()
-    out["client_initialized"] = sb is not None
-    if sb is None:
-        out["verdict"] = "Supabase client failed to initialize — check env vars above"
-        return out
-    # 3. If a Bearer token was passed, try to verify it and capture the actual error
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        token = auth[7:].strip()
-        try:
-            resp = sb.auth.get_user(token)
-            user = resp.user
-            out["verify_result"] = {
-                "ok": user is not None,
-                "user_id": str(user.id) if user else None,
-                "email": user.email if user else None,
-            }
-        except Exception as e:
-            out["verify_result"] = {
-                "ok": False,
-                "exception_type": type(e).__name__,
-                "exception_msg": str(e)[:500],
-            }
-    else:
-        out["verify_result"] = "no Bearer token in Authorization header"
-    return out
+    body = await health_check()
+    if isinstance(body, dict) and body.get("status") == "degraded":
+        return JSONResponse(body, status_code=503)
+    return body
+
+
+@app.get("/api/health/live")
+async def health_check_live():
+    """Liveness probe — process is up. Always 200. Use this for Railway's
+    container healthcheck if you want one."""
+    return {"status": "live"}
 
 
 @app.get("/api/test-llm")
@@ -447,6 +469,8 @@ async def api_v1_list_reports(request: Request):
     List current user's recent reports (server-side history).
     Requires Bearer token. Returns [{id, url, product_name, created_at, status}].
     """
+    if (degraded := _service_degraded_response()):
+        return degraded
     user = await _extract_user(request)
     if not user:
         return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
@@ -1154,6 +1178,8 @@ def _persist_report(job_id: str, job: dict):
 @app.get("/api/me")
 async def get_me(request: Request):
     """返回当前登录用户的 profile（积分余额、套餐类型等）。未登录返回 401。"""
+    if (degraded := _service_degraded_response()):
+        return degraded
     user = await _extract_user(request)
     if not user:
         return JSONResponse({"error": "未登录", "code": "AUTH_REQUIRED"}, status_code=401)

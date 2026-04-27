@@ -147,13 +147,18 @@ async function onCompareClick() {
     document.getElementById('result-panel').classList.remove('hidden');
 }
 
+/**
+ * Set a row's status text. Accepts trusted HTML (allows <a> tags for
+ * actionable links like "upgrade plan"). DO NOT pass user input or
+ * server-returned strings to `text` — only hardcoded literals.
+ */
 function setRowStatus(idx, text, color = 'text-gray-400') {
     const el = document.getElementById(`st-${idx}`);
     if (!el) return;
     const span = el.querySelector('span:last-child');
     if (span) {
         span.className = color;
-        span.textContent = text;
+        span.innerHTML = text;
     }
 }
 
@@ -180,9 +185,24 @@ async function resolveReport(item, idx) {
                 body: JSON.stringify({ url: item.value }),
             });
             if (!res.ok) {
-                const t = await res.text().catch(() => '');
-                setRowStatus(idx, `failed to start: ${res.status}`, 'text-red-400');
-                return { idx, label: item.label, report: null, error: t || res.status };
+                // Map known status codes to actionable messages instead of
+                // "failed to start: 401" which leaves the user guessing.
+                let msg;
+                if (res.status === 401) {
+                    msg = '⚠️ 登录已过期，请刷新页面重新登录';
+                    if (window._analookAuth?.showModal) window._analookAuth.showModal();
+                } else if (res.status === 402) {
+                    msg = '💳 积分不足，<a href="/pricing.html" class="underline">升级套餐</a>';
+                } else if (res.status === 503) {
+                    msg = '🚧 服务暂时不可用（后端配置错误），稍后再试';
+                } else {
+                    let body = '';
+                    try { body = await res.text(); } catch {}
+                    // body is server-returned text — escape before injecting via innerHTML
+                    msg = `失败 (${res.status})${body ? ': ' + esc(body.slice(0, 100)) : ''}`;
+                }
+                setRowStatus(idx, msg, 'text-red-400');
+                return { idx, label: item.label, report: null, error: res.status };
             }
             const data = await res.json();
             jobId = data.job_id;
