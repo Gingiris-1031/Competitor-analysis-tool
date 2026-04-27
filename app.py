@@ -163,6 +163,18 @@ async def debug_auth(request: Request):
             "unknown"
         ) if sb_key else "missing",
     }
+    # 1b. List ALL env vars that look Supabase-related so we can detect typos
+    # in the Railway dashboard (e.g. SUPABASE_SERVICE_ROLE_KEY, trailing space).
+    out["all_supabase_env_keys"] = sorted([
+        k for k in os.environ.keys()
+        if "SUPABASE" in k.upper() or "SUPA" in k.upper()
+    ])
+    # 1c. Deploy fingerprint — confirms which build is running
+    out["deploy"] = {
+        "git_sha": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:8] or "unknown",
+        "service": os.environ.get("RAILWAY_SERVICE_NAME", "unknown"),
+        "environment": os.environ.get("RAILWAY_ENVIRONMENT_NAME", "unknown"),
+    }
     # 2. Supabase client init
     from modules.supabase_client import get_supabase
     sb = get_supabase()
