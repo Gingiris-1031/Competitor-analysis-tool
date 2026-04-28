@@ -57,16 +57,34 @@
         <div id="status-list" class="text-sm text-gray-300 space-y-1"></div>
     </div>
 
-    <!-- Comparison table -->
-    <div id="result-panel" class="hidden overflow-x-auto">
-        <table id="compare-table" class="w-full text-sm border-collapse">
-            <thead id="compare-thead"></thead>
-            <tbody id="compare-tbody"></tbody>
-        </table>
-        <p class="mt-4 text-xs text-gray-500">
-            Traffic and backlink numbers from DataForSEO · Social from TwitterAPI.io + Brave · Product Hunt official API ·
-            <a href="/" class="underline">run a fresh analysis →</a>
-        </p>
+    <!-- Result panel: 3 sections built by JS — verdict cards, radar, metrics table -->
+    <div id="result-panel" class="hidden">
+        <!-- 1. AI Verdict cards (one per competitor) -->
+        <section id="verdict-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-300 mb-3">🧠 AI Verdict — Killer move & growth pattern</h2>
+            <div id="verdict-grid" class="grid gap-3"></div>
+        </section>
+
+        <!-- 2. Strategy Radar — 6 dimensions side-by-side -->
+        <section id="radar-section" class="mb-8">
+            <h2 class="text-base font-semibold text-gray-300 mb-3">🎯 Strategy Radar — 6 dimensions, winner highlighted</h2>
+            <div id="radar-table" class="bg-gray-900 border border-gray-800 rounded-xl p-5"></div>
+        </section>
+
+        <!-- 3. Detailed metrics table -->
+        <section id="metrics-section" class="mb-6">
+            <h2 class="text-base font-semibold text-gray-300 mb-3">📊 Detailed metrics</h2>
+            <div class="overflow-x-auto bg-gray-900 border border-gray-800 rounded-xl">
+                <table id="compare-table" class="w-full text-sm border-collapse">
+                    <thead id="compare-thead"></thead>
+                    <tbody id="compare-tbody"></tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">
+                Sources: DataForSEO · SEO Review Tools · TwitterAPI.io + Brave · Product Hunt API · GitHub · Wayback Machine ·
+                <a href="/" class="underline">run a fresh analysis →</a>
+            </p>
+        </section>
     </div>
 </main>
 
