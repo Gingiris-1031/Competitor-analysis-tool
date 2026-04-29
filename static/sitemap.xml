@@ -5,7 +5,7 @@
     <loc>https://www.analook.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/pricing.html</loc>
@@ -18,31 +18,31 @@
     <loc>https://www.analook.com/compare/similarweb.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/compare/semrush.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/compare/ahrefs.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/compare/crayon.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/compare/klue.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
 
   <!-- MOFU: Blog posts (education + traffic) -->
@@ -50,25 +50,25 @@
     <loc>https://www.analook.com/blog/competitive-analysis-guide-2026.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/best-competitive-intelligence-tools-2026.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/competitor-seo-analysis-guide.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/product-hunt-launch-strategy.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-08</lastmod>
+    <lastmod>2026-04-29</lastmod>
   </url>
 
   <!-- Legal -->
@@ -81,5 +81,19 @@
     <loc>https://www.analook.com/privacy.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
+  </url>
+
+  <!-- Product surfaces (added 2026-04-29) -->
+  <url>
+    <loc>https://www.analook.com/comparison.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-04-29</lastmod>
+  </url>
+  <url>
+    <loc>https://www.analook.com/docs/mcp.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-04-29</lastmod>
   </url>
 </urlset>
