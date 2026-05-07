@@ -1,0 +1,64 @@
+name: Daily SEO/GEO patrol
+
+# Runs every day at 08:35 UTC = 16:35 China time (Iris afternoon-review window).
+# Off-:00 minute to avoid stampede.
+on:
+  schedule:
+    - cron: "35 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  patrol:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run SEO/GEO probe
+        env:
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: |
+          python scripts/seo_geo_report.py > /tmp/report.md
+          echo "Report:"
+          echo "──────────────────────────────────"
+          cat /tmp/report.md
+          echo "──────────────────────────────────"
+
+      - name: Save report markdown
+        run: |
+          DATE=$(date -u +"%Y-%m-%d")
+          DEST="docs/seo_geo_history/${DATE}.md"
+          cp /tmp/report.md "$DEST"
+          echo "Saved $DEST"
+
+      - name: Commit & push
+        run: |
+          git config user.name "analook-bot"
+          git config user.email "bot@analook.com"
+          git add docs/seo_geo_history/
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            DATE=$(date -u +"%Y-%m-%d")
+            git commit -m "chore(seo): daily SEO/GEO patrol ${DATE} (auto)"
+            git pull --rebase origin main
+            git push
+          fi
+
+      - name: Step summary
+        if: always()
+        run: |
+          echo "## 📊 Analook 每日 SEO/GEO 巡检" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/report.md ]; then
+            cat /tmp/report.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Probe failed — see 'Run SEO/GEO probe' step." >> $GITHUB_STEP_SUMMARY
+          fi

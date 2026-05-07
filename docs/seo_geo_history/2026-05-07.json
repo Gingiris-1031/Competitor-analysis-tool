@@ -1,0 +1,85 @@
+{
+  "competitive analysis tool": {
+    "pos": null,
+    "link": null,
+    "label": "P0 商业词",
+    "target": 30,
+    "top1": "SpyFu - Competitor Keyword Research Tools for Google Ads ..."
+  },
+  "competitor analysis tool": {
+    "pos": null,
+    "link": null,
+    "label": "P0 商业词",
+    "target": 30,
+    "top1": "Competitor Analysis Tool: The AI-Powered Website Spy"
+  },
+  "similarweb alternative": {
+    "pos": null,
+    "link": null,
+    "label": "alt-竞品词",
+    "target": 30,
+    "top1": "4 Best Similarweb Alternatives for Competitor Research in .."
+  },
+  "mcp server for competitor analysis": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 独占",
+    "target": 10,
+    "top1": "Analyze competitor content performance with Bright Data ..."
+  },
+  "claude desktop competitor research": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 独占",
+    "target": 10,
+    "top1": "Claude Cowork Competitor Agent: Research That Learns"
+  },
+  "remote mcp examples saas": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 类目",
+    "target": 20,
+    "top1": "Top 5 Remote MCP Servers that Transform AI Agents"
+  },
+  "product hunt launch playbook": {
+    "pos": null,
+    "link": null,
+    "label": "旗舰内容",
+    "target": 10,
+    "top1": "Product Hunt Launch Guide"
+  },
+  "best social media listening tools startups": {
+    "pos": null,
+    "link": null,
+    "label": "旗舰内容",
+    "target": 15,
+    "top1": "Best Social Listening Tools in 2026: 10 That Actually Work"
+  },
+  "developer community directory": {
+    "pos": 7,
+    "link": "https://gingiris.github.io/growth-tools/blog/2026/04/07/developer-community-directory-where-to-find-your-first-1000-users/",
+    "label": "旗舰内容",
+    "target": 5,
+    "top1": "DEV Community"
+  },
+  "go to market strategy 2026": {
+    "pos": null,
+    "link": null,
+    "label": "旗舰内容",
+    "target": 30,
+    "top1": "The 2026 Go-to-Market Execution Blueprint for GTM"
+  },
+  "saas marketing": {
+    "pos": null,
+    "link": null,
+    "label": "🎯 KD1 送分",
+    "target": 20,
+    "top1": "I've been doing SaaS marketing for almost 20 years. ..."
+  },
+  "site:analook.com": {
+    "count": 10,
+    "label": "索引计数",
+    "target": 15,
+    "pos": null
+  }
+}
