@@ -1,0 +1,62 @@
+{
+  "competitive analysis tool": {
+    "error": "URL can't contain control characters. '/search.json?q=competitive%20analysis%20tool&engine=google&nu",
+    "label": "P0 商业词",
+    "target": 30
+  },
+  "competitor analysis tool": {
+    "error": "URL can't contain control characters. '/search.json?q=competitor%20analysis%20tool&engine=google&num",
+    "label": "P0 商业词",
+    "target": 30
+  },
+  "similarweb alternative": {
+    "error": "URL can't contain control characters. '/search.json?q=similarweb%20alternative&engine=google&num=20&",
+    "label": "alt-竞品词",
+    "target": 30
+  },
+  "mcp server for competitor analysis": {
+    "error": "URL can't contain control characters. '/search.json?q=mcp%20server%20for%20competitor%20analysis&eng",
+    "label": "MCP 独占",
+    "target": 10
+  },
+  "claude desktop competitor research": {
+    "error": "URL can't contain control characters. '/search.json?q=claude%20desktop%20competitor%20research&engin",
+    "label": "MCP 独占",
+    "target": 10
+  },
+  "remote mcp examples saas": {
+    "error": "URL can't contain control characters. '/search.json?q=remote%20mcp%20examples%20saas&engine=google&n",
+    "label": "MCP 类目",
+    "target": 20
+  },
+  "product hunt launch playbook": {
+    "error": "URL can't contain control characters. '/search.json?q=product%20hunt%20launch%20playbook&engine=goog",
+    "label": "旗舰内容",
+    "target": 10
+  },
+  "best social media listening tools startups": {
+    "error": "URL can't contain control characters. '/search.json?q=best%20social%20media%20listening%20tools%20st",
+    "label": "旗舰内容",
+    "target": 15
+  },
+  "developer community directory": {
+    "error": "URL can't contain control characters. '/search.json?q=developer%20community%20directory&engine=googl",
+    "label": "旗舰内容",
+    "target": 5
+  },
+  "go to market strategy 2026": {
+    "error": "URL can't contain control characters. '/search.json?q=go%20to%20market%20strategy%202026&engine=goog",
+    "label": "旗舰内容",
+    "target": 30
+  },
+  "saas marketing": {
+    "error": "URL can't contain control characters. '/search.json?q=saas%20marketing&engine=google&num=20&api_key=",
+    "label": "🎯 KD1 送分",
+    "target": 20
+  },
+  "site:analook.com": {
+    "error": "URL can't contain control characters. '/search.json?q=site%3Aanalook.com&engine=google&num=20&api_ke",
+    "label": "索引计数",
+    "target": 15
+  }
+}
