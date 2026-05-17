@@ -22,7 +22,10 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-API = os.environ.get("SERPAPI_KEY", "").strip()
+# Strip whitespace AND control chars (we already learned this lesson once with
+# SUPABASE_SERVICE_KEY on Railway — invisible \r or trailing spaces break things).
+_raw_api = os.environ.get("SERPAPI_KEY", "")
+API = "".join(c for c in _raw_api if c.isprintable() and not c.isspace())
 if not API:
     print("ERROR: set SERPAPI_KEY", file=sys.stderr)
     sys.exit(1)
