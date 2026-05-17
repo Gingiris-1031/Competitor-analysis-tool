@@ -1,62 +1,85 @@
 {
   "competitive analysis tool": {
-    "error": "URL can't contain control characters. '/search.json?q=competitive%20analysis%20tool&engine=google&nu",
+    "pos": null,
+    "link": null,
     "label": "P0 商业词",
-    "target": 30
+    "target": 30,
+    "top1": "SpyFu - Competitor Keyword Research Tools for Google Ads ..."
   },
   "competitor analysis tool": {
-    "error": "URL can't contain control characters. '/search.json?q=competitor%20analysis%20tool&engine=google&num",
+    "pos": null,
+    "link": null,
     "label": "P0 商业词",
-    "target": 30
+    "target": 30,
+    "top1": "Competitor Analysis Tool: The AI-Powered Website Spy"
   },
   "similarweb alternative": {
-    "error": "URL can't contain control characters. '/search.json?q=similarweb%20alternative&engine=google&num=20&",
+    "pos": null,
+    "link": null,
     "label": "alt-竞品词",
-    "target": 30
+    "target": 30,
+    "top1": "Best SimilarWeb Alternative: Complete Analytics Solutions"
   },
   "mcp server for competitor analysis": {
-    "error": "URL can't contain control characters. '/search.json?q=mcp%20server%20for%20competitor%20analysis&eng",
+    "pos": null,
+    "link": null,
     "label": "MCP 独占",
-    "target": 10
+    "target": 10,
+    "top1": "competitive-analysis — Agent Skill - MCP.Directory"
   },
   "claude desktop competitor research": {
-    "error": "URL can't contain control characters. '/search.json?q=claude%20desktop%20competitor%20research&engin",
+    "pos": null,
+    "link": null,
     "label": "MCP 独占",
-    "target": 10
+    "target": 10,
+    "top1": "10 Powerful Claude Alternative Assistants in 2026"
   },
   "remote mcp examples saas": {
-    "error": "URL can't contain control characters. '/search.json?q=remote%20mcp%20examples%20saas&engine=google&n",
+    "pos": null,
+    "link": null,
     "label": "MCP 类目",
-    "target": 20
+    "target": 20,
+    "top1": "aws-samples/sample-multi-tenant-saas-mcp-server"
   },
   "product hunt launch playbook": {
-    "error": "URL can't contain control characters. '/search.json?q=product%20hunt%20launch%20playbook&engine=goog",
+    "pos": 4,
+    "link": "https://dev.to/iris1031/product-hunt-launch-playbook-the-definitive-guide-30x-1-winner-48g5",
     "label": "旗舰内容",
-    "target": 10
+    "target": 10,
+    "top1": "Product Hunt Launch Guide"
   },
   "best social media listening tools startups": {
-    "error": "URL can't contain control characters. '/search.json?q=best%20social%20media%20listening%20tools%20st",
+    "pos": null,
+    "link": null,
     "label": "旗舰内容",
-    "target": 15
+    "target": 15,
+    "top1": "I tested the 7 best free social media monitoring tools"
   },
   "developer community directory": {
-    "error": "URL can't contain control characters. '/search.json?q=developer%20community%20directory&engine=googl",
+    "pos": null,
+    "link": null,
     "label": "旗舰内容",
-    "target": 5
+    "target": 5,
+    "top1": "DEV Community"
   },
   "go to market strategy 2026": {
-    "error": "URL can't contain control characters. '/search.json?q=go%20to%20market%20strategy%202026&engine=goog",
+    "pos": null,
+    "link": null,
     "label": "旗舰内容",
-    "target": 30
+    "target": 30,
+    "top1": "The 2026 Go-to-Market Execution Blueprint for GTM"
   },
   "saas marketing": {
-    "error": "URL can't contain control characters. '/search.json?q=saas%20marketing&engine=google&num=20&api_key=",
+    "pos": null,
+    "link": null,
     "label": "🎯 KD1 送分",
-    "target": 20
+    "target": 20,
+    "top1": "I've been doing SaaS marketing for almost 20 years. ..."
   },
   "site:analook.com": {
-    "error": "URL can't contain control characters. '/search.json?q=site%3Aanalook.com&engine=google&num=20&api_ke",
+    "count": 10,
     "label": "索引计数",
-    "target": 15
+    "target": 15,
+    "pos": null
   }
 }
