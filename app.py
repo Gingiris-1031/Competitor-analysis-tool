@@ -61,6 +61,28 @@ async def _analook_lifespan(app_):
 app = FastAPI(title="Analook — 竞品情报分析", lifespan=_analook_lifespan)
 
 
+# ── apex → www canonical redirect ────────────────────────────────────────
+# Once Railway has both `analook.com` and `www.analook.com` as custom domains
+# (apex SSL via Railway-issued Let's Encrypt cert), this middleware 301-
+# redirects every apex request to www to preserve a single canonical host
+# for Google + share-link consistency. Until apex is added in Railway's
+# Domains settings, this middleware never fires (apex requests fail at
+# DNS/SSL layer first). Safe to deploy now.
+@app.middleware("http")
+async def apex_to_www_redirect(request: Request, call_next):
+    host = (request.headers.get("host") or "").lower().split(":")[0]
+    if host == "analook.com":
+        url = str(request.url).replace(
+            "//analook.com", "//www.analook.com", 1
+        )
+        return JSONResponse(
+            content=None,
+            status_code=301,
+            headers={"Location": url, "Cache-Control": "public, max-age=86400"},
+        )
+    return await call_next(request)
+
+
 # ---------------------------------------------------------------------------
 # Auth helpers
 # ---------------------------------------------------------------------------
