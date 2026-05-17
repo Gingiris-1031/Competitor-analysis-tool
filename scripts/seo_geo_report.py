@@ -59,11 +59,35 @@ HISTORY_DIR = ROOT / "docs" / "seo_geo_history"
 HISTORY_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _serpapi(q: str) -> dict:
+def _serpapi(q: str, retries: int = 2) -> dict:
+    """SerpApi with retry + sanity check.
+
+    Single calls occasionally return 0 results due to transient API issues
+    or rate limiting — that produced a false-positive P0 ("index dropped to
+    0!") alert on 2026-05-17. For `site:` queries we retry up to `retries`
+    times before accepting an empty result.
+    """
+    import time
     enc = urllib.parse.quote(q)
     url = f"https://serpapi.com/search.json?q={enc}&engine=google&num=20&api_key={API}"
-    with urllib.request.urlopen(url, timeout=20) as r:
-        return json.loads(r.read())
+    last = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=20) as r:
+                last = json.loads(r.read())
+            organic = last.get("organic_results", []) or []
+            # For site: queries, treat 0 results as suspicious — retry.
+            # For regular queries, 0 results is a valid (off-100) answer.
+            if q.startswith("site:") and len(organic) == 0 and attempt < retries:
+                time.sleep(2 * (attempt + 1))
+                continue
+            return last
+        except Exception:
+            if attempt < retries:
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise
+    return last or {}
 
 
 def _find_pos(organic: list, hosts: list[str]) -> tuple[int | None, str | None]:
@@ -112,20 +136,30 @@ def _today_count(today: dict, q: str) -> int:
 
 ACTIONS = [
     # —— P0 ——
+    # Index-count P0s need cross-snapshot confirmation. A single SerpApi
+    # blip can return 0 results (happened 2026-05-17), so the rule asks
+    # for sustained low values rather than a one-shot snapshot.
     (
-        lambda t, y: _today_count(t, "site:analook.com") < 5,
-        "P0",
-        "🚨 analook.com 索引数 < 5",
-        "Google 索引断崖。立即去 GSC → URL Inspection 重新提交首页 + /comparison + /docs/mcp。\n"
-        "可能根因：sitemap.xml 错误 / canonical 配置变 / robots.txt 屏蔽 / 服务器 down。先 curl 检查 prod 是否 200。",
-    ),
-    (
-        lambda t, y: y is not None and (
-            _today_count(y, "site:analook.com") - _today_count(t, "site:analook.com") >= 5
+        lambda t, y: (
+            _today_count(t, "site:analook.com") < 5
+            and y is not None
+            and _today_count(y, "site:analook.com") < 5
         ),
         "P0",
-        "📉 analook.com 索引一夜跌 5+",
-        "比昨日少 5 个或更多 indexed pages。检查最近 24h 的 push 是否引入了 noindex 标签 / robots.txt 改动 / canonical 错指。",
+        "🚨 analook.com 索引数持续 < 5 (≥2 天)",
+        "Google 索引断崖 — 已连续 ≥2 天低于 5。立即 GSC → URL Inspection 重新提交首页 + /comparison + /docs/mcp。\n"
+        "根因排查顺序：(1) sitemap.xml HTTP 200 (2) 首页 view-source 无 noindex (3) robots.txt 无新 Disallow (4) Cloudflare/Railway 没拦截 Googlebot。",
+    ),
+    (
+        lambda t, y: (
+            y is not None
+            and (_today_count(y, "site:analook.com") - _today_count(t, "site:analook.com")) >= 8
+            and _today_count(t, "site:analook.com") < 3
+        ),
+        "P0",
+        "📉 analook.com 索引断崖跌（昨日≥8、今日<3）",
+        "今日索引数比昨日少 8+ 且今日 < 3。这通常意味着真实 de-indexing 事件（非 SerpApi 抖动）。\n"
+        "立即验证：`curl 'https://serpapi.com/search.json?q=site:analook.com&api_key=...'` 复测，再排查 24h 内 commits。",
     ),
     (
         lambda t, y: (
@@ -143,9 +177,10 @@ ACTIONS = [
     (
         lambda t, y: _today_pos(t, "saas marketing") is None,
         "P1",
-        "✍️ saas marketing 正文未写",
-        "KD 1 SV 1.3K 送分题。大纲在 docs/seo_drafts/saas_marketing_outline.md。\n"
-        "预计 7-14 天 top 10。每拖一天少 ~30-100 organic visits/月。",
+        "📍 saas marketing 仍 off-100",
+        "KD 1 SV 1.3K 送分题。2026-04-29 已大幅刷新 saas-marketing-guide.md (+1800 词，Analook 案例)\n"
+        "+ dev.to 同步。预计 5/6-5/12 进 top 30，5/13-5/19 进 top 10。\n"
+        "如果 5/13 仍 off-100，考虑：(a) GSC URL Inspection 推一下；(b) 加更多反向链接；(c) 检查 canonical 是否正确。",
     ),
     (
         lambda t, y: any(
