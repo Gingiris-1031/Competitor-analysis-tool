@@ -282,7 +282,7 @@ async def get_pricing():
     """Return pricing plans for the frontend."""
     return {
         "plans": [
-            {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 3, "features": ["3 reports/month", "Basic analysis"]},
+            {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 2, "features": ["2 reports/month", "Basic analysis"]},
             {"key": "pro", "name": "Pro", "price": 29, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
             {"key": "team", "name": "Team", "price": 99, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
@@ -1214,6 +1214,33 @@ async def get_me(request: Request):
             "plan_type": "free",
             "credits_balance": 0,
         })
+
+    # ── Free-tier cutover (2026-05-18): new free users get 2 instead of 3
+    # The Supabase trigger still defaults to 3 for now. Until that's updated
+    # at the DB level, we silently downgrade brand-new free users here on
+    # first /api/me hit. Grandfathered for users created BEFORE the cutover.
+    try:
+        from modules.polar_payment import FREE_TIER_CUTOVER_ISO, PLAN_CREDITS
+        if (
+            profile.get("plan_type") == "free"
+            and profile.get("credits_monthly_quota") == 3
+            and profile.get("credits_used", 0) == 0  # don't downgrade users mid-month
+            and profile.get("created_at", "") > FREE_TIER_CUTOVER_ISO
+        ):
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                new_quota = PLAN_CREDITS["free"]  # 2
+                sb.table("profiles").update({
+                    "credits_balance": new_quota,
+                    "credits_monthly_quota": new_quota,
+                }).eq("id", user["id"]).execute()
+                profile["credits_balance"] = new_quota
+                profile["credits_monthly_quota"] = new_quota
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).debug("free-tier auto-downgrade skipped: %s", e)
+
     return profile
 
 

@@ -42,12 +42,18 @@ PRODUCTS = {
     "single_report": os.environ.get("POLAR_PRODUCT_SINGLE", "7599d40c-771f-4f3e-8ea7-e053075b95d6"),
 }
 
+# Free-tier cutover (2026-05-18): activation rate hit 37% but 0 paid because
+# no user had hit the paywall with 3 free reports. We lowered the new-user
+# default to 2 to force the upgrade decision earlier. Users created BEFORE
+# the cutover are grandfathered at 3 (handled in app.py /api/me).
+FREE_TIER_CUTOVER_ISO = "2026-05-18T18:00:00+00:00"
+
 # Credits per plan
 PLAN_CREDITS = {
     "pro": 30,            # 30 reports/month
     "team": 999999,       # unlimited
     "single_report": 1,   # 1 report
-    "free": 3,            # 3 reports/month (no payment needed)
+    "free": 2,            # 2 reports/month for new users (was 3 pre-2026-05-18)
 }
 
 
