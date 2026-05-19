@@ -1,0 +1,85 @@
+{
+  "competitive analysis tool": {
+    "pos": null,
+    "link": null,
+    "label": "P0 商业词",
+    "target": 30,
+    "top1": "SpyFu - Competitor Keyword Research Tools for Google Ads ..."
+  },
+  "competitor analysis tool": {
+    "pos": null,
+    "link": null,
+    "label": "P0 商业词",
+    "target": 30,
+    "top1": "Competitor Analysis Tool: The AI-Powered Website Spy"
+  },
+  "similarweb alternative": {
+    "pos": null,
+    "link": null,
+    "label": "alt-竞品词",
+    "target": 30,
+    "top1": "Best SimilarWeb Alternative: Complete Analytics Solutions"
+  },
+  "mcp server for competitor analysis": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 独占",
+    "target": 10,
+    "top1": "AppTweak MCP Server – Enables app store analytics and ..."
+  },
+  "claude desktop competitor research": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 独占",
+    "target": 10,
+    "top1": "Open-Source Alternative to Anthropic's Claude Computer ..."
+  },
+  "remote mcp examples saas": {
+    "pos": null,
+    "link": null,
+    "label": "MCP 类目",
+    "target": 20,
+    "top1": "What do you think of remote MCP as a SaaS? : r/webdev"
+  },
+  "product hunt launch playbook": {
+    "pos": 4,
+    "link": "https://dev.to/iris1031/product-hunt-launch-playbook-the-definitive-guide-30x-1-winner-48g5",
+    "label": "旗舰内容",
+    "target": 10,
+    "top1": "In-depth Product Hunt launch guide"
+  },
+  "best social media listening tools startups": {
+    "pos": null,
+    "link": null,
+    "label": "旗舰内容",
+    "target": 15,
+    "top1": "AI Enabled Social Listening Tools for competitor research?"
+  },
+  "developer community directory": {
+    "pos": 2,
+    "link": "https://gingiris.github.io/growth-tools/blog/2026/04/07/developer-community-directory-where-to-find-your-first-1000-users/",
+    "label": "旗舰内容",
+    "target": 5,
+    "top1": "Directory of Experts worldwide"
+  },
+  "go to market strategy 2026": {
+    "pos": null,
+    "link": null,
+    "label": "旗舰内容",
+    "target": 30,
+    "top1": "What Is a Go-to-Market Strategy in 2026?"
+  },
+  "saas marketing": {
+    "pos": null,
+    "link": null,
+    "label": "🎯 KD1 送分",
+    "target": 20,
+    "top1": "I've been doing SaaS marketing for almost 20 years. ..."
+  },
+  "site:analook.com": {
+    "count": 10,
+    "label": "索引计数",
+    "target": 15,
+    "pos": null
+  }
+}
