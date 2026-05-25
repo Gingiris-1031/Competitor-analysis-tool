@@ -29,7 +29,7 @@
             background:${bg};color:${fg};padding:8px 16px;font-size:13px;
             text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);
             font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;`;
-        div.innerHTML = `${text} · <a href="https://github.com/Gingiris/Competitor-analysis-tool/issues"
+        div.innerHTML = `${text} · <a href="mailto:iris@gingiris.com"
             style="color:${fg};text-decoration:underline">report</a>
             <button onclick="document.getElementById('analook-health-banner').remove()"
                 style="float:right;background:transparent;color:${fg};border:0;cursor:pointer;font-size:14px">✕</button>`;

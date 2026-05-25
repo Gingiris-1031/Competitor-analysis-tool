@@ -1,18 +1,14 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Gingiris/Competitor-analysis-tool/main/static/assets/logo.png" alt="Analook Logo" width="120" />
+<img src="https://www.analook.com/assets/favicon-512x512.png" alt="Analook Logo" width="120" />
 
 # Analook — 竞品情报分析工具
 
 ### 30 秒看透任何竞品 · AI-powered competitor intelligence for indie hackers & growth teams
 
-[![GitHub stars](https://img.shields.io/github/stars/Gingiris/Competitor-analysis-tool?style=social)](https://github.com/Gingiris/Competitor-analysis-tool/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/Gingiris/Competitor-analysis-tool?style=social)](https://github.com/Gingiris/Competitor-analysis-tool/network/members)
-[![GitHub watchers](https://img.shields.io/github/watchers/Gingiris/Competitor-analysis-tool?style=social)](https://github.com/Gingiris/Competitor-analysis-tool/watchers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/badge/Live-analook.com-blue)](https://www.analook.com)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Gingiris/Competitor-analysis-tool/pulls)
-[![Last Commit](https://img.shields.io/github/last-commit/Gingiris/Competitor-analysis-tool?color=blue)](https://github.com/Gingiris/Competitor-analysis-tool/commits/main)
+[![Skills on ClawHub](https://img.shields.io/badge/Skills-clawhub.ai%2Fuser%2Fgingiris-purple)](https://clawhub.ai/user/gingiris)
 [![Deployed on Railway](https://img.shields.io/badge/Deploy-Railway-blueviolet)](https://railway.app)
 
 **[English](#english) | [中文](#中文版)** · **[🤖 MCP Server](#-remote-mcp-server)** · **[📖 Docs](https://www.analook.com/docs/mcp.html)**
@@ -159,7 +155,8 @@ Powered by **TeamoRouter** (primary) and **DeepSeek** (fallback), with max 4,000
 ## ⚡ Quick Start
 
 ```bash
-git clone https://github.com/Gingiris/Competitor-analysis-tool.git
+# Source available at https://clawhub.ai/user/gingiris
+# (Skills published under @gingiris; contact iris@gingiris.com for source code access)
 cd Competitor-analysis-tool
 pip install -r requirements.txt
 ```
@@ -227,10 +224,8 @@ If Analook saved you hours of manual research, a ⭐ helps others discover it!
 - 💬 Telegram: [@Iris_carrot](https://t.me/Iris_carrot)
 - 🌐 Website: [gingiris.com](https://gingiris.com/en)
 
-**Related Playbooks:**
-- [gingiris-launch](https://github.com/Gingiris/gingiris-launch) — GTM strategy for AI products & startups
-- [gingiris-b2b-growth](https://github.com/Gingiris/gingiris-b2b-growth) — B2B SaaS PLG/SLG growth playbook
-- [gingiris-opensource](https://github.com/Gingiris/gingiris-opensource) — Open source launch marketing
+**Related Playbooks (now on ClawHub):**
+- [@gingiris on ClawHub](https://clawhub.ai/user/gingiris) — GTM strategy, B2B SaaS PLG/SLG growth, open source launch marketing, and other AI-agent skills
 
 ---
 
@@ -264,7 +259,7 @@ If Analook saved you hours of manual research, a ⭐ helps others discover it!
 ### 快速部署
 
 ```bash
-git clone https://github.com/Gingiris/Competitor-analysis-tool.git
+# Source: https://clawhub.ai/user/gingiris  (联系 iris@gingiris.com 获取源代码访问)
 cd Competitor-analysis-tool
 pip install -r requirements.txt
 # 配置 .env 文件后：
