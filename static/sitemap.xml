@@ -45,30 +45,38 @@
     <lastmod>2026-04-29</lastmod>
   </url>
 
+  <!-- Blog index (NEW 2026-05-27) -->
+  <url>
+    <loc>https://www.analook.com/blog/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>2026-05-27</lastmod>
+  </url>
+
   <!-- MOFU: Blog posts (education + traffic) -->
   <url>
     <loc>https://www.analook.com/blog/competitive-analysis-guide-2026.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-27</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/best-competitive-intelligence-tools-2026.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-27</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/competitor-seo-analysis-guide.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-27</lastmod>
   </url>
   <url>
     <loc>https://www.analook.com/blog/product-hunt-launch-strategy.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-27</lastmod>
   </url>
 
   <!-- Legal -->

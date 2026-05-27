@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+<title>Analook Blog</title>
+<link>https://www.analook.com/blog/</link>
+<description>Competitor analysis tactics, competitive intelligence frameworks, and SaaS growth practices — by the team behind Analook (AI competitor analysis in 60s, free tier).</description>
+<language>en-us</language>
+<atom:link href="https://www.analook.com/blog/feed.xml" rel="self" type="application/rss+xml" />
+<image>
+  <url>https://www.analook.com/assets/favicon-512x512.png</url>
+  <title>Analook Blog</title>
+  <link>https://www.analook.com/blog/</link>
+</image>
+
+<item>
+  <title>How to Do Competitive Analysis in 2026: The AI-Powered Guide</title>
+  <link>https://www.analook.com/blog/competitive-analysis-guide-2026.html</link>
+  <guid isPermaLink="true">https://www.analook.com/blog/competitive-analysis-guide-2026.html</guid>
+  <pubDate>Wed, 08 Apr 2026 12:00:00 +0000</pubDate>
+  <dc:creator>Iris Wei</dc:creator>
+  <description>The 5-step framework for running competitor analysis when you don't have an analyst team — which signals matter, which tools to use at each stage, and the AI shortcuts that compress a week of research into 30 minutes.</description>
+</item>
+
+<item>
+  <title>10 Best Competitive Intelligence Tools in 2026 (Tested &amp; Compared)</title>
+  <link>https://www.analook.com/blog/best-competitive-intelligence-tools-2026.html</link>
+  <guid isPermaLink="true">https://www.analook.com/blog/best-competitive-intelligence-tools-2026.html</guid>
+  <pubDate>Wed, 08 Apr 2026 12:00:00 +0000</pubDate>
+  <dc:creator>Iris Wei</dc:creator>
+  <description>Side-by-side comparison of Crayon, Klue, Kompyte, Similarweb, and 6 lighter alternatives — including which one fits a $0-$1K marketing budget.</description>
+</item>
+
+<item>
+  <title>How to Analyze Your Competitor's SEO Strategy in 2026: 8 Steps</title>
+  <link>https://www.analook.com/blog/competitor-seo-analysis-guide.html</link>
+  <guid isPermaLink="true">https://www.analook.com/blog/competitor-seo-analysis-guide.html</guid>
+  <pubDate>Wed, 08 Apr 2026 12:00:00 +0000</pubDate>
+  <dc:creator>Iris Wei</dc:creator>
+  <description>Reverse-engineer their keyword strategy, content clusters, and link-building patterns — using free tools and one $5 Analook report.</description>
+</item>
+
+<item>
+  <title>Product Hunt Launch Strategy: What Top Products Do Differently in 2026</title>
+  <link>https://www.analook.com/blog/product-hunt-launch-strategy.html</link>
+  <guid isPermaLink="true">https://www.analook.com/blog/product-hunt-launch-strategy.html</guid>
+  <pubDate>Wed, 08 Apr 2026 12:00:00 +0000</pubDate>
+  <dc:creator>Iris Wei</dc:creator>
+  <description>Patterns from analyzing 100+ #1 launches — the 6-week pre-launch sequence, the comment template that beats LLM-generated comments, and the post-launch 80% traffic drop fix.</description>
+</item>
+
+</channel>
+</rss>
