@@ -62,19 +62,20 @@ app = FastAPI(title="Analook — 竞品情报分析", lifespan=_analook_lifespan
 
 
 # ── apex → www canonical redirect ────────────────────────────────────────
-# Once Railway has both `analook.com` and `www.analook.com` as custom domains
-# (apex SSL via Railway-issued Let's Encrypt cert), this middleware 301-
-# redirects every apex request to www to preserve a single canonical host
-# for Google + share-link consistency. Until apex is added in Railway's
-# Domains settings, this middleware never fires (apex requests fail at
-# DNS/SSL layer first). Safe to deploy now.
+# Single-hop 301 from analook.com → www.analook.com for SEO canonicalization.
+# Fly.io (and Railway before it) terminate TLS at the edge, so request.url
+# reports scheme="http" even when the client used HTTPS. We honor the
+# `X-Forwarded-Proto` header (set by the edge proxy) to rebuild the URL
+# with the correct scheme — otherwise Google sees a 2-hop redirect chain
+# (https://apex → http://www → https://www) which dilutes link equity.
 @app.middleware("http")
 async def apex_to_www_redirect(request: Request, call_next):
     host = (request.headers.get("host") or "").lower().split(":")[0]
     if host == "analook.com":
-        url = str(request.url).replace(
-            "//analook.com", "//www.analook.com", 1
-        )
+        scheme = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip() or "https"
+        path = request.url.path
+        query = f"?{request.url.query}" if request.url.query else ""
+        url = f"{scheme}://www.analook.com{path}{query}"
         return JSONResponse(
             content=None,
             status_code=301,
