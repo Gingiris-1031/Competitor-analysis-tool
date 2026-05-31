@@ -8,11 +8,11 @@
     "url": "https://github.com/Gingiris-1031/Competitor-analysis-tool",
     "source": "github"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://www.analook.com/mcp"
+      "url": "https://www.analook.com/mcp/"
     }
   ]
 }
