@@ -24,6 +24,44 @@
     .winner { color: #34d399; font-weight: 600; }
     .loser  { color: #9ca3af; }
 </style>
+<!-- ItemList Schema — surfaces 4 head-to-head comparison pages to AI engines -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Analook vs Top Competitive Intelligence Tools (2026)",
+  "description": "Side-by-side comparisons of Analook against the leading competitive intelligence tools — SimilarWeb, SEMrush, Ahrefs, and Crayon.",
+  "itemListOrder": "https://schema.org/ItemListOrderAscending",
+  "numberOfItems": 4,
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "url": "https://www.analook.com/compare/similarweb.html", "name": "Analook vs SimilarWeb"},
+    {"@type": "ListItem", "position": 2, "url": "https://www.analook.com/compare/semrush.html",   "name": "Analook vs SEMrush"},
+    {"@type": "ListItem", "position": 3, "url": "https://www.analook.com/compare/ahrefs.html",    "name": "Analook vs Ahrefs"},
+    {"@type": "ListItem", "position": 4, "url": "https://www.analook.com/compare/crayon.html",    "name": "Analook vs Crayon"}
+  ]
+}
+</script>
+<!-- FAQPage Schema — high-intent comparison queries -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "Can I compare multiple competitors side by side with Analook?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes — Analook's multi-competitor comparison view stacks 2-4 competitors across the same dimensions: traffic, SEO, social media presence, Product Hunt launches, GitHub activity, pricing, and AI verdicts. Each report costs 1 credit, and the free tier includes 2 reports per month."}},
+    {"@type": "Question", "name": "Is Analook a free SimilarWeb alternative?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. SimilarWeb's Business plan starts at $125/month for traffic analytics. Analook's free tier offers 2 full competitor reports per month, covering traffic estimates plus 14 other signal categories SimilarWeb doesn't track (Product Hunt, GitHub, Wayback evolution, AI verdict). For ongoing research, Analook Pro is $29/month for 30 reports."}},
+    {"@type": "Question", "name": "How does Analook compare to Ahrefs for competitor research?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Ahrefs ($129/month) has the deepest backlink and keyword data on the planet — best for SEO-focused competitor analysis. Analook (free for 2 reports/month) takes a broader view: SEO + Product Hunt + GitHub + social + pricing + AI verdict in one report. Use Ahrefs if SEO is >50% of your acquisition strategy; use Analook for full-stack competitive teardowns at early stage."}},
+    {"@type": "Question", "name": "Is Analook a Crayon alternative for small teams?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes, for teams under 10 sales reps. Crayon ($1,000-$2,000/month) is built for enterprise sales enablement with battlecards and CRM integration — overkill for early-stage SaaS. Analook ($0-$29/month) covers the same competitive-intelligence signals without the sales workflow overhead, ideal for founder-led competitive research."}},
+    {"@type": "Question", "name": "Can the Analook comparison tool be used inside Claude or Cursor?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. Analook exposes a remote MCP server at https://www.analook.com/mcp/ — registered as io.github.Gingiris-1031/analook in the MCP Registry. AI agents in Claude Desktop, Cursor, or any MCP-compatible client can run comparison reports directly inside the agent loop."}},
+    {"@type": "Question", "name": "How many competitors can I compare at once?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Analook's multi-competitor view supports 2-4 URLs in a single comparison. For larger competitive landscapes, run individual reports and use the dashboard's report history to cross-reference."}}
+  ]
+}
+</script>
 </head>
 <body class="min-h-screen">
 

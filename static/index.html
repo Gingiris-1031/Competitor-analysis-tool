@@ -111,6 +111,61 @@
         ]
     }
     </script>
+    <!-- Organization / WebSite / Person Schema — entity graph for AI engines -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://www.analook.com/#organization",
+        "name": "Analook",
+        "alternateName": "Gingiris",
+        "url": "https://www.analook.com",
+        "logo": "https://www.analook.com/assets/favicon-192x192.png",
+        "description": "AI-powered competitor analysis tool. Generates 60-second competitor teardowns covering SEO, traffic, social, Product Hunt, GitHub, pricing, and AI-driven growth verdicts.",
+        "founder": {"@id": "https://www.analook.com/#iris"},
+        "foundingDate": "2026-04",
+        "sameAs": [
+            "https://gingiris.com",
+            "https://gingiris.tools",
+            "https://clawhub.ai/user/gingiris",
+            "https://huggingface.co/Gingiris",
+            "https://github.com/Gingiris-1031",
+            "https://dev.to/iris1031",
+            "https://twitter.com/WeiYipei"
+        ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://www.analook.com/#website",
+        "url": "https://www.analook.com",
+        "name": "Analook",
+        "description": "AI competitor analysis tool. Analyze any URL in 2 minutes — SEO, traffic, social, Product Hunt, pricing, AI verdict.",
+        "publisher": {"@id": "https://www.analook.com/#organization"},
+        "inLanguage": "en"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "@id": "https://www.analook.com/#iris",
+        "name": "Iris Wei",
+        "alternateName": "生姜iris",
+        "jobTitle": "Founder",
+        "worksFor": {"@id": "https://www.analook.com/#organization"},
+        "url": "https://gingiris.com",
+        "description": "Founder of Analook. Previously co-founded AFFiNE (60,000+ GitHub stars). Based in Kunshan.",
+        "sameAs": [
+            "https://github.com/Gingiris-1031",
+            "https://twitter.com/WeiYipei",
+            "https://dev.to/iris1031",
+            "https://github.com/toeverything/AFFiNE"
+        ]
+    }
+    </script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
     <header class="border-b border-gray-800 py-4">
