@@ -26,15 +26,55 @@
     <!-- Supabase config (injected by Railway env vars, only anon key is public) -->
     <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
+    <!-- Google Fonts: Instrument Serif (Oginify-style display) + Inter (body) + JetBrains Mono (code/URL) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { serif: ['"Instrument Serif"', 'Georgia', 'serif'], sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'], mono: ['"JetBrains Mono"', 'Menlo', 'monospace'] } } } }</script>
     <style>
+        /* === Oginify-inspired light theme tokens === */
+        :root {
+            --cream-bg: #F5F1EB;
+            --cream-card: #FBFAF7;
+            --cream-elev: #FFFFFF;
+            --warm-border: #E5E0D5;
+            --warm-border-strong: #D4CCBC;
+            --ink: #0D0D0D;
+            --ink-muted: #525252;
+            --ink-faint: #8A8580;
+        }
+        body { font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: var(--cream-bg); color: var(--ink); }
+        .font-serif { font-family: "Instrument Serif", Georgia, serif; }
+        .font-mono { font-family: "JetBrains Mono", Menlo, monospace; }
+
+        /* Top accent gradient stripe — orange→pink→amber */
+        .top-accent { background: linear-gradient(90deg, #FB923C 0%, #EC4899 50%, #F59E0B 100%); }
+
+        /* Pill URL input shell */
+        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 12px 24px -16px rgba(0,0,0,0.08); }
+        .url-pill:focus-within { border-color: var(--warm-border-strong); box-shadow: 0 0 0 4px rgba(13,13,13,0.04); }
+
+        /* Cards/panels on cream */
+        .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 14px; }
+        .card-cream-subtle { background: var(--cream-card); border: 1px solid var(--warm-border); border-radius: 12px; }
+
+        /* Dark inset panels — used for report/progress (Vercel style: cream page, dark data surfaces) */
+        .panel-dark { background: #0F0F11; color: #E5E7EB; border: 1px solid #1F1F23; border-radius: 14px; }
+
+        /* Animations */
         .fade-in { animation: fadeIn 0.4s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         table { border-spacing: 0; }
         pre { white-space: pre-wrap; word-break: break-all; }
-        .chip:hover { background: #374151; }
-        .history-item:hover { background: #1f2937; }
+
+        /* Sample chip (replaces old dark chip) */
+        .chip-light { color: var(--ink-muted); transition: color .15s; }
+        .chip-light:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+
+        /* History item hover (now cream) */
+        .history-item:hover { background: rgba(13,13,13,0.04); }
+
         /* Timeline horizontal scroll */
         .ws-timeline-scroll::-webkit-scrollbar { height: 6px; }
         .ws-timeline-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -167,44 +207,46 @@
     }
     </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
+<body class="min-h-screen">
+    <!-- Top gradient accent stripe (Oginify-style) -->
+    <div class="top-accent" style="height: 4px;"></div>
+
+    <header class="border-b border-[color:var(--warm-border)] py-4">
         <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <img src="/assets/favicon-512x512.png" alt="Analook" class="h-12 w-12">
-                <span class="text-2xl font-bold tracking-tight text-white">Analook</span>
-                <span class="hidden sm:inline text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">MVP v0.6</span>
+                <img src="/assets/favicon-512x512.png" alt="Analook" class="h-10 w-10">
+                <div class="flex flex-col leading-tight">
+                    <span class="text-xl font-bold tracking-tight text-[color:var(--ink)]">Analook</span>
+                    <span class="text-[10px] text-[color:var(--ink-muted)] uppercase tracking-[0.18em]">Competitor intelligence, instantly</span>
+                </div>
             </div>
             <!-- Nav + Auth -->
-            <div class="flex items-center gap-3">
-                <a href="/comparison.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Compare</a>
-                <a href="/docs/mcp.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">MCP</a>
-                <a href="/blog/" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Blog</a>
-                <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white transition-colors font-medium">Pricing</a>
-                <a href="/zh/" class="text-xs text-gray-500 hover:text-white transition-colors">中文</a>
+            <div class="flex items-center gap-4">
+                <a href="/comparison.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Compare</a>
+                <a href="/docs/mcp.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">MCP</a>
+                <a href="/blog/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Blog</a>
+                <a href="/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Pricing</a>
+                <a href="/zh/" class="text-xs text-[color:var(--ink-faint)] hover:text-[color:var(--ink)] transition-colors">中文</a>
                 <!-- Not logged in: show sign-in button -->
                 <button id="auth-btn"
-                        class="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg font-medium transition-colors">
-                    Sign In
+                        class="text-sm bg-[color:var(--ink)] hover:bg-black text-white px-4 py-1.5 rounded-full font-medium transition-colors">
+                    Sign in
                 </button>
                 <!-- Logged in: credits + avatar dropdown -->
                 <div id="auth-user-area" class="hidden flex items-center gap-2 relative">
-                    <!-- Credits display -->
                     <span id="credits-display"
-                          class="hidden text-xs bg-amber-900/40 text-amber-300 border border-amber-700/40 px-2.5 py-1 rounded-full font-medium cursor-default">
+                          class="hidden text-xs bg-[color:var(--cream-card)] text-[color:var(--ink)] border border-[color:var(--warm-border)] px-2.5 py-1 rounded-full font-medium cursor-default">
                         ⚡ — Credits
                     </span>
-                    <!-- Avatar button -->
                     <button id="auth-avatar"
-                            class="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center hover:bg-blue-500 transition-colors focus:outline-none">
+                            class="w-8 h-8 rounded-full bg-[color:var(--ink)] text-white text-sm font-bold flex items-center justify-center hover:bg-black transition-colors focus:outline-none">
                     </button>
-                    <!-- Dropdown menu -->
                     <div id="auth-dropdown"
-                         class="hidden absolute right-0 top-10 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-50 py-1">
-                        <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-gray-400 border-b border-gray-700 truncate"></div>
+                         class="hidden absolute right-0 top-10 w-48 bg-white border border-[color:var(--warm-border)] rounded-xl shadow-xl z-50 py-1">
+                        <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-[color:var(--ink-muted)] border-b border-[color:var(--warm-border)] truncate"></div>
                         <button id="auth-logout-btn"
-                                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition-colors">
-                            Sign Out
+                                class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-[color:var(--cream-card)] transition-colors">
+                            Sign out
                         </button>
                     </div>
                 </div>
@@ -214,121 +256,113 @@
 
     <main class="max-w-6xl mx-auto px-6 py-8">
 
-        <!-- Hero -->
-        <div id="hero-section" class="text-center py-10 mb-6">
-            <div class="inline-block bg-blue-900/30 border border-blue-700/40 text-blue-300 text-xs px-3 py-1 rounded-full mb-4">🚀 Trusted by 100+ indie hackers & growth teams</div>
-            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">Analyze any competitor<br>in 2 minutes</h1>
-            <p class="text-gray-400 text-lg max-w-2xl mx-auto mb-8">Enter a URL → Get a full competitive intelligence report with growth strategy, SEO analysis, social presence, and AI-powered insights.</p>
+        <!-- Hero (Oginify-style) -->
+        <section id="hero-section" class="text-center pt-16 pb-10">
+            <p class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-8">Trusted by 100+ founders, growth teams, and consultants</p>
 
-            <!-- Feature pills -->
-            <div class="flex flex-wrap justify-center gap-3 mb-8 max-w-3xl mx-auto">
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🌐 Website Evolution</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">📊 SEO & Traffic</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🐦 Social Media</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🚀 Product Hunt</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">💻 GitHub / Open Source</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🧠 AI Strategy Verdict</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">🎯 Strategy Radar Map</span>
-                <span class="bg-gray-800 text-gray-300 text-xs px-3 py-1.5 rounded-full">📈 Growth Waves</span>
-            </div>
-        </div>
+            <h1 class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
+                Analyze any competitor<br>in <span class="italic">60 seconds</span>
+            </h1>
 
-        <!-- Input -->
-        <div id="input-section" class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
+            <p class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-12">
+                Paste a URL. We read the whole web presence — SEO, traffic, social, Product Hunt, GitHub, pricing, AI verdict — and surface what's actually driving their growth.
+            </p>
 
-            <!-- Mode tabs -->
-            <div class="flex gap-1 mb-5 bg-gray-800/50 rounded-lg p-1 w-fit">
-                <button id="tab-url" onclick="switchMode('url')"
-                    class="text-xs px-4 py-1.5 rounded-md font-medium transition-colors bg-blue-600 text-white">
-                    🌐 URL Analysis
-                </button>
-                <button id="tab-text" onclick="switchMode('text')"
-                    class="text-xs px-4 py-1.5 rounded-md font-medium transition-colors bg-gray-800 text-gray-400">
-                    📝 Text Analysis
-                </button>
-                <button id="tab-pdf" onclick="switchMode('pdf')"
-                    class="text-xs px-4 py-1.5 rounded-md font-medium transition-colors bg-gray-800 text-gray-400">
-                    📄 PDF Upload
-                </button>
-            </div>
-
-            <!-- URL mode -->
-            <div id="panel-url">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-sm text-gray-400 mb-1">Competitor URL <span class="text-red-400">*</span></label>
-                        <input type="text" id="url-input" placeholder="e.g. lovable.dev or https://linear.app"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Product Name (optional)</label>
-                        <input type="text" id="name-input" placeholder="Auto-detect"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                    </div>
+            <!-- Pill URL input -->
+            <div class="max-w-2xl mx-auto">
+                <div class="url-pill flex items-center rounded-full p-1.5 mb-4">
+                    <span class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
+                    <input type="text" id="url-input" placeholder="domain.com"
+                        class="flex-1 bg-transparent border-0 focus:outline-none text-[15px] placeholder-[color:var(--ink-faint)] font-mono py-3" />
+                    <button id="start-btn" onclick="startAnalysis()"
+                        class="bg-[color:var(--ink)] hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm px-6 py-3 rounded-full transition-colors">
+                        Analyze →
+                    </button>
                 </div>
-                <div class="mt-3 flex flex-wrap gap-2 items-center">
-                    <span class="text-xs text-gray-500">Try:</span>
-                    <button onclick="fillExample('lovable.dev')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">lovable.dev</button>
-                    <button onclick="fillExample('linear.app')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">linear.app</button>
-                    <button onclick="fillExample('notion.so')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">notion.so</button>
-                    <button onclick="fillExample('cursor.com')" class="chip text-xs bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full cursor-pointer transition-colors">cursor.com</button>
-                </div>
-            </div>
 
-            <!-- Text/prompt mode -->
-            <div id="panel-text" class="hidden">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                    <div class="md:col-span-2">
-                        <label class="block text-sm text-gray-400 mb-1">Product Description <span class="text-red-400">*</span></label>
-                        <textarea id="text-input" rows="5" placeholder="Paste product description, Pitch Deck text, competitive research notes... Min 30 characters&#10;&#10;e.g. An AI code generation tool for indie developers with features including..."
-                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors resize-none text-sm"></textarea>
-                        <p class="text-xs text-gray-600 mt-1">Ctrl+Enter to submit</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Product Name <span class="text-red-400">*</span></label>
-                        <input type="text" id="text-name-input" placeholder="e.g. Cursor"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">Best for: products without a website, Pitch Deck analysis, internal product docs</p>
-                    </div>
+                <!-- Sample chips -->
+                <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+                    <span class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)]">Try</span>
+                    <button onclick="fillExample('lovable.dev')" class="chip-light cursor-pointer">lovable.dev</button>
+                    <button onclick="fillExample('linear.app')" class="chip-light cursor-pointer">linear.app</button>
+                    <button onclick="fillExample('notion.so')" class="chip-light cursor-pointer">notion.so</button>
+                    <button onclick="fillExample('cursor.com')" class="chip-light cursor-pointer">cursor.com</button>
                 </div>
-            </div>
 
-            <!-- PDF mode -->
-            <div id="panel-pdf" class="hidden">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="md:col-span-2">
-                        <label class="block text-sm text-gray-400 mb-1">Upload PDF <span class="text-red-400">*</span></label>
-                        <div class="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center cursor-pointer hover:border-blue-500 transition-colors"
-                            onclick="document.getElementById('pdf-input').click()">
-                            <input type="file" id="pdf-input" accept=".pdf" class="hidden"
-                                onchange="document.getElementById('pdf-filename').textContent = this.files[0]?.name || ''">
-                            <div class="text-3xl mb-2">📄</div>
-                            <p class="text-sm text-gray-400">Click to upload PDF, or drag and drop here</p>
-                            <p class="text-xs text-gray-600 mt-1">Supports Pitch Decks, product docs, competitive reports. Max 20MB</p>
-                            <p id="pdf-filename" class="text-xs text-blue-400 mt-2 font-medium"></p>
+                <!-- Compact name input (auto-detect by default) -->
+                <details class="mt-8 text-left max-w-md mx-auto">
+                    <summary class="text-xs text-[color:var(--ink-muted)] cursor-pointer hover:text-[color:var(--ink)]">Advanced — name, text, PDF input</summary>
+                    <div class="mt-3 space-y-2">
+                        <input type="text" id="name-input" placeholder="Product name (auto-detect if blank)"
+                            class="w-full bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)]">
+                        <div class="flex gap-1 mt-3 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-lg p-1 w-fit text-xs">
+                            <button id="tab-url" onclick="switchMode('url')" class="px-3 py-1 rounded-md font-medium bg-[color:var(--ink)] text-white">URL</button>
+                            <button id="tab-text" onclick="switchMode('text')" class="px-3 py-1 rounded-md font-medium text-[color:var(--ink-muted)]">Text</button>
+                            <button id="tab-pdf" onclick="switchMode('pdf')" class="px-3 py-1 rounded-md font-medium text-[color:var(--ink-muted)]">PDF</button>
                         </div>
                     </div>
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1">Product Name (optional)</label>
-                        <input type="text" id="pdf-name-input" placeholder="Auto-detect from filename"
-                            class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
-                        <p class="text-xs text-gray-500 mt-2 leading-relaxed">Best for: Pitch Deck analysis, competitive research reports, product PRD docs</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- Hidden URL panel (legacy ID kept for JS compatibility) -->
+        <div id="panel-url" class="hidden"></div>
+
+        <!-- Text/PDF panels (kept fully functional, hidden until mode switch) -->
+        <div id="input-section" class="hidden">
+
+            <div id="panel-text" class="hidden">
+                <div class="card-cream p-6 max-w-3xl mx-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm text-[color:var(--ink-muted)] mb-1">Product description <span class="text-red-500">*</span></label>
+                            <textarea id="text-input" rows="5" placeholder="Paste product description, Pitch Deck text, or research notes (min 30 characters)"
+                                class="w-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-[color:var(--ink)] placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)] resize-none text-sm"></textarea>
+                            <p class="text-xs text-[color:var(--ink-faint)] mt-1">Ctrl+Enter to submit</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-[color:var(--ink-muted)] mb-1">Product name <span class="text-red-500">*</span></label>
+                            <input type="text" id="text-name-input" placeholder="e.g. Cursor"
+                                class="w-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-[color:var(--ink)] placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)]">
+                            <p class="text-xs text-[color:var(--ink-muted)] mt-2 leading-relaxed">Best for products without a website, pitch deck analysis, internal docs.</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Error message -->
-            <div id="error-msg" class="hidden mt-3 text-sm text-red-400 bg-red-900/20 border border-red-800/40 rounded-lg px-4 py-2.5"></div>
+            <div id="panel-pdf" class="hidden">
+                <div class="card-cream p-6 max-w-3xl mx-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm text-[color:var(--ink-muted)] mb-1">Upload PDF <span class="text-red-500">*</span></label>
+                            <div class="border-2 border-dashed border-[color:var(--warm-border)] rounded-lg p-6 text-center cursor-pointer hover:border-[color:var(--warm-border-strong)] transition-colors"
+                                onclick="document.getElementById('pdf-input').click()">
+                                <input type="file" id="pdf-input" accept=".pdf" class="hidden"
+                                    onchange="document.getElementById('pdf-filename').textContent = this.files[0]?.name || ''">
+                                <div class="text-3xl mb-2">📄</div>
+                                <p class="text-sm text-[color:var(--ink-muted)]">Click to upload PDF, or drag and drop</p>
+                                <p class="text-xs text-[color:var(--ink-faint)] mt-1">Pitch decks, product docs, competitive reports. Max 20 MB.</p>
+                                <p id="pdf-filename" class="text-xs text-[color:var(--ink)] mt-2 font-medium"></p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-[color:var(--ink-muted)] mb-1">Product name (optional)</label>
+                            <input type="text" id="pdf-name-input" placeholder="Auto-detect from filename"
+                                class="w-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-[color:var(--ink)] placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)]">
+                            <p class="text-xs text-[color:var(--ink-muted)] mt-2 leading-relaxed">Best for pitch deck analysis, competitive research, PRD docs.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            <button id="start-btn" onclick="startAnalysis()"
-                class="mt-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors">
-                🚀 Start Analysis
-            </button>
         </div>
 
+        <!-- Error message (lives just below hero block) -->
+        <div id="error-msg" class="hidden mt-4 max-w-2xl mx-auto text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
+
         <!-- Recent history -->
-        <div id="history-section" class="mb-8 hidden">
-            <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-2 px-1">Recent Analyses</h3>
+        <div id="history-section" class="max-w-3xl mx-auto mt-12 mb-8 hidden">
+            <h3 class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-muted)] mb-3 px-1">Recent analyses</h3>
             <div id="history-list" class="space-y-1.5"></div>
         </div>
 
@@ -500,145 +534,146 @@
     <script src="/js/render-strategy.js"></script>
 
     <!-- How it works -->
-    <section id="how-it-works" class="max-w-6xl mx-auto px-6 py-16">
-        <h3 class="text-2xl font-bold text-center text-white mb-10">How it works</h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+    <section id="how-it-works" class="max-w-6xl mx-auto px-6 py-20">
+        <h3 class="font-serif text-4xl md:text-5xl text-center text-[color:var(--ink)] mb-12">How it works</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mb-20">
             <div class="text-center">
-                <div class="text-3xl mb-3">🔗</div>
-                <h4 class="text-lg font-semibold text-white mb-2">1. Enter a URL</h4>
-                <p class="text-sm text-gray-400">Paste any product's website. No signup required for your first 2 reports.</p>
+                <div class="text-2xl mb-4 text-[color:var(--ink-muted)]">01</div>
+                <h4 class="font-serif text-2xl text-[color:var(--ink)] mb-3">Enter a URL</h4>
+                <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">Paste any product's website. No signup needed for your first 2 reports.</p>
             </div>
             <div class="text-center">
-                <div class="text-3xl mb-3">⚡</div>
-                <h4 class="text-lg font-semibold text-white mb-2">2. AI analyzes everything</h4>
-                <p class="text-sm text-gray-400">15+ data sources scanned in parallel: Wayback Machine, Twitter, GitHub, Product Hunt, Google Trends, SEO tools.</p>
+                <div class="text-2xl mb-4 text-[color:var(--ink-muted)]">02</div>
+                <h4 class="font-serif text-2xl text-[color:var(--ink)] mb-3">We read everything</h4>
+                <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">15+ data sources scanned in parallel: Wayback, Twitter, GitHub, Product Hunt, Google Trends, SEO tools.</p>
             </div>
             <div class="text-center">
-                <div class="text-3xl mb-3">📊</div>
-                <h4 class="text-lg font-semibold text-white mb-2">3. Get actionable insights</h4>
-                <p class="text-sm text-gray-400">Strategy Radar, AI verdict, growth waves, traffic quality — everything to outgrow your competitor.</p>
+                <div class="text-2xl mb-4 text-[color:var(--ink-muted)]">03</div>
+                <h4 class="font-serif text-2xl text-[color:var(--ink)] mb-3">Get the verdict</h4>
+                <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">Strategy Radar, AI verdict, growth waves, traffic quality — everything to outgrow your competitor.</p>
             </div>
         </div>
 
         <!-- Sample reports -->
-        <div class="mb-16">
-            <h3 class="text-xl font-bold text-center text-white mb-6">See it in action</h3>
+        <div class="mb-20">
+            <h3 class="font-serif text-3xl text-center text-[color:var(--ink)] mb-8">See it in action</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="/report/815b183b" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-xs text-blue-400 mb-1">Sample Report</div>
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors">AFFiNE</div>
-                    <div class="text-xs text-gray-500 mt-1">Open-source Notion alternative · 67K GitHub stars · Strategy Radar 58/100</div>
+                <a href="/report/815b183b" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">AFFiNE</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Open-source Notion alternative · 67K GitHub stars · Strategy Radar 58/100</div>
                 </a>
-                <a href="/report/4d329bdd" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-xs text-blue-400 mb-1">Sample Report</div>
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors">Notion</div>
-                    <div class="text-xs text-gray-500 mt-1">The AI workspace · 509K Twitter followers · PH 2,034 votes</div>
+                <a href="/report/4d329bdd" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Notion</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">The AI workspace · 509K Twitter followers · PH 2,034 votes</div>
                 </a>
-                <a href="/report/37230091" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-xs text-blue-400 mb-1">Sample Report</div>
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors">Cal.com</div>
-                    <div class="text-xs text-gray-500 mt-1">Open-source scheduling · 41K GitHub stars · Strategy Radar 50/100</div>
+                <a href="/report/37230091" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Cal.com</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Open-source scheduling · 41K GitHub stars · Strategy Radar 50/100</div>
                 </a>
             </div>
         </div>
 
         <!-- Compare section (internal links for SEO) -->
-        <div class="mb-16">
-            <h3 class="text-xl font-bold text-center text-white mb-2">Compare with alternatives</h3>
-            <p class="text-center text-sm text-gray-500 mb-6">See how Analook stacks up against traditional competitive intelligence tools</p>
+        <div class="mb-20">
+            <h3 class="font-serif text-3xl text-center text-[color:var(--ink)] mb-3">Compare with alternatives</h3>
+            <p class="text-center text-sm text-[color:var(--ink-muted)] mb-8">See how Analook stacks up against traditional competitive intelligence tools.</p>
             <div class="flex flex-wrap justify-center gap-3">
-                <a href="/compare/similarweb.html" class="bg-gray-900 border border-gray-800 hover:border-blue-700/50 text-sm text-gray-300 px-4 py-2 rounded-lg transition-colors">vs SimilarWeb</a>
-                <a href="/compare/semrush.html" class="bg-gray-900 border border-gray-800 hover:border-blue-700/50 text-sm text-gray-300 px-4 py-2 rounded-lg transition-colors">vs SEMrush</a>
-                <a href="/compare/ahrefs.html" class="bg-gray-900 border border-gray-800 hover:border-blue-700/50 text-sm text-gray-300 px-4 py-2 rounded-lg transition-colors">vs Ahrefs</a>
-                <a href="/compare/crayon.html" class="bg-gray-900 border border-gray-800 hover:border-blue-700/50 text-sm text-gray-300 px-4 py-2 rounded-lg transition-colors">vs Crayon</a>
-                <a href="/compare/klue.html" class="bg-gray-900 border border-gray-800 hover:border-blue-700/50 text-sm text-gray-300 px-4 py-2 rounded-lg transition-colors">vs Klue</a>
+                <a href="/compare/similarweb.html" class="card-cream-subtle text-sm text-[color:var(--ink)] px-5 py-2.5 hover:border-[color:var(--warm-border-strong)] transition-colors">vs SimilarWeb</a>
+                <a href="/compare/semrush.html"    class="card-cream-subtle text-sm text-[color:var(--ink)] px-5 py-2.5 hover:border-[color:var(--warm-border-strong)] transition-colors">vs SEMrush</a>
+                <a href="/compare/ahrefs.html"     class="card-cream-subtle text-sm text-[color:var(--ink)] px-5 py-2.5 hover:border-[color:var(--warm-border-strong)] transition-colors">vs Ahrefs</a>
+                <a href="/compare/crayon.html"     class="card-cream-subtle text-sm text-[color:var(--ink)] px-5 py-2.5 hover:border-[color:var(--warm-border-strong)] transition-colors">vs Crayon</a>
+                <a href="/compare/klue.html"       class="card-cream-subtle text-sm text-[color:var(--ink)] px-5 py-2.5 hover:border-[color:var(--warm-border-strong)] transition-colors">vs Klue</a>
             </div>
         </div>
 
-        <!-- API section -->
-        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-8 mb-16">
-            <div class="flex flex-col md:flex-row items-center gap-8">
+        <!-- API section (dark inset, Vercel-style) -->
+        <div class="panel-dark p-10 mb-20">
+            <div class="flex flex-col md:flex-row items-start md:items-center gap-8">
                 <div class="flex-1">
-                    <div class="inline-block bg-green-900/30 border border-green-700/40 text-green-300 text-xs px-3 py-1 rounded-full mb-3">API Available</div>
-                    <h4 class="text-xl font-bold text-white mb-2">Works with Claude Code & AI Agents</h4>
-                    <p class="text-sm text-gray-400 mb-4">One API call to get a full competitive intelligence report. Perfect for automated research workflows.</p>
-                    <code class="block bg-gray-800 text-green-300 text-xs p-3 rounded-lg font-mono overflow-x-auto">curl -X POST https://www.analook.com/api/v1/analyze \<br>&nbsp; -H "Content-Type: application/json" \<br>&nbsp; -d '{"url": "notion.so"}'</code>
+                    <div class="text-[10px] uppercase tracking-[0.2em] text-emerald-400 mb-3">API · MCP server</div>
+                    <h4 class="font-serif text-3xl text-white mb-3">Works with Claude, Cursor & any AI agent</h4>
+                    <p class="text-sm text-gray-400 mb-5 leading-relaxed max-w-xl">One REST call — or one MCP tool call from Claude Desktop / Cursor — and the full competitive intelligence report comes back as JSON.</p>
+                    <code class="block bg-[#1F1F23] text-emerald-300 text-xs p-4 rounded-lg font-mono overflow-x-auto">curl -X POST https://www.analook.com/api/v1/analyze \<br>&nbsp; -H "Content-Type: application/json" \<br>&nbsp; -d '{"url": "notion.so"}'</code>
                 </div>
-                <div class="flex-shrink-0">
-                    <a href="/pricing.html" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-lg transition-colors inline-block">View Pricing →</a>
+                <div class="flex-shrink-0 md:self-center">
+                    <a href="/pricing.html" class="bg-white hover:bg-gray-100 text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors inline-block">View pricing →</a>
                 </div>
             </div>
         </div>
 
-        <!-- Blog section (internal links for SEO) -->
-        <div class="mb-8">
-            <h3 class="text-xl font-bold text-center text-white mb-2">From the blog</h3>
-            <p class="text-center text-sm text-gray-500 mb-6">Guides on competitive intelligence, SEO analysis, and growth strategy</p>
+        <!-- Blog section -->
+        <div class="mb-12">
+            <h3 class="font-serif text-3xl text-center text-[color:var(--ink)] mb-3">From the blog</h3>
+            <p class="text-center text-sm text-[color:var(--ink-muted)] mb-8">Guides on competitive intelligence, SEO analysis, and growth strategy.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <a href="/blog/competitive-analysis-guide-2026.html" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors mb-1">How to Do Competitive Analysis in 2026</div>
-                    <div class="text-xs text-gray-500">The AI-powered step-by-step guide · 12 min read</div>
+                <a href="/blog/competitive-analysis-guide-2026.html" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">How to Do Competitive Analysis in 2026</div>
+                    <div class="text-xs text-[color:var(--ink-muted)]">The AI-powered step-by-step guide · 12 min read</div>
                 </a>
-                <a href="/blog/best-competitive-intelligence-tools-2026.html" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors mb-1">10 Best Competitive Intelligence Tools</div>
-                    <div class="text-xs text-gray-500">Tested & compared for startups · 10 min read</div>
+                <a href="/blog/best-competitive-intelligence-tools-2026.html" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">10 Best Competitive Intelligence Tools</div>
+                    <div class="text-xs text-[color:var(--ink-muted)]">Tested & compared for startups · 10 min read</div>
                 </a>
-                <a href="/blog/competitor-seo-analysis-guide.html" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors mb-1">How to Analyze Competitor's SEO Strategy</div>
-                    <div class="text-xs text-gray-500">8 steps to reverse-engineer any competitor · 8 min read</div>
+                <a href="/blog/competitor-seo-analysis-guide.html" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">How to Analyze Competitor's SEO Strategy</div>
+                    <div class="text-xs text-[color:var(--ink-muted)]">8 steps to reverse-engineer any competitor · 8 min read</div>
                 </a>
-                <a href="/blog/product-hunt-launch-strategy.html" class="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-blue-700/50 transition-colors group">
-                    <div class="text-base font-semibold text-white group-hover:text-blue-300 transition-colors mb-1">Product Hunt Launch Strategy</div>
-                    <div class="text-xs text-gray-500">What top products do differently · 10 min read</div>
+                <a href="/blog/product-hunt-launch-strategy.html" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">Product Hunt Launch Strategy</div>
+                    <div class="text-xs text-[color:var(--ink-muted)]">What top products do differently · 10 min read</div>
                 </a>
             </div>
         </div>
     </section>
 
     <!-- Full footer with all navigation -->
-    <footer class="border-t border-gray-800 py-10 mt-8">
+    <footer class="border-t border-[color:var(--warm-border)] py-12 mt-8">
         <div class="max-w-6xl mx-auto px-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
                 <div>
-                    <h5 class="text-sm font-semibold text-white mb-3">Product</h5>
-                    <ul class="space-y-2 text-xs text-gray-500">
-                        <li><a href="/" class="hover:text-gray-300">Competitive Analysis</a></li>
-                        <li><a href="/pricing.html" class="hover:text-gray-300">Pricing</a></li>
-                        <li><a href="/api/v1/analyze" class="hover:text-gray-300">API</a></li>
+                    <h5 class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-muted)] mb-4">Product</h5>
+                    <ul class="space-y-2 text-sm text-[color:var(--ink-muted)]">
+                        <li><a href="/" class="hover:text-[color:var(--ink)]">Competitive Analysis</a></li>
+                        <li><a href="/pricing.html" class="hover:text-[color:var(--ink)]">Pricing</a></li>
+                        <li><a href="/docs/mcp.html" class="hover:text-[color:var(--ink)]">MCP Server</a></li>
+                        <li><a href="/api/v1/analyze" class="hover:text-[color:var(--ink)]">REST API</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h5 class="text-sm font-semibold text-white mb-3">Compare</h5>
-                    <ul class="space-y-2 text-xs text-gray-500">
-                        <li><a href="/compare/similarweb.html" class="hover:text-gray-300">vs SimilarWeb</a></li>
-                        <li><a href="/compare/semrush.html" class="hover:text-gray-300">vs SEMrush</a></li>
-                        <li><a href="/compare/ahrefs.html" class="hover:text-gray-300">vs Ahrefs</a></li>
-                        <li><a href="/compare/crayon.html" class="hover:text-gray-300">vs Crayon</a></li>
-                        <li><a href="/compare/klue.html" class="hover:text-gray-300">vs Klue</a></li>
+                    <h5 class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-muted)] mb-4">Compare</h5>
+                    <ul class="space-y-2 text-sm text-[color:var(--ink-muted)]">
+                        <li><a href="/compare/similarweb.html" class="hover:text-[color:var(--ink)]">vs SimilarWeb</a></li>
+                        <li><a href="/compare/semrush.html" class="hover:text-[color:var(--ink)]">vs SEMrush</a></li>
+                        <li><a href="/compare/ahrefs.html" class="hover:text-[color:var(--ink)]">vs Ahrefs</a></li>
+                        <li><a href="/compare/crayon.html" class="hover:text-[color:var(--ink)]">vs Crayon</a></li>
+                        <li><a href="/compare/klue.html" class="hover:text-[color:var(--ink)]">vs Klue</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h5 class="text-sm font-semibold text-white mb-3">Resources</h5>
-                    <ul class="space-y-2 text-xs text-gray-500">
-                        <li><a href="/blog/competitive-analysis-guide-2026.html" class="hover:text-gray-300">Competitive Analysis Guide</a></li>
-                        <li><a href="/blog/best-competitive-intelligence-tools-2026.html" class="hover:text-gray-300">Best CI Tools 2026</a></li>
-                        <li><a href="/blog/competitor-seo-analysis-guide.html" class="hover:text-gray-300">SEO Analysis Guide</a></li>
-                        <li><a href="/blog/product-hunt-launch-strategy.html" class="hover:text-gray-300">PH Launch Strategy</a></li>
+                    <h5 class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-muted)] mb-4">Resources</h5>
+                    <ul class="space-y-2 text-sm text-[color:var(--ink-muted)]">
+                        <li><a href="/blog/competitive-analysis-guide-2026.html" class="hover:text-[color:var(--ink)]">Competitive Analysis Guide</a></li>
+                        <li><a href="/blog/best-competitive-intelligence-tools-2026.html" class="hover:text-[color:var(--ink)]">Best CI Tools 2026</a></li>
+                        <li><a href="/blog/competitor-seo-analysis-guide.html" class="hover:text-[color:var(--ink)]">SEO Analysis Guide</a></li>
+                        <li><a href="/blog/product-hunt-launch-strategy.html" class="hover:text-[color:var(--ink)]">PH Launch Strategy</a></li>
                     </ul>
                 </div>
                 <div>
-                    <h5 class="text-sm font-semibold text-white mb-3">Company</h5>
-                    <ul class="space-y-2 text-xs text-gray-500">
-                        <li><a href="https://gingiris.com" class="hover:text-gray-300">Gingiris</a></li>
-                        <li><a href="https://x.com/WeiYipei" class="hover:text-gray-300">Twitter / X</a></li>
-                        <li><a href="/terms.html" class="hover:text-gray-300">Terms of Service</a></li>
-                        <li><a href="/privacy.html" class="hover:text-gray-300">Privacy Policy</a></li>
+                    <h5 class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-muted)] mb-4">Company</h5>
+                    <ul class="space-y-2 text-sm text-[color:var(--ink-muted)]">
+                        <li><a href="https://gingiris.com" class="hover:text-[color:var(--ink)]">Gingiris</a></li>
+                        <li><a href="https://x.com/WeiYipei" class="hover:text-[color:var(--ink)]">Twitter / X</a></li>
+                        <li><a href="/terms.html" class="hover:text-[color:var(--ink)]">Terms of Service</a></li>
+                        <li><a href="/privacy.html" class="hover:text-[color:var(--ink)]">Privacy Policy</a></li>
                     </ul>
                 </div>
             </div>
-            <div class="border-t border-gray-800 pt-6 flex items-center justify-between text-xs text-gray-600">
-                <span>&copy; 2026 Gingiris. All rights reserved.</span>
-                <span>Built with AI · Powered by 15+ data sources</span>
+            <div class="border-t border-[color:var(--warm-border)] pt-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
+                <span>&copy; 2026 Gingiris.</span>
+                <span class="font-mono">analook.com</span>
             </div>
         </div>
     </footer>
