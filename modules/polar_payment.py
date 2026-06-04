@@ -51,7 +51,7 @@ FREE_TIER_CUTOVER_ISO = "2026-05-18T18:00:00+00:00"
 # Credits per plan
 PLAN_CREDITS = {
     "pro": 30,            # 30 reports/month
-    "team": 999999,       # unlimited
+    "team": 100,          # 100 reports/month (was 999999 = unlimited, capped 2026-06-04)
     "single_report": 1,   # 1 report
     "free": 2,            # 2 reports/month for new users (was 3 pre-2026-05-18)
 }
