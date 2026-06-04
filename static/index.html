@@ -33,34 +33,35 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { serif: ['"Instrument Serif"', 'Georgia', 'serif'], sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'], mono: ['"JetBrains Mono"', 'Menlo', 'monospace'] } } } }</script>
     <style>
-        /* === Oginify-inspired light theme tokens === */
+        /* === Dark theme with Oginify-style typography + spacing === */
+        /* Variable names kept from prior cream version so all utility refs flip cleanly */
         :root {
-            --cream-bg: #F5F1EB;
-            --cream-card: #FBFAF7;
-            --cream-elev: #FFFFFF;
-            --warm-border: #E5E0D5;
-            --warm-border-strong: #D4CCBC;
-            --ink: #0D0D0D;
-            --ink-muted: #525252;
-            --ink-faint: #8A8580;
+            --cream-bg: #0A0A0A;         /* page background (near-black) */
+            --cream-card: #141414;       /* card surface */
+            --cream-elev: #1A1A1C;       /* elevated card / pill input */
+            --warm-border: rgba(255, 255, 255, 0.08);
+            --warm-border-strong: rgba(255, 255, 255, 0.18);
+            --ink: #F5F1EB;              /* primary text — warm cream-white */
+            --ink-muted: #A1A1A0;        /* secondary text — warm gray */
+            --ink-faint: #6B6864;        /* tertiary / placeholders */
         }
         body { font-family: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: var(--cream-bg); color: var(--ink); }
         .font-serif { font-family: "Instrument Serif", Georgia, serif; }
         .font-mono { font-family: "JetBrains Mono", Menlo, monospace; }
 
-        /* Top accent gradient stripe — orange→pink→amber */
+        /* Top accent gradient stripe — orange→pink→amber (still pops on dark) */
         .top-accent { background: linear-gradient(90deg, #FB923C 0%, #EC4899 50%, #F59E0B 100%); }
 
         /* Pill URL input shell */
-        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 1px 0 rgba(0,0,0,0.02), 0 12px 24px -16px rgba(0,0,0,0.08); }
-        .url-pill:focus-within { border-color: var(--warm-border-strong); box-shadow: 0 0 0 4px rgba(13,13,13,0.04); }
+        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 1px 0 rgba(255,255,255,0.02), 0 12px 32px -16px rgba(0,0,0,0.6); }
+        .url-pill:focus-within { border-color: var(--warm-border-strong); box-shadow: 0 0 0 4px rgba(245, 241, 235, 0.04); }
 
-        /* Cards/panels on cream */
+        /* Cards/panels (dark theme) */
         .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 14px; }
         .card-cream-subtle { background: var(--cream-card); border: 1px solid var(--warm-border); border-radius: 12px; }
 
-        /* Dark inset panels — used for report/progress (Vercel style: cream page, dark data surfaces) */
-        .panel-dark { background: #0F0F11; color: #E5E7EB; border: 1px solid #1F1F23; border-radius: 14px; }
+        /* Elevated section panel (gradient border accent on dark) */
+        .panel-dark { background: linear-gradient(180deg, #1A1A1C 0%, #141416 100%); color: var(--ink); border: 1px solid var(--warm-border); border-radius: 14px; }
 
         /* Animations */
         .fade-in { animation: fadeIn 0.4s ease-in; }
@@ -229,7 +230,7 @@
                 <a href="/zh/" class="text-xs text-[color:var(--ink-faint)] hover:text-[color:var(--ink)] transition-colors">中文</a>
                 <!-- Not logged in: show sign-in button -->
                 <button id="auth-btn"
-                        class="text-sm bg-[color:var(--ink)] hover:bg-black text-white px-4 py-1.5 rounded-full font-medium transition-colors">
+                        class="text-sm bg-[color:var(--ink)] hover:bg-white text-[color:var(--cream-bg)] px-4 py-1.5 rounded-full font-medium transition-colors">
                     Sign in
                 </button>
                 <!-- Logged in: credits + avatar dropdown -->
@@ -239,13 +240,13 @@
                         ⚡ — Credits
                     </span>
                     <button id="auth-avatar"
-                            class="w-8 h-8 rounded-full bg-[color:var(--ink)] text-white text-sm font-bold flex items-center justify-center hover:bg-black transition-colors focus:outline-none">
+                            class="w-8 h-8 rounded-full bg-[color:var(--ink)] text-[color:var(--cream-bg)] text-sm font-bold flex items-center justify-center hover:bg-white transition-colors focus:outline-none">
                     </button>
                     <div id="auth-dropdown"
-                         class="hidden absolute right-0 top-10 w-48 bg-white border border-[color:var(--warm-border)] rounded-xl shadow-xl z-50 py-1">
+                         class="hidden absolute right-0 top-10 w-48 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl shadow-xl z-50 py-1">
                         <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-[color:var(--ink-muted)] border-b border-[color:var(--warm-border)] truncate"></div>
                         <button id="auth-logout-btn"
-                                class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-[color:var(--cream-card)] transition-colors">
+                                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[color:var(--cream-elev)] transition-colors">
                             Sign out
                         </button>
                     </div>
@@ -296,7 +297,7 @@
                         <input type="text" id="name-input" placeholder="Product name (auto-detect if blank)"
                             class="w-full bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)]">
                         <div class="flex gap-1 mt-3 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-lg p-1 w-fit text-xs">
-                            <button id="tab-url" onclick="switchMode('url')" class="px-3 py-1 rounded-md font-medium bg-[color:var(--ink)] text-white">URL</button>
+                            <button id="tab-url" onclick="switchMode('url')" class="px-3 py-1 rounded-md font-medium bg-[color:var(--ink)] text-[color:var(--cream-bg)]">URL</button>
                             <button id="tab-text" onclick="switchMode('text')" class="px-3 py-1 rounded-md font-medium text-[color:var(--ink-muted)]">Text</button>
                             <button id="tab-pdf" onclick="switchMode('pdf')" class="px-3 py-1 rounded-md font-medium text-[color:var(--ink-muted)]">PDF</button>
                         </div>
@@ -358,7 +359,7 @@
         </div>
 
         <!-- Error message (lives just below hero block) -->
-        <div id="error-msg" class="hidden mt-4 max-w-2xl mx-auto text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5"></div>
+        <div id="error-msg" class="hidden mt-4 max-w-2xl mx-auto text-sm text-red-400 bg-red-950/30 border border-red-900/50 rounded-lg px-4 py-2.5"></div>
 
         <!-- Recent history -->
         <div id="history-section" class="max-w-3xl mx-auto mt-12 mb-8 hidden">
@@ -599,7 +600,7 @@
                     <code class="block bg-[#1F1F23] text-emerald-300 text-xs p-4 rounded-lg font-mono overflow-x-auto">curl -X POST https://www.analook.com/api/v1/analyze \<br>&nbsp; -H "Content-Type: application/json" \<br>&nbsp; -d '{"url": "notion.so"}'</code>
                 </div>
                 <div class="flex-shrink-0 md:self-center">
-                    <a href="/pricing.html" class="bg-white hover:bg-gray-100 text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors inline-block">View pricing →</a>
+                    <a href="/pricing.html" class="bg-[color:var(--ink)] hover:bg-white text-[color:var(--cream-bg)] font-medium text-sm px-6 py-3 rounded-full transition-colors inline-block">View pricing →</a>
                 </div>
             </div>
         </div>
