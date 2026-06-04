@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from . import tinyfish
+
 _HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
 # Common pricing page paths to probe
@@ -30,6 +32,35 @@ async def analyze_pricing(url: str, product_name: str) -> dict:
 
     # Try pricing paths + homepage as fallback
     candidates = [base + p for p in _PRICING_PATHS] + [base]
+
+    # Strategy 0: TinyFish first (Chromium-rendered, handles JS-heavy pages).
+    # Batch top candidates in a single API call (free tier, 10 URLs/request).
+    # Falls through to httpx if TinyFish unavailable, returns no pricing
+    # signal, or returns an empty result set.
+    if tinyfish.is_available():
+        try:
+            batch = await tinyfish.fetch_batch_html(candidates[:6], timeout=25.0)
+            for pricing_url in candidates:
+                r = batch.get(pricing_url)
+                if not r:
+                    continue
+                html = r.get("text") or ""
+                if not html:
+                    continue
+                soup = BeautifulSoup(html, "html.parser")
+                plain = soup.get_text(separator="\n", strip=True)
+                lower = plain.lower()
+                has_price = any(x in lower for x in [
+                    "$", "€", "£", "/month", "/mo", "/year", "/yr",
+                    "free plan", "pro plan", "enterprise", "pricing", "subscribe",
+                ])
+                if not has_price:
+                    continue
+                result = _extract_pricing(soup, plain, pricing_url, product_name)
+                if result.get("tiers"):
+                    return result
+        except Exception:
+            pass  # fall through to httpx
 
     async with httpx.AsyncClient(timeout=10, follow_redirects=True, headers=_HEADERS) as client:
         for pricing_url in candidates:
