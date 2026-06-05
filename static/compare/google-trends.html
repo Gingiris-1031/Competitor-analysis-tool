@@ -15,8 +15,24 @@
 <meta property="og:image" content="https://www.analook.com/assets/og/compare-google-trends.png">
 <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://www.analook.com/assets/og/compare-google-trends.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={darkMode:'class'}</script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+table{border-spacing:0}
+</style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Article","headline":"Analook vs Google Trends: When You Need More Than a Search Curve (2026)","description":"How Analook builds on Google Trends — and what each tool is actually for.","datePublished":"2026-06-04","dateModified":"2026-06-04","author":{"@type":"Person","name":"Iris Wei","url":"https://gingiris.com"},"publisher":{"@type":"Organization","name":"Analook","logo":{"@type":"ImageObject","url":"https://www.analook.com/assets/favicon-192x192.png"}},"mainEntityOfPage":"https://www.analook.com/compare/google-trends.html"}
 </script>
@@ -30,46 +46,47 @@
 ]}
 </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-<header class="border-b border-gray-800 py-4"><div class="max-w-4xl mx-auto px-6 flex items-center gap-3"><a href="/" class="flex items-center gap-2"><img src="/assets/logo-header.png" alt="Analook" class="h-8"></a><span class="text-gray-600">/</span><a href="/comparison.html" class="text-gray-400 text-sm hover:text-white">Compare</a><span class="text-gray-600">/</span><span class="text-gray-400 text-sm">Google Trends</span></div></header>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+<header class="border-b border-[color:var(--border)] py-5"><div class="max-w-5xl mx-auto px-6 flex items-center gap-3"><a href="/" class="font-serif italic text-2xl text-[color:var(--ink)] hover:opacity-80 transition-opacity" style="text-decoration:none">Analook</a><span class="text-[color:var(--ink-faint)]">/</span><a href="/comparison.html" class="text-[color:var(--ink-muted)] text-sm hover:text-[color:var(--ink)]">Compare</a><span class="text-[color:var(--ink-faint)]">/</span><span class="text-[color:var(--ink-muted)] text-sm">Google Trends</span></div></header>
 
-<main class="max-w-4xl mx-auto px-6 py-12">
-<h1 class="text-3xl font-bold mb-3">Analook vs Google Trends: When You Need More Than a Search Curve</h1>
-<p class="text-gray-400 mb-8">Google Trends is free, fast, and limited. Analook builds the full strategic story around the curve.</p>
+<main class="max-w-5xl mx-auto px-6 pt-8 pb-24">
+<h1 class="font-serif text-4xl md:text-6xl leading-[0.95] tracking-tight text-[color:var(--ink)] mt-12 mb-5">Analook vs Google Trends: When You Need More Than a Search Curve</h1>
+<p class="text-lg text-[color:var(--ink-muted)] mb-12 max-w-3xl leading-relaxed">Google Trends is free, fast, and limited. Analook builds the full strategic story around the curve.</p>
 
-<div class="bg-blue-900/20 border border-blue-800 rounded-xl p-5 mb-10">
-<h2 class="text-sm font-semibold text-blue-400 uppercase tracking-wide mb-2">TL;DR</h2>
-<p class="text-gray-200 text-sm leading-relaxed"><strong>Google Trends</strong> answers "is search interest growing?" — perfectly, for free. <strong>Analook</strong> answers "why is this competitor growing and what should I do?" — by combining Google Trends with 14 other signals in 60 seconds. Use both: Trends to spot the spike, Analook to understand it.</p>
+<div class="callout p-6 mb-12">
+<h2 class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-3">TL;DR</h2>
+<p class="text-[color:var(--ink)] text-base leading-relaxed"><strong>Google Trends</strong> answers "is search interest growing?" — perfectly, for free. <strong>Analook</strong> answers "why is this competitor growing and what should I do?" — by combining Google Trends with 14 other signals in 60 seconds. Use both: Trends to spot the spike, Analook to understand it.</p>
 </div>
 
-<div class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-10 overflow-x-auto">
-<h2 class="text-xl font-semibold mb-4">Quick Comparison</h2>
+<div class="card p-8 mb-12 overflow-x-auto">
+<h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Quick Comparison</h2>
 <table class="w-full text-sm">
-<thead><tr class="text-left border-b border-gray-800"><th class="py-2 pr-4 text-gray-400">Feature</th><th class="py-2 px-4 text-blue-400">Analook</th><th class="py-2 px-4 text-gray-300">Google Trends</th></tr></thead>
-<tbody class="text-gray-300">
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Price</td><td class="py-2.5 px-4">Free (2/mo) · $19/mo Pro</td><td class="py-2.5 px-4 text-green-400">Always free</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Input</td><td class="py-2.5 px-4">Any URL</td><td class="py-2.5 px-4">Search term or brand</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Output</td><td class="py-2.5 px-4 text-green-400">Full strategic report</td><td class="py-2.5 px-4">Interest curve</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Search Interest Data</td><td class="py-2.5 px-4 text-green-400">✓ Integrated</td><td class="py-2.5 px-4 text-green-400">✓ Native</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Traffic Estimates</td><td class="py-2.5 px-4 text-green-400">✓ DataForSEO</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">SEO Keywords</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗ (search terms only, not site keywords)</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Social Presence</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Product Hunt History</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">GitHub Activity</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Wayback Evolution</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">AI Strategic Verdict</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-<tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Peak Attribution</td><td class="py-2.5 px-4 text-green-400">✓ "What caused this spike"</td><td class="py-2.5 px-4">Related queries only</td></tr>
-<tr><td class="py-2.5 pr-4 text-gray-400">Time to Insight</td><td class="py-2.5 px-4">60 seconds</td><td class="py-2.5 px-4">Instant for one curve, 2-3 hrs for full analysis</td></tr>
+<thead><tr class="text-left border-b border-[color:var(--border)]"><th class="py-2 pr-4 text-[color:var(--ink-faint)] text-xs uppercase tracking-wider font-normal">Feature</th><th class="py-2 px-4 text-[color:var(--ink)] font-medium">Analook</th><th class="py-2 px-4 text-[color:var(--ink-muted)] font-medium">Google Trends</th></tr></thead>
+<tbody class="text-[color:var(--ink)]">
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Price</td><td class="py-2.5 px-4">Free (2/mo) · $19/mo Pro</td><td class="py-2.5 px-4 text-green-400">Always free</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Input</td><td class="py-2.5 px-4">Any URL</td><td class="py-2.5 px-4">Search term or brand</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Output</td><td class="py-2.5 px-4 text-green-400">Full strategic report</td><td class="py-2.5 px-4">Interest curve</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Search Interest Data</td><td class="py-2.5 px-4 text-green-400">✓ Integrated</td><td class="py-2.5 px-4 text-green-400">✓ Native</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Traffic Estimates</td><td class="py-2.5 px-4 text-green-400">✓ DataForSEO</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">SEO Keywords</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗ (search terms only, not site keywords)</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Social Presence</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Product Hunt History</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">GitHub Activity</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Wayback Evolution</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">AI Strategic Verdict</td><td class="py-2.5 px-4 text-green-400">✓</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+<tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Peak Attribution</td><td class="py-2.5 px-4 text-green-400">✓ "What caused this spike"</td><td class="py-2.5 px-4">Related queries only</td></tr>
+<tr><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Time to Insight</td><td class="py-2.5 px-4">60 seconds</td><td class="py-2.5 px-4">Instant for one curve, 2-3 hrs for full analysis</td></tr>
 </tbody></table>
 </div>
 
 <div class="mb-10">
-<h2 class="text-xl font-semibold mb-3">What is Google Trends?</h2>
+<h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is Google Trends?</h2>
 <p class="text-gray-300 text-sm leading-relaxed mb-4">Google Trends is a free Google product showing search interest for any term over time, geographically. Launched in 2006, it's the canonical free tool for spotting brand-search spikes, content trends, and category interest curves. Limitations: it only shows the curve, not the cause; it doesn't integrate with any other data; it's per-search-term, not per-website.</p>
 </div>
 
 <div class="mb-10">
-<h2 class="text-xl font-semibold mb-3">What is Analook?</h2>
+<h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is Analook?</h2>
 <p class="text-gray-300 text-sm leading-relaxed mb-4">Analook is an AI-powered competitor analysis tool. Enter a URL, get a 60-second teardown covering 15+ signal categories. Google Trends is one of them — Analook integrates Google Trends data via SerpApi, then layers traffic, SEO, social, Product Hunt history, GitHub activity, pricing, Wayback evolution, and AI verdict on top. The result: a curve plus the explanation behind the curve.</p>
 </div>
 
@@ -85,26 +102,26 @@
 </div>
 
 <div class="mb-10">
-<h2 class="text-xl font-semibold mb-4">Final Verdict</h2>
+<h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Final Verdict</h2>
 <p class="text-gray-300 text-sm leading-relaxed mb-3">Google Trends is the best free tool of its kind. Don't replace it — augment it. Use Google Trends to spot the signals; use Analook to understand them.</p>
 <p class="text-gray-300 text-sm leading-relaxed"><strong>Try Analook free</strong> — no credit card, 2 reports per month. <a href="/" class="text-blue-400 underline">Start at analook.com</a>.</p>
 </div>
 
-<div class="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-800/50 rounded-xl p-8 text-center">
+<div class="card p-10 text-center">
 <h3 class="text-2xl font-bold mb-3">Try Analook Free</h3>
 <p class="text-gray-300 mb-6">Turn a Google Trends spike into a strategic teardown in 60 seconds.</p>
-<a href="/" class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-semibold transition">Start Analyzing →</a>
+<a href="/" class="inline-block btn-primary px-8 py-3 rounded-full text-sm font-medium transition-colors">Start Analyzing →</a>
 </div>
 
 <div class="mt-12 pt-8 border-t border-gray-800">
-<h3 class="text-lg font-semibold mb-3">Related Comparisons</h3>
-<ul class="text-sm text-gray-400 space-y-1">
-<li>→ <a href="/compare/similarweb.html" class="hover:text-white">Analook vs SimilarWeb</a></li>
-<li>→ <a href="/compare/ahrefs.html" class="hover:text-white">Analook vs Ahrefs</a></li>
-<li>→ <a href="/alternatives/similarweb.html" class="hover:text-white">7 Best SimilarWeb Alternatives</a></li>
+<h3 class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-4">Related comparisons</h3>
+<ul class="text-sm text-[color:var(--ink-muted)] space-y-2">
+<li>→ <a href="/compare/similarweb.html" class="hover:text-[color:var(--ink)]">Analook vs SimilarWeb</a></li>
+<li>→ <a href="/compare/ahrefs.html" class="hover:text-[color:var(--ink)]">Analook vs Ahrefs</a></li>
+<li>→ <a href="/alternatives/similarweb.html" class="hover:text-[color:var(--ink)]">7 Best SimilarWeb Alternatives</a></li>
 </ul>
 </div>
-<footer class="mt-16 text-center text-gray-500 text-xs"><p>Written by <a href="https://gingiris.com" class="underline">Iris Wei</a> · Last updated June 2026</p></footer>
+<footer class="mt-20 pt-10 border-t border-[color:var(--border)] text-center text-[color:var(--ink-faint)] text-xs"><p>Written by <a href="https://gingiris.com" class="underline">Iris Wei</a> · Last updated June 2026</p></footer>
 </main>
 </body>
 </html>

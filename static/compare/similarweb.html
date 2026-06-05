@@ -18,8 +18,24 @@
     <meta name="description" content="Compare Analook vs SimilarWeb for competitive intelligence. Analook offers AI-powered analysis at $5/report vs SimilarWeb's $125+/month. See full feature comparison.">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="canonical" href="https://www.analook.com/compare/similarweb.html">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+table{border-spacing:0}
+</style>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -34,67 +50,60 @@
     }
     </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
-        <div class="max-w-4xl mx-auto px-6 flex items-center gap-3">
-            <a href="/" class="flex items-center gap-2">
-                <img src="/assets/logo-header.png" alt="Analook" class="h-8">
-            </a>
-            <span class="text-gray-600">/</span>
-            <span class="text-gray-400 text-sm">Compare</span>
-        </div>
-    </header>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5"><div class="max-w-5xl mx-auto px-6 flex items-center gap-3"><a href="/" class="font-serif italic text-2xl text-[color:var(--ink)] hover:opacity-80 transition-opacity" style="text-decoration:none">Analook</a><span class="text-[color:var(--ink-faint)]">/</span><a href="/comparison.html" class="text-[color:var(--ink-muted)] text-sm hover:text-[color:var(--ink)]">Compare</a><span class="text-[color:var(--ink-faint)]">/</span><span class="text-[color:var(--ink-muted)] text-sm">SimilarWeb</span></div></header>
 
-    <main class="max-w-4xl mx-auto px-6 py-12">
-        <h1 class="text-3xl font-bold mb-3">Analook vs SimilarWeb: Which Competitive Intelligence Tool Is Right for You in 2026?</h1>
-        <p class="text-gray-400 mb-8">A detailed comparison of features, pricing, data sources, and use cases.</p>
+    <main class="max-w-5xl mx-auto px-6 pt-8 pb-24">
+        <h1 class="font-serif text-4xl md:text-6xl leading-[0.95] tracking-tight text-[color:var(--ink)] mt-12 mb-5">Analook vs SimilarWeb: Which Competitive Intelligence Tool Is Right for You in 2026?</h1>
+        <p class="text-lg text-[color:var(--ink-muted)] mb-12 max-w-3xl leading-relaxed">A detailed comparison of features, pricing, data sources, and use cases.</p>
 
         <!-- Quick Comparison Table -->
-        <div class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-10 overflow-x-auto">
-            <h2 class="text-xl font-semibold mb-4">Quick Comparison</h2>
+        <div class="card p-8 mb-12 overflow-x-auto">
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Quick Comparison</h2>
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-left border-b border-gray-800">
-                        <th class="py-2 pr-4 text-gray-400">Feature</th>
-                        <th class="py-2 px-4 text-blue-400">Analook</th>
-                        <th class="py-2 px-4 text-gray-300">SimilarWeb</th>
+                    <tr class="text-left border-b border-[color:var(--border)]">
+                        <th class="py-2 pr-4 text-[color:var(--ink-faint)] text-xs uppercase tracking-wider font-normal">Feature</th>
+                        <th class="py-2 px-4 text-[color:var(--ink)] font-medium">Analook</th>
+                        <th class="py-2 px-4 text-[color:var(--ink-muted)] font-medium">SimilarWeb</th>
                     </tr>
                 </thead>
-                <tbody class="text-gray-300">
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Starting Price</td><td class="py-2.5 px-4 text-green-400 font-semibold">Free (2 reports/mo)</td><td class="py-2.5 px-4">$125/month</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Pay-per-report</td><td class="py-2.5 px-4 text-green-400">$5/report</td><td class="py-2.5 px-4 text-red-400">No</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Time to Report</td><td class="py-2.5 px-4 text-green-400">~2 minutes</td><td class="py-2.5 px-4">Manual analysis</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">AI Analysis</td><td class="py-2.5 px-4 text-green-400">✓ Strategy Radar + Verdict</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Traffic Data</td><td class="py-2.5 px-4">✓ (DataForSEO + SRT)</td><td class="py-2.5 px-4 text-green-400">✓ (Proprietary panel)</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">SEO Keywords</td><td class="py-2.5 px-4">✓ Branded/Non-branded</td><td class="py-2.5 px-4">✓ Full keyword data</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Website History</td><td class="py-2.5 px-4 text-green-400">✓ Wayback Machine</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Social Media</td><td class="py-2.5 px-4 text-green-400">✓ Twitter/GitHub/Reddit</td><td class="py-2.5 px-4">Limited</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Product Hunt</td><td class="py-2.5 px-4 text-green-400">✓ Launch tracking</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Google Trends</td><td class="py-2.5 px-4 text-green-400">✓ Peak attribution</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">GitHub Stars</td><td class="py-2.5 px-4 text-green-400">✓ Star history</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">API Access</td><td class="py-2.5 px-4 text-green-400">✓ REST API</td><td class="py-2.5 px-4">✓ (Enterprise only)</td></tr>
-                    <tr><td class="py-2.5 pr-4 text-gray-400">Best For</td><td class="py-2.5 px-4">Startups, indie hackers, consultants</td><td class="py-2.5 px-4">Enterprise market research</td></tr>
+                <tbody class="text-[color:var(--ink)]">
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Starting Price</td><td class="py-2.5 px-4 text-green-400 font-semibold">Free (2 reports/mo)</td><td class="py-2.5 px-4">$125/month</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Pay-per-report</td><td class="py-2.5 px-4 text-green-400">$5/report</td><td class="py-2.5 px-4 text-red-400">No</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Time to Report</td><td class="py-2.5 px-4 text-green-400">~2 minutes</td><td class="py-2.5 px-4">Manual analysis</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">AI Analysis</td><td class="py-2.5 px-4 text-green-400">✓ Strategy Radar + Verdict</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Traffic Data</td><td class="py-2.5 px-4">✓ (DataForSEO + SRT)</td><td class="py-2.5 px-4 text-green-400">✓ (Proprietary panel)</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">SEO Keywords</td><td class="py-2.5 px-4">✓ Branded/Non-branded</td><td class="py-2.5 px-4">✓ Full keyword data</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Website History</td><td class="py-2.5 px-4 text-green-400">✓ Wayback Machine</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Social Media</td><td class="py-2.5 px-4 text-green-400">✓ Twitter/GitHub/Reddit</td><td class="py-2.5 px-4">Limited</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Product Hunt</td><td class="py-2.5 px-4 text-green-400">✓ Launch tracking</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Google Trends</td><td class="py-2.5 px-4 text-green-400">✓ Peak attribution</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">GitHub Stars</td><td class="py-2.5 px-4 text-green-400">✓ Star history</td><td class="py-2.5 px-4 text-red-400">✗</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">API Access</td><td class="py-2.5 px-4 text-green-400">✓ REST API</td><td class="py-2.5 px-4">✓ (Enterprise only)</td></tr>
+                    <tr><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Best For</td><td class="py-2.5 px-4">Startups, indie hackers, consultants</td><td class="py-2.5 px-4">Enterprise market research</td></tr>
                 </tbody>
             </table>
         </div>
 
         <!-- Analook Overview -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-3">What is Analook?</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is Analook?</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-4">Analook is an AI-powered competitive intelligence tool designed for startup founders, indie hackers, and growth teams. Enter any product's URL and get a comprehensive analysis in about 2 minutes — covering website evolution, social media presence, SEO metrics, Product Hunt history, Google Trends peaks, and an AI-generated strategic verdict.</p>
             <p class="text-gray-300 text-sm leading-relaxed">Unlike traditional tools that require hours of manual research, Analook automates the entire competitive analysis workflow. It aggregates data from 15+ sources and uses AI to identify growth patterns, score traffic quality, and map competitive positioning on a Strategy Radar.</p>
         </div>
 
         <!-- SimilarWeb Overview -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-3">What is SimilarWeb?</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is SimilarWeb?</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-4">SimilarWeb is an established digital intelligence platform primarily known for its website traffic estimation. It uses a proprietary panel of millions of users plus ISP-level data partnerships to estimate website visits, traffic sources, and audience demographics.</p>
             <p class="text-gray-300 text-sm leading-relaxed">SimilarWeb excels at traffic data granularity — country-level breakdowns, referral sources, and app analytics. It's the industry standard for enterprise market research teams who need detailed traffic intelligence.</p>
         </div>
 
         <!-- Pricing Comparison -->
-        <div class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-10">
-            <h2 class="text-xl font-semibold mb-4">Pricing Comparison</h2>
+        <div class="card p-8 mb-12">
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Pricing Comparison</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-gray-800 rounded-lg p-4">
                     <h3 class="text-blue-400 font-semibold mb-2">Analook</h3>
@@ -147,14 +156,14 @@
 
         <!-- Final Verdict -->
         <div class="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/30 rounded-xl p-6 mb-10">
-            <h2 class="text-xl font-semibold mb-3">Final Verdict</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">Final Verdict</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-3"><strong>For most startup founders and growth practitioners, Analook is the better choice.</strong> It provides a broader competitive analysis (not just traffic) at a fraction of the cost, with AI-powered insights that SimilarWeb doesn't offer.</p>
             <p class="text-gray-300 text-sm leading-relaxed">SimilarWeb remains the better option for enterprise teams who need deep traffic analytics, app-level data, or audience demographics at scale.</p>
         </div>
 
         <!-- FAQ -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Frequently Asked Questions</h2>
             <div class="space-y-4">
                 <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
                     <h3 class="text-sm font-semibold text-gray-200 mb-1">Is Analook a good alternative to SimilarWeb?</h3>

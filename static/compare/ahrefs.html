@@ -18,8 +18,24 @@
     <meta name="description" content="Compare Analook vs Ahrefs for competitive analysis. Analook offers AI-powered competitive intelligence at $5/report vs Ahrefs' $129/month. Full feature and pricing comparison.">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="canonical" href="https://www.analook.com/compare/ahrefs.html">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+table{border-spacing:0}
+</style>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -34,67 +50,60 @@
     }
     </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
-        <div class="max-w-4xl mx-auto px-6 flex items-center gap-3">
-            <a href="/" class="flex items-center gap-2">
-                <img src="/assets/logo-header.png" alt="Analook" class="h-8">
-            </a>
-            <span class="text-gray-600">/</span>
-            <span class="text-gray-400 text-sm">Compare</span>
-        </div>
-    </header>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5"><div class="max-w-5xl mx-auto px-6 flex items-center gap-3"><a href="/" class="font-serif italic text-2xl text-[color:var(--ink)] hover:opacity-80 transition-opacity" style="text-decoration:none">Analook</a><span class="text-[color:var(--ink-faint)]">/</span><a href="/comparison.html" class="text-[color:var(--ink-muted)] text-sm hover:text-[color:var(--ink)]">Compare</a><span class="text-[color:var(--ink-faint)]">/</span><span class="text-[color:var(--ink-muted)] text-sm">Ahrefs</span></div></header>
 
-    <main class="max-w-4xl mx-auto px-6 py-12">
-        <h1 class="text-3xl font-bold mb-3">Analook vs Ahrefs: Why Founders Are Switching to AI-Powered Competitive Intelligence in 2026</h1>
-        <p class="text-gray-400 mb-8">Ahrefs is the gold standard for SEO data. But competitive intelligence requires more than backlinks and keywords.</p>
+    <main class="max-w-5xl mx-auto px-6 pt-8 pb-24">
+        <h1 class="font-serif text-4xl md:text-6xl leading-[0.95] tracking-tight text-[color:var(--ink)] mt-12 mb-5">Analook vs Ahrefs: Why Founders Are Switching to AI-Powered Competitive Intelligence in 2026</h1>
+        <p class="text-lg text-[color:var(--ink-muted)] mb-12 max-w-3xl leading-relaxed">Ahrefs is the gold standard for SEO data. But competitive intelligence requires more than backlinks and keywords.</p>
 
         <!-- Quick Comparison Table -->
-        <div class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-10 overflow-x-auto">
-            <h2 class="text-xl font-semibold mb-4">Quick Comparison</h2>
+        <div class="card p-8 mb-12 overflow-x-auto">
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Quick Comparison</h2>
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-left border-b border-gray-800">
-                        <th class="py-2 pr-4 text-gray-400">Feature</th>
-                        <th class="py-2 px-4 text-blue-400">Analook</th>
-                        <th class="py-2 px-4 text-gray-300">Ahrefs</th>
+                    <tr class="text-left border-b border-[color:var(--border)]">
+                        <th class="py-2 pr-4 text-[color:var(--ink-faint)] text-xs uppercase tracking-wider font-normal">Feature</th>
+                        <th class="py-2 px-4 text-[color:var(--ink)] font-medium">Analook</th>
+                        <th class="py-2 px-4 text-[color:var(--ink-muted)] font-medium">Ahrefs</th>
                     </tr>
                 </thead>
-                <tbody class="text-gray-300">
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Starting Price</td><td class="py-2.5 px-4 text-green-400 font-semibold">Free (2 reports/mo)</td><td class="py-2.5 px-4">$129/month</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Pay-per-report</td><td class="py-2.5 px-4 text-green-400">$5/report</td><td class="py-2.5 px-4 text-red-400">No</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Analysis Type</td><td class="py-2.5 px-4 text-green-400">AI-powered, automated</td><td class="py-2.5 px-4">Manual, data-focused</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">AI Strategic Verdict</td><td class="py-2.5 px-4 text-green-400">&#10003; Strategy Radar + Verdict</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Backlink Index</td><td class="py-2.5 px-4">Summary metrics</td><td class="py-2.5 px-4 text-green-400">&#10003; 35T+ links (own crawler)</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Content Explorer</td><td class="py-2.5 px-4 text-red-400">&#10007;</td><td class="py-2.5 px-4 text-green-400">&#10003; 14B+ pages indexed</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Rank Tracking</td><td class="py-2.5 px-4 text-red-400">&#10007;</td><td class="py-2.5 px-4 text-green-400">&#10003; Daily updates</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Website Evolution History</td><td class="py-2.5 px-4 text-green-400">&#10003; Wayback Machine analysis</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Product Hunt Tracking</td><td class="py-2.5 px-4 text-green-400">&#10003; Launch history + metrics</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">GitHub Activity Monitoring</td><td class="py-2.5 px-4 text-green-400">&#10003; Stars, forks, contributors</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Google Trends Integration</td><td class="py-2.5 px-4 text-green-400">&#10003; Peak attribution</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr class="border-b border-gray-800/50"><td class="py-2.5 pr-4 text-gray-400">Social Media Detection</td><td class="py-2.5 px-4 text-green-400">&#10003; Twitter/Reddit/LinkedIn</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
-                    <tr><td class="py-2.5 pr-4 text-gray-400">Best For</td><td class="py-2.5 px-4">Competitive strategy &amp; market intelligence</td><td class="py-2.5 px-4">SEO execution &amp; link building</td></tr>
+                <tbody class="text-[color:var(--ink)]">
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Starting Price</td><td class="py-2.5 px-4 text-green-400 font-semibold">Free (2 reports/mo)</td><td class="py-2.5 px-4">$129/month</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Pay-per-report</td><td class="py-2.5 px-4 text-green-400">$5/report</td><td class="py-2.5 px-4 text-red-400">No</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Analysis Type</td><td class="py-2.5 px-4 text-green-400">AI-powered, automated</td><td class="py-2.5 px-4">Manual, data-focused</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">AI Strategic Verdict</td><td class="py-2.5 px-4 text-green-400">&#10003; Strategy Radar + Verdict</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Backlink Index</td><td class="py-2.5 px-4">Summary metrics</td><td class="py-2.5 px-4 text-green-400">&#10003; 35T+ links (own crawler)</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Content Explorer</td><td class="py-2.5 px-4 text-red-400">&#10007;</td><td class="py-2.5 px-4 text-green-400">&#10003; 14B+ pages indexed</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Rank Tracking</td><td class="py-2.5 px-4 text-red-400">&#10007;</td><td class="py-2.5 px-4 text-green-400">&#10003; Daily updates</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Website Evolution History</td><td class="py-2.5 px-4 text-green-400">&#10003; Wayback Machine analysis</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Product Hunt Tracking</td><td class="py-2.5 px-4 text-green-400">&#10003; Launch history + metrics</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">GitHub Activity Monitoring</td><td class="py-2.5 px-4 text-green-400">&#10003; Stars, forks, contributors</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Google Trends Integration</td><td class="py-2.5 px-4 text-green-400">&#10003; Peak attribution</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr class="border-b border-[color:var(--border)]"><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Social Media Detection</td><td class="py-2.5 px-4 text-green-400">&#10003; Twitter/Reddit/LinkedIn</td><td class="py-2.5 px-4 text-red-400">&#10007;</td></tr>
+                    <tr><td class="py-2.5 pr-4 text-[color:var(--ink-muted)] text-sm">Best For</td><td class="py-2.5 px-4">Competitive strategy &amp; market intelligence</td><td class="py-2.5 px-4">SEO execution &amp; link building</td></tr>
                 </tbody>
             </table>
         </div>
 
         <!-- Analook Overview -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-3">What is Analook?</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is Analook?</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-4">Analook is a competitive intelligence platform that uses AI to analyze any company from its URL. In about 2 minutes, you get a comprehensive report covering website evolution, SEO footprint, social media presence, Product Hunt history, GitHub activity, Google Trends data, and an AI-generated strategic assessment with a visual Strategy Radar.</p>
             <p class="text-gray-300 text-sm leading-relaxed">Analook's approach is fundamentally different from SEO tools: instead of helping you optimize your own site, it helps you understand your competitors' growth strategies. The AI verdict synthesizes data from 15+ sources into actionable competitive positioning advice.</p>
         </div>
 
         <!-- Competitor Overview -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-3">What is Ahrefs?</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">What is Ahrefs?</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-4">Ahrefs is one of the most respected SEO toolsets in the industry, particularly renowned for its backlink index. It operates its own web crawler (AhrefsBot), which crawls the web continuously to maintain a live index of 35 trillion+ known links. This makes it the go-to tool for link building, competitor backlink analysis, and identifying link opportunities.</p>
             <p class="text-gray-300 text-sm leading-relaxed">Beyond backlinks, Ahrefs offers a Keyword Explorer (with data for 10 search engines including YouTube and Amazon), Content Explorer for finding top-performing content, Site Audit for technical SEO health, and Rank Tracker for monitoring keyword positions. It's a complete SEO execution platform — but it stays within the SEO domain.</p>
         </div>
 
         <!-- Pricing Comparison -->
-        <div class="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-10">
-            <h2 class="text-xl font-semibold mb-4">Pricing Comparison</h2>
+        <div class="card p-8 mb-12">
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Pricing Comparison</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-gray-800 rounded-lg p-4">
                     <h3 class="text-blue-400 font-semibold mb-2">Analook</h3>
@@ -147,14 +156,14 @@
 
         <!-- Final Verdict -->
         <div class="bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-700/30 rounded-xl p-6 mb-10">
-            <h2 class="text-xl font-semibold mb-3">Final Verdict</h2>
+            <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-4 mt-12">Final Verdict</h2>
             <p class="text-gray-300 text-sm leading-relaxed mb-3"><strong>Ahrefs is the best SEO data platform. Analook is the best competitive intelligence platform.</strong> They serve different purposes with minimal overlap. Ahrefs tells you what's happening in search results; Analook tells you what your competitors are doing across every channel.</p>
             <p class="text-gray-300 text-sm leading-relaxed">For founders evaluating a market or preparing for a strategy session, Analook delivers the competitive context you need in 2 minutes. For SEO professionals executing link building and content campaigns, Ahrefs remains the industry standard.</p>
         </div>
 
         <!-- FAQ -->
         <div class="mb-10">
-            <h2 class="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
+            <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-6">Frequently Asked Questions</h2>
             <div class="space-y-4">
                 <div class="bg-gray-900 rounded-lg p-4 border border-gray-800">
                     <h3 class="text-sm font-semibold text-gray-200 mb-1">What is the best alternative to Ahrefs?</h3>
