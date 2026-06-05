@@ -23,6 +23,7 @@ FONT_ITALIC = FONT_DIR / "InstrumentSerif-Italic.ttf"
 # (filename, title, accent_word_or_None, subtitle, kicker)
 PAGES = [
     ("homepage.png",           "Analyze any competitor in",        "60 seconds",     "AI-powered teardown across 15+ data sources.",                "analook.com"),
+    ("research-state-of-ci.png", "State of",                       "Competitive Intelligence 2026",  "14 tools mapped · pricing matrix · vendor decision framework.", "analook.com/research"),
     ("pricing.png",            "Pricing",                          None,             "Free 2/mo · Pro $19 · Team $79 · Single $5",                  "analook.com/pricing"),
     ("comparison.png",         "Multi-competitor",                 "Comparison",     "Stack 2–4 competitors side by side, free.",                   "analook.com/comparison"),
     ("docs-mcp.png",           "MCP server for",                   "AI agents",      "io.github.Gingiris-1031/analook · Claude · Cursor",           "analook.com/docs/mcp"),
