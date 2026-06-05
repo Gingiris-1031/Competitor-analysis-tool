@@ -21,6 +21,50 @@
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
+<!-- Product + Offer Schema (pricing page conversion) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Analook",
+  "description": "AI-powered competitor analysis tool. Generates 60-second teardowns covering SEO, traffic, social, Product Hunt, GitHub, pricing, and AI-driven strategic verdicts.",
+  "brand": {"@type": "Brand", "name": "Analook"},
+  "image": "https://www.analook.com/assets/og/pricing.png",
+  "offers": {
+    "@type": "AggregateOffer",
+    "priceCurrency": "USD",
+    "lowPrice": "0",
+    "highPrice": "79",
+    "offerCount": 4,
+    "offers": [
+      {"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD", "description": "2 reports per month"},
+      {"@type": "Offer", "name": "Pro Monthly", "price": "19", "priceCurrency": "USD", "description": "30 reports per month + priority queue", "url": "https://www.analook.com/pricing.html"},
+      {"@type": "Offer", "name": "Team Monthly", "price": "79", "priceCurrency": "USD", "description": "100 reports per month + multi-seat", "url": "https://www.analook.com/pricing.html"},
+      {"@type": "Offer", "name": "Single Report", "price": "5", "priceCurrency": "USD", "description": "One full competitor teardown, pay-as-you-go"}
+    ]
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How much does Analook cost?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Analook offers a free tier with 2 reports per month. Paid plans: Pro at $19/month (30 reports), Team at $79/month (100 reports), or pay-as-you-go single reports at $5 each. No credit card required for the free tier."}},
+    {"@type": "Question", "name": "Is there a free plan for Analook?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. Analook's free tier includes 2 full competitor reports per month with no credit card and no time limit. Reports include all 15+ signal categories (SEO, traffic, social, Product Hunt, GitHub, pricing, AI verdict) — not a stripped-down free version."}},
+    {"@type": "Question", "name": "What's the difference between Pro and Team plans?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Pro ($19/month) includes 30 reports per month for a single user — built for solo founders, growth consultants, and indie hackers. Team ($79/month) includes 100 reports per month, multi-seat access for up to 5 collaborators, and priority support — built for agencies, VC teams, and product marketing groups."}},
+    {"@type": "Question", "name": "Can I buy a single report without subscribing?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. Single Report at $5 gives you one full competitor teardown with no subscription. Best for ad-hoc research — for example, prepping for a board meeting or comparing two specific competitors before a pricing decision."}},
+    {"@type": "Question", "name": "Does Analook offer annual discounts?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Annual billing offers approximately 15-20% savings on Pro and Team subscriptions. Contact via the in-app chat for annual pricing or for invoice billing on Team plans."}},
+    {"@type": "Question", "name": "Can I cancel my Analook subscription anytime?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Yes. Subscriptions cancel any time from the account settings page and remain active through the end of the current billing period. No cancellation fees, no questions asked."}}
+  ]
+}
+</script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen">
     <header class="border-b border-gray-800 py-4">
