@@ -46,9 +46,9 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
 }
 </script>
 <style>
-  body { background: #0a0a0a; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-  .post-card:hover { border-color: #3b82f6; background: rgba(30, 41, 59, 0.4); }
-  .post-card:hover .post-title { color: #60a5fa; }
+  .post-card{transition:border-color .15s,background .15s}
+  .post-card:hover{border-color:var(--border-strong);background:rgba(245,241,235,0.02)}
+  .post-card:hover .post-title{color:var(--ink)}
 </style>
 </head>
 <body class="min-h-screen">
@@ -58,7 +58,6 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
   <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
     <a href="/" class="flex items-center gap-3">
       <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
-      <span class="text-xl font-bold text-white">Analook</span>
       <span class="text-xs text-[color:var(--ink-faint)] hidden sm:inline">· Blog</span>
     </a>
     <nav class="flex items-center gap-5 text-sm">
@@ -85,6 +84,19 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
       <a href="https://gingiris.tools" class="text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">↗ Gingiris (Iris's broader SaaS writing)</a>
     </div>
   </div>
+
+  <!-- Featured Research — the flagship data asset, used to be hidden in /research/ -->
+  <a href="/research/competitive-intelligence-market-2026.html" class="post-card block card rounded-xl p-8 mb-10 transition-colors group">
+    <div class="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-4">
+      <span class="bg-[color:var(--card)] border border-[color:var(--border)] px-3 py-1 rounded-full">📊 Research report · June 2026</span>
+    </div>
+    <h2 class="post-title font-serif text-3xl md:text-4xl text-[color:var(--ink)] mb-3 transition-colors leading-tight">State of <span class="italic">Competitive Intelligence</span> 2026</h2>
+    <p class="text-[color:var(--ink-muted)] text-base leading-relaxed mb-3">
+      The 14-tool market map. Pricing matrix from $0 to $2,000/month. Feature comparison across 8 signal categories.
+      Adoption patterns by company stage. Three structural shifts to watch. CC BY 4.0 — free to cite.
+    </p>
+    <div class="text-sm text-[color:var(--ink-faint)] font-mono">analook.com/research/competitive-intelligence-market-2026.html →</div>
+  </a>
 
   <!-- Featured post -->
   <a href="/blog/competitive-analysis-guide-2026.html" class="post-card block card-subtle rounded-xl p-6 mb-4 transition-colors">
@@ -123,9 +135,46 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
 
   </div>
 
+    <!-- Cross-link to gingiris.tools (Iris's broader writing) -->
+  <div class="mt-16 pt-10 border-t border-[color:var(--border)]">
+    <div class="flex items-baseline justify-between mb-5">
+      <h3 class="font-serif text-2xl text-[color:var(--ink)]">More from Iris on <a href="https://gingiris.tools" class="italic underline underline-offset-4 decoration-[color:var(--ink-faint)] hover:decoration-[color:var(--ink)]">gingiris.tools</a></h3>
+      <a href="https://gingiris.tools/blog/" class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">All 100+ posts →</a>
+    </div>
+    <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed mb-6 max-w-3xl">
+      Six years of growth playbooks, Product Hunt launches, GitHub star strategies, and indie SaaS writing — outside the strict competitor-analysis lens of this blog.
+    </p>
+    <div class="grid md:grid-cols-2 gap-3">
+      <a href="https://gingiris.tools/blog/2026/03/25/product-hunt-launch-playbook-the-definitive-guide-30x-1-winner/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">PRODUCT HUNT · 30× #1 WINNER</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">Product Hunt Launch Playbook — The Definitive Guide</h4>
+      </a>
+      <a href="https://gingiris.tools/blog/2026/03/07/i-led-affine-from-0-to-60k-github-stars-here-are-my-open-source-growth-playbooks/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">OPEN SOURCE · 60K STARS CASE</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">I led AFFiNE from 0 → 60K stars. Here's the open-source growth playbook.</h4>
+      </a>
+      <a href="https://gingiris.tools/blog/2026/05/27/best-competitor-analysis-tools-2026/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">COMPETITIVE ANALYSIS</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">The Best Competitor Analysis Tool in 2026 — 14 options compared</h4>
+      </a>
+      <a href="https://gingiris.tools/blog/2026/03/25/how-to-conduct-user-interviews-the-937interview-framework-that-found-pmf/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">USER INTERVIEWS · PMF</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">The 937-Interview Framework That Found PMF</h4>
+      </a>
+      <a href="https://gingiris.tools/blog/2026/03/15/aso-app-store-optimization-complete-2026-playbook/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">ASO · APP MARKETING</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">ASO Complete 2026 Playbook</h4>
+      </a>
+      <a href="https://gingiris.tools/blog/2026/03/24/developer-marketing-playbook-how-to-reach-technical-audiences-in-2026/" class="card-subtle p-5 hover:border-[color:var(--border-strong)] transition-colors block">
+        <div class="text-[11px] uppercase tracking-wider text-[color:var(--ink-faint)] mb-2">DEVELOPER MARKETING</div>
+        <h4 class="text-[color:var(--ink)] font-medium leading-snug">Developer Marketing — How to Reach Technical Audiences in 2026</h4>
+      </a>
+    </div>
+  </div>
+
   <!-- CTA -->
-  <div class="mt-12 bg-blue-900/20 border border-blue-800/40 rounded-xl p-6 text-center">
-    <h3 class="text-xl font-semibold text-white mb-2">Run your first competitor teardown — free</h3>
+  <div class="mt-12 callout p-8 text-center">
+    <h3 class="font-serif text-2xl text-[color:var(--ink)] mb-3">Run your first competitor teardown — free</h3>
     <p class="text-[color:var(--ink-muted)] text-sm mb-4">Paste any URL · 60 seconds · Wayback history + SEO + social + Product Hunt + AI insights · 2 free reports/month, no card</p>
     <a href="/" class="inline-block btn-primary font-medium px-6 py-3 rounded-lg transition-colors">Start a Free Analysis →</a>
   </div>
