@@ -1,92 +1,118 @@
 #!/usr/bin/env python3
-"""Generate per-page Open Graph + Twitter card images for analook.com.
+"""Generate per-page Open Graph + Twitter cards for analook.com.
 
-Style: dark gradient + blue glow + clean typography (HelveticaNeue).
-Inspired by the "Neo-Swiss Gradient" pattern from kostja94/social-cards-skills.
+v2 (2026-06-05): Aligned with the dark + Instrument-Serif brand identity.
+- Cream-on-warm-dark (#F5F1EB on #0A0A0A) matching the live site
+- Instrument Serif Regular for titles, Italic for accent word + brand mark
+- Aurora-style multi-radial backdrop (subtle blue + warm orange glow)
+- 4px gradient stripe at top (orange→pink→amber) matching site top-accent
 
-Output: 1200x630 PNG files to static/assets/og/
-
-Run locally (requires PIL + macOS HelveticaNeue): python3 scripts/generate_og_cards.py
-Pre-generated PNGs are committed to the repo; production does not need to
-regenerate at deploy time.
+Run: python3 scripts/generate_og_cards.py
 """
-import os
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 1200, 630
 OUT_DIR = Path(__file__).parent.parent / "static" / "assets" / "og"
+FONT_DIR = Path(__file__).parent.parent / "static" / "assets" / "fonts"
 
-# (filename, title, subtitle, kicker)
+FONT_REGULAR = FONT_DIR / "InstrumentSerif-Regular.ttf"
+FONT_ITALIC = FONT_DIR / "InstrumentSerif-Italic.ttf"
+
+# (filename, title, accent_word_or_None, subtitle, kicker)
 PAGES = [
-    ("homepage.png",          "AI Competitive Intelligence",     "Analyze any competitor's full stack in 60 seconds",       "analook.com"),
-    ("pricing.png",           "Pricing",                          "Free 2/mo · Pro $19 · Team $79 · Single $5",              "analook.com/pricing"),
-    ("comparison.png",        "Multi-Competitor Comparison",      "Stack 2–4 competitors side by side, free",                "analook.com/comparison"),
-    ("docs-mcp.png",          "MCP Server for AI Agents",         "io.github.Gingiris-1031/analook · Claude · Cursor",       "analook.com/docs/mcp"),
-    # /compare/*
-    ("compare-similarweb.png", "Analook vs SimilarWeb",           "Free competitive teardown vs $125/mo traffic data",       "analook.com/compare"),
-    ("compare-semrush.png",    "Analook vs SEMrush",              "Founder-priced competitive intelligence",                 "analook.com/compare"),
-    ("compare-ahrefs.png",     "Analook vs Ahrefs",               "Broader signals than backlink-only SEO tools",            "analook.com/compare"),
-    ("compare-crayon.png",     "Analook vs Crayon",               "1.5% of enterprise CI cost, founder-led",                 "analook.com/compare"),
-    ("compare-klue.png",       "Analook vs Klue",                 "Founder stack vs enterprise battlecards",                 "analook.com/compare"),
-    ("compare-visualping.png", "Analook vs Visualping",           "Strategic teardown vs page-change monitoring",            "analook.com/compare"),
-    ("compare-owler.png",      "Analook vs Owler",                "Strategic depth vs competitor news feed",                 "analook.com/compare"),
-    ("compare-google-trends.png", "Analook vs Google Trends",     "Beyond the search-interest curve",                        "analook.com/compare"),
-    ("compare-brand24.png",    "Analook vs Brand24",              "Teardown depth vs social mention monitoring",             "analook.com/compare"),
-    ("compare-kompyte.png",    "Analook vs Kompyte",              "$19/mo vs $800+/mo enterprise CI",                        "analook.com/compare"),
-    # /alternatives/*
-    ("alt-similarweb.png",     "7 Best SimilarWeb Alternatives",  "Free + paid options ranked honestly for 2026",            "analook.com/alternatives"),
-    ("alt-ahrefs.png",         "7 Best Ahrefs Alternatives",      "Free + paid SEO tools ranked",                            "analook.com/alternatives"),
-    ("alt-semrush.png",        "7 Best SEMrush Alternatives",     "Free + paid marketing intelligence tools",                "analook.com/alternatives"),
-    ("alt-crayon.png",         "6 Best Crayon Alternatives",      "Including a free competitive-intel tool",                 "analook.com/alternatives"),
-    ("alt-klue.png",           "6 Best Klue Alternatives",        "From free founder stack to enterprise battlecards",       "analook.com/alternatives"),
+    ("homepage.png",           "Analyze any competitor in",        "60 seconds",     "AI-powered teardown across 15+ data sources.",                "analook.com"),
+    ("pricing.png",            "Pricing",                          None,             "Free 2/mo · Pro $19 · Team $79 · Single $5",                  "analook.com/pricing"),
+    ("comparison.png",         "Multi-competitor",                 "Comparison",     "Stack 2–4 competitors side by side, free.",                   "analook.com/comparison"),
+    ("docs-mcp.png",           "MCP server for",                   "AI agents",      "io.github.Gingiris-1031/analook · Claude · Cursor",           "analook.com/docs/mcp"),
+    ("compare-similarweb.png", "Analook vs",                       "SimilarWeb",     "Free competitive teardown vs $125/mo traffic data.",          "analook.com/compare"),
+    ("compare-semrush.png",    "Analook vs",                       "SEMrush",        "Founder-priced competitive intelligence.",                    "analook.com/compare"),
+    ("compare-ahrefs.png",     "Analook vs",                       "Ahrefs",         "Broader signals than backlink-only SEO.",                     "analook.com/compare"),
+    ("compare-crayon.png",     "Analook vs",                       "Crayon",         "1.5% of enterprise CI cost, founder-led.",                    "analook.com/compare"),
+    ("compare-klue.png",       "Analook vs",                       "Klue",           "Founder stack vs enterprise battlecards.",                    "analook.com/compare"),
+    ("compare-visualping.png", "Analook vs",                       "Visualping",     "Strategic teardown vs page-change monitoring.",               "analook.com/compare"),
+    ("compare-owler.png",      "Analook vs",                       "Owler",          "Strategic depth vs competitor news feed.",                    "analook.com/compare"),
+    ("compare-google-trends.png", "Analook vs",                    "Google Trends",  "Beyond the search-interest curve.",                           "analook.com/compare"),
+    ("compare-brand24.png",    "Analook vs",                       "Brand24",        "Teardown depth vs social mention monitoring.",                "analook.com/compare"),
+    ("compare-kompyte.png",    "Analook vs",                       "Kompyte",        "$19/mo vs $800+/mo enterprise CI.",                           "analook.com/compare"),
+    ("alt-similarweb.png",     "7 best SimilarWeb",                "alternatives",   "Free + paid options ranked honestly for 2026.",               "analook.com/alternatives"),
+    ("alt-ahrefs.png",         "7 best Ahrefs",                    "alternatives",   "Free + paid SEO tools ranked.",                               "analook.com/alternatives"),
+    ("alt-semrush.png",        "7 best SEMrush",                   "alternatives",   "Free + paid marketing intelligence tools.",                   "analook.com/alternatives"),
+    ("alt-crayon.png",         "6 best Crayon",                    "alternatives",   "Including a free competitive-intel tool.",                    "analook.com/alternatives"),
+    ("alt-klue.png",           "6 best Klue",                      "alternatives",   "From free founder stack to enterprise battlecards.",          "analook.com/alternatives"),
 ]
 
-# Font paths (macOS Helvetica Neue, multi-face .ttc)
-FONT_PATH = "/System/Library/Fonts/HelveticaNeue.ttc"
-FONT_REG_IDX = 0     # Regular
-FONT_BOLD_IDX = 2    # Bold
+BG = (10, 10, 10)            # #0A0A0A
+INK = (245, 241, 235)        # #F5F1EB cream-white
+INK_MUTED = (160, 160, 158)  # gray-ish warm
+INK_FAINT = (108, 104, 100)  # darker warm gray
 
 
-def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    idx = FONT_BOLD_IDX if bold else FONT_REG_IDX
-    return ImageFont.truetype(FONT_PATH, size=size, index=idx)
+def font_reg(size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(FONT_REGULAR), size=size)
 
 
-def make_gradient_bg() -> Image.Image:
-    """Dark navy-to-near-black vertical gradient with subtle blue glow top-left."""
-    top = Image.new("RGB", (W, H), (10, 10, 18))       # near-black
-    bot = Image.new("RGB", (W, H), (24, 18, 56))       # deep indigo
-    mask = Image.linear_gradient("L").resize((W, H))
-    bg = Image.composite(bot, top, mask)
-
-    # Blue radial glow top-left
-    glow = Image.new("L", (W, H), 0)
-    gd = ImageDraw.Draw(glow)
-    # Draw concentric circles with falloff
-    cx, cy = -150, -150
-    for r in range(1000, 100, -25):
-        a = int(40 * (1 - (r - 100) / 900))
-        gd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=a)
-    glow = glow.filter(ImageFilter.GaussianBlur(80))
-    blue = Image.new("RGB", (W, H), (96, 165, 250))
-    bg = Image.composite(blue, bg, glow)
-
-    # Subtle dot grid
-    grid = Image.new("L", (W, H), 0)
-    gd = ImageDraw.Draw(grid)
-    for x in range(40, W, 40):
-        for y in range(40, H, 40):
-            gd.ellipse([x - 1, y - 1, x + 1, y + 1], fill=20)
-    grid_color = Image.new("RGB", (W, H), (255, 255, 255))
-    bg = Image.composite(grid_color, bg, grid)
-
-    return bg.convert("RGBA")
+def font_ital(size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(FONT_ITALIC), size=size)
 
 
-def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
-    """Greedy word wrap to fit within max_w pixels."""
+def font_sans(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
+    # Inter not bundled — fall back to HelveticaNeue for the small sans labels
+    path = "/System/Library/Fonts/HelveticaNeue.ttc"
+    return ImageFont.truetype(path, size=size, index=(2 if bold else 0))
+
+
+def make_backdrop() -> Image.Image:
+    """Dark canvas with subtle aurora-style multi-radial glow."""
+    img = Image.new("RGB", (W, H), BG)
+
+    # Soft blue glow upper-left
+    blue = Image.new("L", (W, H), 0)
+    bd = ImageDraw.Draw(blue)
+    cx, cy = 200, 80
+    for r in range(700, 100, -20):
+        a = int(34 * (1 - (r - 100) / 600))
+        bd.ellipse([cx - r, cy - r, cx + r, cy + r], fill=a)
+    blue = blue.filter(ImageFilter.GaussianBlur(80))
+    blue_color = Image.new("RGB", (W, H), (96, 165, 250))
+    img = Image.composite(blue_color, img, blue)
+
+    # Warm orange glow lower-right
+    orange = Image.new("L", (W, H), 0)
+    od = ImageDraw.Draw(orange)
+    cx, cy = W - 200, H - 80
+    for r in range(550, 100, -20):
+        a = int(30 * (1 - (r - 100) / 450))
+        od.ellipse([cx - r, cy - r, cx + r, cy + r], fill=a)
+    orange = orange.filter(ImageFilter.GaussianBlur(80))
+    orange_color = Image.new("RGB", (W, H), (251, 146, 60))
+    img = Image.composite(orange_color, img, orange)
+
+    return img.convert("RGBA")
+
+
+def draw_top_stripe(img: Image.Image) -> None:
+    """4px gradient stripe at top: orange→pink→amber."""
+    stripe = Image.new("RGB", (W, 4))
+    for x in range(W):
+        t = x / W
+        if t < 0.5:
+            f = t * 2
+            r = int(251 + (236 - 251) * f)
+            g = int(146 + (72 - 146) * f)
+            b = int(60 + (153 - 60) * f)
+        else:
+            f = (t - 0.5) * 2
+            r = int(236 + (245 - 236) * f)
+            g = int(72 + (158 - 72) * f)
+            b = int(153 + (11 - 153) * f)
+        for y in range(4):
+            stripe.putpixel((x, y), (r, g, b))
+    img.paste(stripe, (0, 0))
+
+
+def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list:
     words = text.split(" ")
     lines, line = [], ""
     for w in words:
@@ -102,69 +128,66 @@ def wrap_text(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
     return lines
 
 
-def make_card(title: str, subtitle: str, kicker: str, output: Path) -> None:
-    img = make_gradient_bg()
+def make_card(title: str, accent: str, subtitle: str, kicker: str, output: Path) -> None:
+    img = make_backdrop()
+    draw_top_stripe(img)
     draw = ImageDraw.Draw(img)
 
-    # Top-right brand chip
-    brand_font = font(24, bold=True)
-    brand_text = "ANALOOK"
-    bb = brand_font.getbbox(brand_text)
-    bw, bh = bb[2] - bb[0], bb[3] - bb[1]
-    chip_x, chip_y = W - bw - 80, 60
-    # background pill
-    pad = 16
-    draw.rounded_rectangle(
-        [chip_x - pad, chip_y - 10, chip_x + bw + pad, chip_y + bh + 12],
-        radius=8,
-        outline=(96, 165, 250, 180),
-        width=2,
-    )
-    draw.text((chip_x, chip_y), brand_text, font=brand_font, fill=(220, 230, 245, 255))
+    # Brand mark top-left (Instrument Serif italic "Analook")
+    brand_font = font_ital(38)
+    draw.text((80, 56), "Analook", font=brand_font, fill=INK)
 
-    # Accent stripe top-left (4px tall, blue → purple)
-    stripe = Image.new("RGB", (160, 4), (96, 165, 250))
-    for x in range(160):
-        # blue (96,165,250) → purple (168,85,247)
-        t = x / 160
-        r = int(96 + (168 - 96) * t)
-        g = int(165 + (85 - 165) * t)
-        b = int(250 + (247 - 250) * t)
-        stripe.putpixel((x, 0), (r, g, b))
-        stripe.putpixel((x, 1), (r, g, b))
-        stripe.putpixel((x, 2), (r, g, b))
-        stripe.putpixel((x, 3), (r, g, b))
-    img.paste(stripe, (80, 60))
+    # Tag chip top-right (small uppercase tracking)
+    chip_font = font_sans(15, bold=True)
+    chip = "Competitor intelligence".upper()
+    bb = chip_font.getbbox(chip)
+    cw = bb[2] - bb[0]
+    draw.text((W - cw - 80, 67), chip, font=chip_font, fill=INK_MUTED)
 
-    # Title (max 2 lines, big bold)
-    title_font = font(72, bold=True)
-    title_lines = wrap_text(title, title_font, max_w=W - 160)
-    title_lines = title_lines[:2]  # cap at 2 lines
-    line_h = 88
-    title_total_h = len(title_lines) * line_h
-    title_start_y = (H - title_total_h) // 2 - 40
-    for i, line in enumerate(title_lines):
-        draw.text((80, title_start_y + i * line_h), line, font=title_font, fill=(255, 255, 255, 255))
+    # Title — auto-wrap, vertically centered around 55% height
+    title_font = font_reg(86)
+    accent_font = font_ital(86)
+    line_h = 96
 
-    # Subtitle (single line max)
-    sub_font = font(30)
-    sub_lines = wrap_text(subtitle, sub_font, max_w=W - 160)[:2]
-    sub_y = title_start_y + title_total_h + 30
-    for i, line in enumerate(sub_lines):
-        draw.text((80, sub_y + i * 42), line, font=sub_font, fill=(190, 200, 220, 255))
+    # Layout: title (regular) + accent (italic) flow as one block
+    # First wrap title only
+    title_lines = wrap_text(title, title_font, max_w=W - 160)[:2]
 
-    # Bottom-left kicker (URL)
-    kicker_font = font(22)
-    draw.text((80, H - 70), kicker, font=kicker_font, fill=(130, 145, 170, 255))
+    # Where to start drawing title vertically
+    total_h = len(title_lines) * line_h + (line_h if accent else 0)
+    start_y = (H - total_h) // 2 - 30
 
-    # Bottom-right divider line + tagline
-    divider = "AI competitive intelligence · gingiris.tools"
-    div_font = font(20)
-    db = div_font.getbbox(divider)
+    y = start_y
+    for line in title_lines:
+        draw.text((80, y), line, font=title_font, fill=INK)
+        y += line_h
+
+    # Accent line — italic, slightly offset / continuation of title flow
+    if accent:
+        # If short accent fits on same line as last title word, draw inline; otherwise new line.
+        # For simplicity always put on its own line.
+        draw.text((80, y), accent, font=accent_font, fill=INK)
+        y += line_h
+
+    # Subtitle
+    sub_font = font_reg(30)
+    sub_y = y + 20
+    sub_lines = wrap_text(subtitle, sub_font, max_w=W - 200)[:2]
+    for line in sub_lines:
+        draw.text((80, sub_y), line, font=sub_font, fill=INK_MUTED)
+        sub_y += 42
+
+    # Bottom kicker (URL) — left
+    kicker_font = font_sans(20)
+    draw.text((80, H - 60), kicker, font=kicker_font, fill=INK_FAINT)
+
+    # Bottom-right small label
+    div_font = font_sans(18)
+    div = "Free competitor analysis"
+    db = div_font.getbbox(div)
     dw = db[2] - db[0]
-    draw.text((W - dw - 80, H - 68), divider, font=div_font, fill=(110, 125, 150, 255))
+    draw.text((W - dw - 80, H - 58), div, font=div_font, fill=INK_FAINT)
 
-    # Save
     img = img.convert("RGB")
     output.parent.mkdir(parents=True, exist_ok=True)
     img.save(output, "PNG", optimize=True)
@@ -172,9 +195,9 @@ def make_card(title: str, subtitle: str, kicker: str, output: Path) -> None:
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for filename, title, subtitle, kicker in PAGES:
+    for filename, title, accent, subtitle, kicker in PAGES:
         out = OUT_DIR / filename
-        make_card(title, subtitle, kicker, out)
+        make_card(title, accent, subtitle, kicker, out)
         print(f"  ✅ {out.relative_to(Path.cwd()) if str(out).startswith(str(Path.cwd())) else out}")
     print(f"\nGenerated {len(PAGES)} cards in {OUT_DIR}")
 
