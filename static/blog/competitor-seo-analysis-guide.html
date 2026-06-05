@@ -10,8 +10,23 @@
     <meta name="description" content="8-step framework to reverse-engineer any competitor's SEO strategy. Covers keyword gap analysis, backlink audits, content strategy, and technical SEO comparison.">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="canonical" href="https://www.analook.com/blog/competitor-seo-analysis-guide.html">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -47,20 +62,21 @@
         .prose td { padding: 0.5rem; color: #d1d5db; border-bottom: 1px solid #1f2937; }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
         <div class="max-w-3xl mx-auto px-6 flex items-center gap-3">
-            <a href="/" class="flex items-center gap-2"><img src="/assets/logo-header.png" alt="Analook" class="h-8"></a>
-            <span class="text-gray-600">/</span>
-            <span class="text-gray-400 text-sm">Blog</span>
+            <a href="/" class="flex items-center gap-2"><span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span></a>
+            <span class="text-[color:var(--ink-faint)]">/</span>
+            <span class="text-[color:var(--ink-muted)] text-sm">Blog</span>
         </div>
     </header>
 
     <main class="max-w-3xl mx-auto px-6 py-12">
         <article class="prose">
-            <p class="text-xs text-gray-500 mb-2">April 8, 2026 &middot; 11 min read &middot; by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
+            <p class="text-xs text-[color:var(--ink-faint)] mb-2">April 8, 2026 &middot; 11 min read &middot; by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
 
-            <h1 class="text-3xl font-bold text-white mb-4 leading-tight" style="margin-top:0">How to Analyze Your Competitor's SEO Strategy in 2026: 8 Steps</h1>
+            <h1 class="font-serif text-4xl md:text-5xl leading-tight tracking-tight text-white mb-4 leading-tight" style="margin-top:0">How to Analyze Your Competitor's SEO Strategy in 2026: 8 Steps</h1>
 
             <p><em>It was 6 AM on a Monday in January 2026 in Kunshan, and I was watching a competitor's organic traffic graph climb while ours flatlined. They'd gone from 2,400 to 38,000 monthly organic visits in 9 months. Same market. Similar product. We'd been doing SEO for just as long.</em></p>
 
@@ -69,16 +85,16 @@
             <p>That experience taught me something: competitor SEO analysis isn't about copying keywords. It's about understanding the <strong>system</strong> behind their growth &mdash; the architecture, the content model, the link acquisition strategy, the technical foundations. In 2026, AI tools make it possible to decode that system in minutes instead of days. Here's the exact 8-step framework I use.</p>
 
             <!-- Key Stats Table -->
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-3">Key Stats: Competitor SEO Analysis in 2026</h3>
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
+                <h3 class="text-sm font-semibold text-[color:var(--ink)] mb-3">Key Stats: Competitor SEO Analysis in 2026</h3>
                 <table>
-                    <tr><td class="text-gray-400">Average organic traffic growth from competitor analysis</td><td class="font-mono text-green-400">+47% in 6 months</td></tr>
-                    <tr><td class="text-gray-400">Time for manual competitor SEO audit</td><td class="font-mono text-red-400">8-12 hours</td></tr>
-                    <tr><td class="text-gray-400">Time with AI-powered tools</td><td class="font-mono text-green-400">15-30 minutes</td></tr>
-                    <tr><td class="text-gray-400">Average keyword gap opportunities found</td><td class="font-mono text-blue-300">150-400 keywords</td></tr>
-                    <tr><td class="text-gray-400">% of top-ranking pages with 50+ backlinks</td><td class="font-mono text-blue-300">~68%</td></tr>
-                    <tr><td class="text-gray-400">Branded vs. non-branded traffic split (healthy site)</td><td class="font-mono text-blue-300">30/70</td></tr>
-                    <tr><td class="text-gray-400">Content pages needed for SEO traction in 2026</td><td class="font-mono text-blue-300">30-50 minimum</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Average organic traffic growth from competitor analysis</td><td class="font-mono text-green-400">+47% in 6 months</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Time for manual competitor SEO audit</td><td class="font-mono text-red-400">8-12 hours</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Time with AI-powered tools</td><td class="font-mono text-green-400">15-30 minutes</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Average keyword gap opportunities found</td><td class="font-mono text-[color:var(--ink)]">150-400 keywords</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">% of top-ranking pages with 50+ backlinks</td><td class="font-mono text-[color:var(--ink)]">~68%</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Branded vs. non-branded traffic split (healthy site)</td><td class="font-mono text-[color:var(--ink)]">30/70</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Content pages needed for SEO traction in 2026</td><td class="font-mono text-[color:var(--ink)]">30-50 minimum</td></tr>
                 </table>
             </div>
 
@@ -178,8 +194,8 @@
 
             <p>Use <a href="https://www.analook.com">Analook</a>'s Wayback Machine integration to see how their content strategy evolved. You can literally watch a competitor go from "random blog posts" to "structured topic clusters" &mdash; and see the traffic impact of that transition. This historical view is something no other tool provides, and it reveals strategic decisions that aren't visible from current data alone.</p>
 
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-3">Content Architecture Patterns to Look For</h3>
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
+                <h3 class="text-sm font-semibold text-[color:var(--ink)] mb-3">Content Architecture Patterns to Look For</h3>
                 <table>
                     <tr><th>Pattern</th><th>Example</th><th>SEO Impact</th></tr>
                     <tr><td>Hub & spoke</td><td>Main guide + 10 subtopic pages</td><td>Strong topical authority signals</td></tr>
@@ -227,8 +243,8 @@
 
             <p>Analysis without action is just procrastination. Here's how to turn your findings into a 90-day SEO plan:</p>
 
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-3">The 90-Day SEO Counter-Strategy Template</h3>
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
+                <h3 class="text-sm font-semibold text-[color:var(--ink)] mb-3">The 90-Day SEO Counter-Strategy Template</h3>
                 <ol>
                     <li><strong>Week 1-2: Technical fixes</strong> &mdash; Fix any Core Web Vitals, indexation, or schema issues identified in Step 6</li>
                     <li><strong>Week 2-4: Quick wins</strong> &mdash; Update existing pages to target keywords from your gap analysis where you already rank 11-20</li>
@@ -268,7 +284,7 @@
 
             <h2>Key Takeaways</h2>
 
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
                 <ul style="margin:0">
                     <li>Competitor SEO analysis should be <strong>systematic, not random</strong> &mdash; follow all 8 steps for a complete picture</li>
                     <li>The keyword gap analysis (Step 3) typically reveals <strong>150-400 keyword opportunities</strong> you're missing</li>
@@ -294,19 +310,19 @@
         </article>
 
         <!-- CTA -->
-        <div class="text-center py-10 border-t border-gray-800 mt-10">
+        <div class="text-center py-10 border-t border-[color:var(--border)] mt-10">
             <h2 class="text-2xl font-bold mb-3">See your competitor's SEO strategy in 2 minutes</h2>
-            <p class="text-gray-400 mb-6">Analook pulls traffic, keywords, backlinks, and content architecture into one AI-powered report.</p>
-            <a href="https://www.analook.com" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-8 py-3 rounded-lg transition-colors">Analyze a Competitor &rarr;</a>
+            <p class="text-[color:var(--ink-muted)] mb-6">Analook pulls traffic, keywords, backlinks, and content architecture into one AI-powered report.</p>
+            <a href="https://www.analook.com" class="btn-primary font-medium px-8 py-3 rounded-lg transition-colors">Analyze a Competitor &rarr;</a>
         </div>
     </main>
 
-    <footer class="border-t border-gray-800 py-6">
-        <div class="max-w-3xl mx-auto px-6 flex items-center justify-between text-xs text-gray-600">
+    <footer class="border-t border-[color:var(--border)] py-6">
+        <div class="max-w-3xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
             <span>&copy; 2026 Gingiris</span>
             <div class="flex gap-4">
-                <a href="/terms.html" class="hover:text-gray-400">Terms</a>
-                <a href="/privacy.html" class="hover:text-gray-400">Privacy</a>
+                <a href="/terms.html" class="hover:text-[color:var(--ink-muted)]">Terms</a>
+                <a href="/privacy.html" class="hover:text-[color:var(--ink-muted)]">Privacy</a>
             </div>
         </div>
     </footer>

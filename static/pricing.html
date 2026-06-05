@@ -19,8 +19,23 @@
     <!-- Supabase config (same values as index.html, needed by auth.js) -->
     <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
 <!-- Product + Offer Schema (pricing page conversion) -->
 <script type="application/ld+json">
 {
@@ -66,31 +81,32 @@
 }
 </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
         <div class="max-w-5xl mx-auto px-6 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2">
-                <img src="/assets/logo-header.png" alt="Analook" class="h-8">
+                <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
             </a>
-            <a href="/" class="text-sm text-gray-400 hover:text-white transition-colors">← Back to app</a>
+            <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors">← Back to app</a>
         </div>
     </header>
 
     <main class="max-w-5xl mx-auto px-6 py-16">
         <div class="text-center mb-12">
-            <h1 class="text-3xl font-bold mb-3">Simple, transparent pricing</h1>
-            <p class="text-gray-400">Analyze any competitor in minutes. Pay only for what you use.</p>
+            <h1 class="font-serif text-4xl md:text-5xl leading-tight tracking-tight mb-3">Simple, transparent pricing</h1>
+            <p class="text-[color:var(--ink-muted)]">Analyze any competitor in minutes. Pay only for what you use.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <!-- Free -->
-            <div class="bg-gray-900 rounded-2xl border border-gray-800 p-6 flex flex-col">
+            <div class="bg-gray-900 rounded-2xl border border-[color:var(--border)] p-6 flex flex-col">
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold">Free</h3>
-                    <div class="mt-2"><span class="text-3xl font-bold">$0</span><span class="text-gray-500 text-sm">/month</span></div>
-                    <p class="text-xs text-gray-500 mt-2">For trying it out</p>
+                    <div class="mt-2"><span class="text-3xl font-bold">$0</span><span class="text-[color:var(--ink-faint)] text-sm">/month</span></div>
+                    <p class="text-xs text-[color:var(--ink-faint)] mt-2">For trying it out</p>
                 </div>
-                <ul class="space-y-2 text-sm text-gray-400 flex-1 mb-6">
+                <ul class="space-y-2 text-sm text-[color:var(--ink-muted)] flex-1 mb-6">
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 2 reports/month</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full analysis</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> AI insights</li>
@@ -103,27 +119,27 @@
                 <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">Most popular</div>
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold">Pro</h3>
-                    <div class="mt-2"><span class="text-3xl font-bold">$19</span><span class="text-gray-500 text-sm">/month</span></div>
-                    <p class="text-xs text-gray-500 mt-2">For indie hackers & consultants</p>
+                    <div class="mt-2"><span class="text-3xl font-bold">$19</span><span class="text-[color:var(--ink-faint)] text-sm">/month</span></div>
+                    <p class="text-xs text-[color:var(--ink-faint)] mt-2">For indie hackers & consultants</p>
                 </div>
-                <ul class="space-y-2 text-sm text-gray-400 flex-1 mb-6">
+                <ul class="space-y-2 text-sm text-[color:var(--ink-muted)] flex-1 mb-6">
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 30 reports/month</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Full analysis + Strategy Radar</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> AI strategic verdict</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Export Markdown</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 7-day free trial</li>
                 </ul>
-                <button onclick="checkout('pro')" class="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">Start free trial</button>
+                <button onclick="checkout('pro')" class="block w-full text-center btn-primary text-sm font-medium py-2.5 rounded-lg transition-colors">Start free trial</button>
             </div>
 
             <!-- Team -->
-            <div class="bg-gray-900 rounded-2xl border border-gray-800 p-6 flex flex-col">
+            <div class="bg-gray-900 rounded-2xl border border-[color:var(--border)] p-6 flex flex-col">
                 <div class="mb-6">
                     <h3 class="text-lg font-semibold">Team</h3>
-                    <div class="mt-2"><span class="text-3xl font-bold">$79</span><span class="text-gray-500 text-sm">/month</span></div>
-                    <p class="text-xs text-gray-500 mt-2">For agencies & VC teams</p>
+                    <div class="mt-2"><span class="text-3xl font-bold">$79</span><span class="text-[color:var(--ink-faint)] text-sm">/month</span></div>
+                    <p class="text-xs text-[color:var(--ink-faint)] mt-2">For agencies & VC teams</p>
                 </div>
-                <ul class="space-y-2 text-sm text-gray-400 flex-1 mb-6">
+                <ul class="space-y-2 text-sm text-[color:var(--ink-muted)] flex-1 mb-6">
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> 100 reports/month</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Everything in Pro</li>
                     <li class="flex items-center gap-2"><span class="text-green-400">✓</span> Priority support</li>
@@ -134,19 +150,19 @@
         </div>
 
         <!-- Single report -->
-        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-6 max-w-md mx-auto text-center">
+        <div class="bg-gray-900 rounded-2xl border border-[color:var(--border)] p-6 max-w-md mx-auto text-center">
             <h3 class="text-lg font-semibold mb-1">Just need one report?</h3>
-            <p class="text-sm text-gray-400 mb-4">Pay $5 for a single full analysis — no subscription needed.</p>
+            <p class="text-sm text-[color:var(--ink-muted)] mb-4">Pay $5 for a single full analysis — no subscription needed.</p>
             <button onclick="checkout('single_report')" class="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-6 py-2.5 rounded-lg transition-colors">Buy single report — $5</button>
         </div>
     </main>
 
-    <footer class="border-t border-gray-800 py-6 mt-16">
-        <div class="max-w-5xl mx-auto px-6 flex items-center justify-between text-xs text-gray-600">
+    <footer class="border-t border-[color:var(--border)] py-6 mt-16">
+        <div class="max-w-5xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
             <span>&copy; 2026 Gingiris. All rights reserved.</span>
             <div class="flex gap-4">
-                <a href="/terms.html" class="hover:text-gray-400">Terms of Service</a>
-                <a href="/privacy.html" class="hover:text-gray-400">Privacy Policy</a>
+                <a href="/terms.html" class="hover:text-[color:var(--ink-muted)]">Terms of Service</a>
+                <a href="/privacy.html" class="hover:text-[color:var(--ink-muted)]">Privacy Policy</a>
             </div>
         </div>
     </footer>

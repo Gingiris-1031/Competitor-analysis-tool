@@ -10,8 +10,23 @@
     <meta name="description" content="I've helped 30+ products reach #1 on Product Hunt. Here's the exact strategy top products use in 2026: timing, community building, launch day tactics, and post-launch SEO.">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="canonical" href="https://www.analook.com/blog/product-hunt-launch-strategy.html">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -47,20 +62,21 @@
         .prose td { padding: 0.5rem; color: #d1d5db; border-bottom: 1px solid #1f2937; }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
-    <header class="border-b border-gray-800 py-4">
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
         <div class="max-w-3xl mx-auto px-6 flex items-center gap-3">
-            <a href="/" class="flex items-center gap-2"><img src="/assets/logo-header.png" alt="Analook" class="h-8"></a>
-            <span class="text-gray-600">/</span>
-            <span class="text-gray-400 text-sm">Blog</span>
+            <a href="/" class="flex items-center gap-2"><span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span></a>
+            <span class="text-[color:var(--ink-faint)]">/</span>
+            <span class="text-[color:var(--ink-muted)] text-sm">Blog</span>
         </div>
     </header>
 
     <main class="max-w-3xl mx-auto px-6 py-12">
         <article class="prose">
-            <p class="text-xs text-gray-500 mb-2">April 8, 2026 &middot; 15 min read &middot; by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
+            <p class="text-xs text-[color:var(--ink-faint)] mb-2">April 8, 2026 &middot; 15 min read &middot; by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
 
-            <h1 class="text-3xl font-bold text-white mb-4 leading-tight" style="margin-top:0">Product Hunt Launch Strategy: What Top Products Do Differently in 2026</h1>
+            <h1 class="font-serif text-4xl md:text-5xl leading-tight tracking-tight text-white mb-4 leading-tight" style="margin-top:0">Product Hunt Launch Strategy: What Top Products Do Differently in 2026</h1>
 
             <p><em>It was 11:58 PM Pacific on a Monday night in October 2024, and I was sitting in a WeChat group with 12 people scattered across Beijing, Shanghai, and San Francisco. In 2 minutes, we'd launch AFFiNE on Product Hunt for the third time. The first launch had gotten us 700 upvotes. The second, 1,200. We were aiming for #1 Product of the Day.</em></p>
 
@@ -69,17 +85,17 @@
             <p>I've helped 30+ products launch on Product Hunt since 2022, including 8 that hit #1 Product of the Day. The strategy has evolved significantly &mdash; what worked in 2023 is different from what works in 2026. Here's the complete playbook, with real data from launches I've managed or studied.</p>
 
             <!-- Key Stats Table -->
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-3">Key Stats: Product Hunt Launches in 2026</h3>
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
+                <h3 class="text-sm font-semibold text-[color:var(--ink)] mb-3">Key Stats: Product Hunt Launches in 2026</h3>
                 <table>
-                    <tr><td class="text-gray-400">Average upvotes for #1 Product of the Day</td><td class="font-mono text-blue-300">800-1,500</td></tr>
-                    <tr><td class="text-gray-400">Best launch days</td><td class="font-mono text-green-400">Tuesday-Thursday</td></tr>
-                    <tr><td class="text-gray-400">Average signups from a top-5 launch</td><td class="font-mono text-blue-300">1,500-5,000</td></tr>
-                    <tr><td class="text-gray-400">Ideal pre-launch community building period</td><td class="font-mono text-blue-300">4-8 weeks</td></tr>
-                    <tr><td class="text-gray-400">Multi-wave launches by top products</td><td class="font-mono text-blue-300">2-4 launches</td></tr>
-                    <tr><td class="text-gray-400">Backlinks from a top-10 PH launch</td><td class="font-mono text-green-400">50-200</td></tr>
-                    <tr><td class="text-gray-400">SEO traffic boost duration</td><td class="font-mono text-green-400">6-12 months</td></tr>
-                    <tr><td class="text-gray-400">Conversion rate, PH visitor to signup</td><td class="font-mono text-blue-300">8-15%</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Average upvotes for #1 Product of the Day</td><td class="font-mono text-[color:var(--ink)]">800-1,500</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Best launch days</td><td class="font-mono text-green-400">Tuesday-Thursday</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Average signups from a top-5 launch</td><td class="font-mono text-[color:var(--ink)]">1,500-5,000</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Ideal pre-launch community building period</td><td class="font-mono text-[color:var(--ink)]">4-8 weeks</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Multi-wave launches by top products</td><td class="font-mono text-[color:var(--ink)]">2-4 launches</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Backlinks from a top-10 PH launch</td><td class="font-mono text-green-400">50-200</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">SEO traffic boost duration</td><td class="font-mono text-green-400">6-12 months</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">Conversion rate, PH visitor to signup</td><td class="font-mono text-[color:var(--ink)]">8-15%</td></tr>
                 </table>
             </div>
 
@@ -152,17 +168,17 @@
 
             <p>Launch day is a 24-hour sprint. Here's the hour-by-hour playbook I use:</p>
 
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-3">Launch Day Timeline (All Times PT)</h3>
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
+                <h3 class="text-sm font-semibold text-[color:var(--ink)] mb-3">Launch Day Timeline (All Times PT)</h3>
                 <table>
-                    <tr><td class="text-gray-400">12:01 AM</td><td>Product goes live. Post your maker comment immediately. Send email blast #1 to your supporter list.</td></tr>
-                    <tr><td class="text-gray-400">12:15 AM</td><td>Tweet the launch link. Post in your community Slack/Discord/WeChat groups.</td></tr>
-                    <tr><td class="text-gray-400">6:00 AM</td><td>Check ranking position. Send email blast #2 to broader user list. Post on LinkedIn.</td></tr>
-                    <tr><td class="text-gray-400">9:00 AM</td><td>Peak PH traffic begins. Respond to every comment on your PH page. Share user testimonials on Twitter.</td></tr>
-                    <tr><td class="text-gray-400">12:00 PM</td><td>Midday push. Ask supporters who haven't voted yet to do so. Post a "behind the scenes" thread on Twitter.</td></tr>
-                    <tr><td class="text-gray-400">3:00 PM</td><td>Afternoon engagement. Share any press coverage or notable comments. DM thank-yous to top commenters.</td></tr>
-                    <tr><td class="text-gray-400">6:00 PM</td><td>Final push. Post in communities you haven't hit yet. Reddit, HN (if appropriate), Indie Hackers.</td></tr>
-                    <tr><td class="text-gray-400">11:59 PM</td><td>Window closes. Celebrate (or debrief). Start planning your post-launch follow-up.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">12:01 AM</td><td>Product goes live. Post your maker comment immediately. Send email blast #1 to your supporter list.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">12:15 AM</td><td>Tweet the launch link. Post in your community Slack/Discord/WeChat groups.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">6:00 AM</td><td>Check ranking position. Send email blast #2 to broader user list. Post on LinkedIn.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">9:00 AM</td><td>Peak PH traffic begins. Respond to every comment on your PH page. Share user testimonials on Twitter.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">12:00 PM</td><td>Midday push. Ask supporters who haven't voted yet to do so. Post a "behind the scenes" thread on Twitter.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">3:00 PM</td><td>Afternoon engagement. Share any press coverage or notable comments. DM thank-yous to top commenters.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">6:00 PM</td><td>Final push. Post in communities you haven't hit yet. Reddit, HN (if appropriate), Indie Hackers.</td></tr>
+                    <tr><td class="text-[color:var(--ink-muted)]">11:59 PM</td><td>Window closes. Celebrate (or debrief). Start planning your post-launch follow-up.</td></tr>
                 </table>
             </div>
 
@@ -284,7 +300,7 @@
 
             <h2>Key Takeaways</h2>
 
-            <div class="bg-gray-900 rounded-lg border border-gray-800 p-4 my-6">
+            <div class="bg-gray-900 rounded-lg border border-[color:var(--border)] p-4 my-6">
                 <ul style="margin:0">
                     <li>Start community building <strong>4-8 weeks before launch</strong>, not 3 days before</li>
                     <li>Launch at <strong>12:01 AM PT on Tuesday-Thursday</strong> for best results</li>
@@ -311,19 +327,19 @@
         </article>
 
         <!-- CTA -->
-        <div class="text-center py-10 border-t border-gray-800 mt-10">
+        <div class="text-center py-10 border-t border-[color:var(--border)] mt-10">
             <h2 class="text-2xl font-bold mb-3">Plan your Product Hunt launch with competitor data</h2>
-            <p class="text-gray-400 mb-6">Analook shows you how competitors launched, their upvote trajectories, and post-launch traffic impact.</p>
-            <a href="https://www.analook.com" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-8 py-3 rounded-lg transition-colors">Research Competitor Launches &rarr;</a>
+            <p class="text-[color:var(--ink-muted)] mb-6">Analook shows you how competitors launched, their upvote trajectories, and post-launch traffic impact.</p>
+            <a href="https://www.analook.com" class="btn-primary font-medium px-8 py-3 rounded-lg transition-colors">Research Competitor Launches &rarr;</a>
         </div>
     </main>
 
-    <footer class="border-t border-gray-800 py-6">
-        <div class="max-w-3xl mx-auto px-6 flex items-center justify-between text-xs text-gray-600">
+    <footer class="border-t border-[color:var(--border)] py-6">
+        <div class="max-w-3xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
             <span>&copy; 2026 Gingiris</span>
             <div class="flex gap-4">
-                <a href="/terms.html" class="hover:text-gray-400">Terms</a>
-                <a href="/privacy.html" class="hover:text-gray-400">Privacy</a>
+                <a href="/terms.html" class="hover:text-[color:var(--ink-muted)]">Terms</a>
+                <a href="/privacy.html" class="hover:text-[color:var(--ink-muted)]">Privacy</a>
             </div>
         </div>
     </footer>

@@ -13,7 +13,23 @@
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="alternate" type="application/rss+xml" href="https://www.analook.com/blog/feed.xml" title="Analook Blog RSS" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -36,19 +52,20 @@
 </style>
 </head>
 <body class="min-h-screen">
+<div class="top-accent"></div>
 
-<header class="border-b border-gray-800 py-4">
+<header class="border-b border-[color:var(--border)] py-5">
   <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
     <a href="/" class="flex items-center gap-3">
-      <img src="/assets/favicon-512x512.png" alt="Analook" class="h-10 w-10">
+      <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
       <span class="text-xl font-bold text-white">Analook</span>
-      <span class="text-xs text-gray-500 hidden sm:inline">· Blog</span>
+      <span class="text-xs text-[color:var(--ink-faint)] hidden sm:inline">· Blog</span>
     </a>
     <nav class="flex items-center gap-5 text-sm">
-      <a href="/comparison.html" class="text-gray-400 hover:text-white">Compare</a>
-      <a href="/docs/mcp.html" class="text-gray-400 hover:text-white">MCP</a>
+      <a href="/comparison.html" class="text-[color:var(--ink-muted)] hover:text-white">Compare</a>
+      <a href="/docs/mcp.html" class="text-[color:var(--ink-muted)] hover:text-white">MCP</a>
       <a href="/blog/" class="text-white font-medium">Blog</a>
-      <a href="/" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg">Analyze →</a>
+      <a href="/" class="btn-primary px-4 py-1.5 rounded-lg">Analyze →</a>
     </nav>
   </div>
 </header>
@@ -56,27 +73,27 @@
 <main class="max-w-4xl mx-auto px-6 py-12">
 
   <div class="mb-10">
-    <h1 class="text-4xl font-bold mb-3">Competitor Analysis Tactics</h1>
-    <p class="text-gray-400 text-lg leading-relaxed">
+    <h1 class="font-serif text-5xl md:text-6xl leading-tight tracking-tight  mb-3">Competitor Analysis Tactics</h1>
+    <p class="text-[color:var(--ink-muted)] text-lg leading-relaxed">
       Practical guides for SaaS founders running competitive intelligence in 2026 —
-      built by the team behind <a href="/" class="text-blue-400 hover:underline">Analook</a>,
+      built by the team behind <a href="/" class="text-[color:var(--ink)] hover:underline">Analook</a>,
       a free AI competitor-analysis tool used by 50+ indie hackers.
     </p>
     <div class="mt-4 flex items-center gap-3 text-sm">
-      <a href="/blog/feed.xml" class="text-gray-500 hover:text-blue-400">↗ RSS Feed</a>
+      <a href="/blog/feed.xml" class="text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">↗ RSS Feed</a>
       <span class="text-gray-700">·</span>
-      <a href="https://gingiris.tools" class="text-gray-500 hover:text-blue-400">↗ Gingiris (Iris's broader SaaS writing)</a>
+      <a href="https://gingiris.tools" class="text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">↗ Gingiris (Iris's broader SaaS writing)</a>
     </div>
   </div>
 
   <!-- Featured post -->
-  <a href="/blog/competitive-analysis-guide-2026.html" class="post-card block bg-gray-900 border border-gray-800 rounded-xl p-6 mb-4 transition-colors">
-    <div class="flex items-center gap-2 text-xs text-gray-500 mb-2">
-      <span class="bg-blue-900/40 text-blue-300 border border-blue-800/50 px-2 py-0.5 rounded-full">Featured</span>
+  <a href="/blog/competitive-analysis-guide-2026.html" class="post-card block card-subtle rounded-xl p-6 mb-4 transition-colors">
+    <div class="flex items-center gap-2 text-xs text-[color:var(--ink-faint)] mb-2">
+      <span class="bg-blue-900/40 text-[color:var(--ink)] border border-blue-800/50 px-2 py-0.5 rounded-full">Featured</span>
       <span>· 12 min read · April 2026</span>
     </div>
     <h2 class="post-title text-2xl font-semibold text-white mb-2 transition-colors">How to Do Competitive Analysis in 2026: The AI-Powered Guide</h2>
-    <p class="text-gray-400 text-sm leading-relaxed">
+    <p class="text-[color:var(--ink-muted)] text-sm leading-relaxed">
       The 5-step framework for running competitor analysis when you don't have an analyst team —
       including which signals matter, which tools to use at each stage, and the AI shortcuts that compress
       a week of research into 30 minutes.
@@ -86,22 +103,22 @@
   <!-- Posts grid -->
   <div class="space-y-3 mt-3">
 
-    <a href="/blog/best-competitive-intelligence-tools-2026.html" class="post-card block bg-gray-900 border border-gray-800 rounded-xl p-5 transition-colors">
-      <div class="text-xs text-gray-500 mb-1">10 min read · April 2026</div>
+    <a href="/blog/best-competitive-intelligence-tools-2026.html" class="post-card block card-subtle rounded-xl p-5 transition-colors">
+      <div class="text-xs text-[color:var(--ink-faint)] mb-1">10 min read · April 2026</div>
       <h3 class="post-title text-lg font-semibold text-white mb-1 transition-colors">10 Best Competitive Intelligence Tools in 2026 (Tested & Compared)</h3>
-      <p class="text-gray-400 text-sm">Side-by-side comparison of Crayon, Klue, Kompyte, Similarweb, and 6 lighter alternatives — including which one fits a $0-$1K marketing budget.</p>
+      <p class="text-[color:var(--ink-muted)] text-sm">Side-by-side comparison of Crayon, Klue, Kompyte, Similarweb, and 6 lighter alternatives — including which one fits a $0-$1K marketing budget.</p>
     </a>
 
-    <a href="/blog/competitor-seo-analysis-guide.html" class="post-card block bg-gray-900 border border-gray-800 rounded-xl p-5 transition-colors">
-      <div class="text-xs text-gray-500 mb-1">11 min read · April 2026</div>
+    <a href="/blog/competitor-seo-analysis-guide.html" class="post-card block card-subtle rounded-xl p-5 transition-colors">
+      <div class="text-xs text-[color:var(--ink-faint)] mb-1">11 min read · April 2026</div>
       <h3 class="post-title text-lg font-semibold text-white mb-1 transition-colors">How to Analyze Your Competitor's SEO Strategy in 2026: 8 Steps</h3>
-      <p class="text-gray-400 text-sm">Reverse-engineer their keyword strategy, content clusters, and link-building patterns — using free tools and one $5 Analook report.</p>
+      <p class="text-[color:var(--ink-muted)] text-sm">Reverse-engineer their keyword strategy, content clusters, and link-building patterns — using free tools and one $5 Analook report.</p>
     </a>
 
-    <a href="/blog/product-hunt-launch-strategy.html" class="post-card block bg-gray-900 border border-gray-800 rounded-xl p-5 transition-colors">
-      <div class="text-xs text-gray-500 mb-1">9 min read · April 2026</div>
+    <a href="/blog/product-hunt-launch-strategy.html" class="post-card block card-subtle rounded-xl p-5 transition-colors">
+      <div class="text-xs text-[color:var(--ink-faint)] mb-1">9 min read · April 2026</div>
       <h3 class="post-title text-lg font-semibold text-white mb-1 transition-colors">Product Hunt Launch Strategy: What Top Products Do Differently in 2026</h3>
-      <p class="text-gray-400 text-sm">Patterns from analyzing 100+ #1 launches — the 6-week pre-launch sequence, the comment template that beats LLM-generated comments, and the post-launch 80% traffic drop fix.</p>
+      <p class="text-[color:var(--ink-muted)] text-sm">Patterns from analyzing 100+ #1 launches — the 6-week pre-launch sequence, the comment template that beats LLM-generated comments, and the post-launch 80% traffic drop fix.</p>
     </a>
 
   </div>
@@ -109,19 +126,19 @@
   <!-- CTA -->
   <div class="mt-12 bg-blue-900/20 border border-blue-800/40 rounded-xl p-6 text-center">
     <h3 class="text-xl font-semibold text-white mb-2">Run your first competitor teardown — free</h3>
-    <p class="text-gray-400 text-sm mb-4">Paste any URL · 60 seconds · Wayback history + SEO + social + Product Hunt + AI insights · 2 free reports/month, no card</p>
-    <a href="/" class="inline-block bg-blue-600 hover:bg-blue-500 text-white font-medium px-6 py-3 rounded-lg transition-colors">Start a Free Analysis →</a>
+    <p class="text-[color:var(--ink-muted)] text-sm mb-4">Paste any URL · 60 seconds · Wayback history + SEO + social + Product Hunt + AI insights · 2 free reports/month, no card</p>
+    <a href="/" class="inline-block btn-primary font-medium px-6 py-3 rounded-lg transition-colors">Start a Free Analysis →</a>
   </div>
 
 </main>
 
-<footer class="border-t border-gray-800 py-6 mt-12">
-  <div class="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-600">
-    <span>&copy; 2026 Analook · Built by <a href="https://gingiris.com" class="hover:text-gray-400">Iris Wei</a></span>
+<footer class="border-t border-[color:var(--border)] py-6 mt-12">
+  <div class="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
+    <span>&copy; 2026 Analook · Built by <a href="https://gingiris.com" class="hover:text-[color:var(--ink-muted)]">Iris Wei</a></span>
     <div class="flex gap-4">
-      <a href="/terms.html" class="hover:text-gray-400">Terms</a>
-      <a href="/privacy.html" class="hover:text-gray-400">Privacy</a>
-      <a href="/blog/feed.xml" class="hover:text-gray-400">RSS</a>
+      <a href="/terms.html" class="hover:text-[color:var(--ink-muted)]">Terms</a>
+      <a href="/privacy.html" class="hover:text-[color:var(--ink-muted)]">Privacy</a>
+      <a href="/blog/feed.xml" class="hover:text-[color:var(--ink-muted)]">RSS</a>
     </div>
   </div>
 </footer>

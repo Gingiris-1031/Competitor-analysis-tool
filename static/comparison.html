@@ -16,7 +16,23 @@
 <!-- Supabase config — required by auth.js (publishable, safe to expose) -->
 <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
 <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
 <style>
     body { background: #0a0a0a; color: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
     .metric-row td { border-top: 1px solid #1f2937; }
@@ -71,21 +87,22 @@
 </script>
 </head>
 <body class="min-h-screen">
+<div class="top-accent"></div>
 
-<header class="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+<header class="border-b border-[color:var(--border)] px-6 py-4 flex items-center justify-between">
     <a href="/" class="flex items-center gap-2 text-lg font-semibold">
         <span>🔍</span><span>Analook</span>
-        <span class="text-xs text-gray-500 font-normal ml-2">Comparison</span>
+        <span class="text-xs text-[color:var(--ink-faint)] font-normal ml-2">Comparison</span>
     </a>
-    <a href="/" class="text-sm text-gray-400 hover:text-white">← Back to analyzer</a>
+    <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-white">← Back to analyzer</a>
 </header>
 
 <main class="max-w-7xl mx-auto px-6 py-8">
 
     <!-- Input panel -->
-    <div id="input-panel" class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+    <div id="input-panel" class="card-subtle rounded-xl p-6 mb-6">
         <h1 class="text-xl font-semibold mb-2">Multi-Competitor Comparison</h1>
-        <p class="text-sm text-gray-400 mb-5">
+        <p class="text-sm text-[color:var(--ink-muted)] mb-5">
             Paste 2–4 competitor URLs (or Analook report IDs you already ran) and we'll stack them side-by-side.
             Running a fresh analysis costs 1 credit per URL.
         </p>
@@ -93,10 +110,10 @@
             <!-- populated by JS -->
         </div>
         <div class="flex items-center gap-3">
-            <button id="add-row-btn" class="text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg">
+            <button id="add-row-btn" class="text-sm text-[color:var(--ink-muted)] hover:text-white border border-[color:var(--border)] hover:border-gray-500 px-3 py-1.5 rounded-lg">
                 + Add competitor
             </button>
-            <button id="compare-btn" class="ml-auto bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors">
+            <button id="compare-btn" class="ml-auto btn-primary text-sm font-medium px-5 py-2 rounded-lg transition-colors">
                 Compare
             </button>
         </div>
@@ -104,34 +121,34 @@
     </div>
 
     <!-- Status / progress while fetching -->
-    <div id="status-panel" class="hidden bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
-        <div id="status-list" class="text-sm text-gray-300 space-y-1"></div>
+    <div id="status-panel" class="hidden card-subtle rounded-xl p-5 mb-6">
+        <div id="status-list" class="text-sm text-[color:var(--ink)] space-y-1"></div>
     </div>
 
     <!-- Result panel: 3 sections built by JS — verdict cards, radar, metrics table -->
     <div id="result-panel" class="hidden">
         <!-- 1. AI Verdict cards (one per competitor) -->
         <section id="verdict-section" class="mb-8">
-            <h2 class="text-base font-semibold text-gray-300 mb-3">🧠 AI Verdict — Killer move & growth pattern</h2>
+            <h2 class="text-base font-semibold text-[color:var(--ink)] mb-3">🧠 AI Verdict — Killer move & growth pattern</h2>
             <div id="verdict-grid" class="grid gap-3"></div>
         </section>
 
         <!-- 2. Strategy Radar — 6 dimensions side-by-side -->
         <section id="radar-section" class="mb-8">
-            <h2 class="text-base font-semibold text-gray-300 mb-3">🎯 Strategy Radar — 6 dimensions, winner highlighted</h2>
-            <div id="radar-table" class="bg-gray-900 border border-gray-800 rounded-xl p-5"></div>
+            <h2 class="text-base font-semibold text-[color:var(--ink)] mb-3">🎯 Strategy Radar — 6 dimensions, winner highlighted</h2>
+            <div id="radar-table" class="card-subtle rounded-xl p-5"></div>
         </section>
 
         <!-- 3. Detailed metrics table -->
         <section id="metrics-section" class="mb-6">
-            <h2 class="text-base font-semibold text-gray-300 mb-3">📊 Detailed metrics</h2>
-            <div class="overflow-x-auto bg-gray-900 border border-gray-800 rounded-xl">
+            <h2 class="text-base font-semibold text-[color:var(--ink)] mb-3">📊 Detailed metrics</h2>
+            <div class="overflow-x-auto card-subtle rounded-xl">
                 <table id="compare-table" class="w-full text-sm border-collapse">
                     <thead id="compare-thead"></thead>
                     <tbody id="compare-tbody"></tbody>
                 </table>
             </div>
-            <p class="mt-3 text-xs text-gray-500">
+            <p class="mt-3 text-xs text-[color:var(--ink-faint)]">
                 Sources: DataForSEO · SEO Review Tools · TwitterAPI.io + Brave · Product Hunt API · GitHub · Wayback Machine ·
                 <a href="/" class="underline">run a fresh analysis →</a>
             </p>
