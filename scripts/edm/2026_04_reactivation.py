@@ -106,7 +106,12 @@ def sb_post(path: str, body: "dict | list") -> dict:
 
 
 def resend_send(email: dict) -> dict:
-    """Send via Resend HTTP API."""
+    """Send via Resend HTTP API.
+
+    Resend sits behind Cloudflare which rejects requests with no User-Agent
+    (CF error 1010 / "browser integrity check"). urllib does NOT set a
+    default UA, so we have to provide one explicitly.
+    """
     req = urllib.request.Request(
         "https://api.resend.com/emails",
         method="POST",
@@ -114,10 +119,15 @@ def resend_send(email: dict) -> dict:
         headers={
             "Authorization": f"Bearer {RESEND_KEY}",
             "Content-Type": "application/json",
+            "User-Agent": "analook-edm/1.0 (+https://www.analook.com)",
         },
     )
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:200]
+        raise RuntimeError(f"HTTP {e.code}: {body}") from e
 
 
 def first_name_from_email(email: str) -> str:

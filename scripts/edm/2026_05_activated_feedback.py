@@ -63,11 +63,20 @@ def sb_post(path, body):
 
 
 def resend_send(email):
+    """Resend is behind Cloudflare → urllib without a UA gets CF 1010."""
     req = urllib.request.Request("https://api.resend.com/emails", method="POST",
         data=json.dumps(email).encode(),
-        headers={"Authorization": f"Bearer {RESEND_KEY}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())
+        headers={
+            "Authorization": f"Bearer {RESEND_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": "analook-edm/1.0 (+https://www.analook.com)",
+        })
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:200]
+        raise RuntimeError(f"HTTP {e.code}: {body}") from e
 
 
 def first_name(email):
