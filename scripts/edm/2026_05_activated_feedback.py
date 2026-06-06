@@ -36,7 +36,7 @@ if not (DRY_RUN or SEND):
 
 CAMPAIGN_ID = "2026_05_activated_feedback"
 FROM_ADDR = "Iris from Analook <iris@mail.analook.com>"
-REPLY_TO = "iris@gingiris.com"
+REPLY_TO = "iris.wei@gingiris.com"
 
 IRIS_EMAILS = {
     "iris103195@gmail.com",
@@ -71,11 +71,18 @@ def resend_send(email):
 
 
 def first_name(email):
-    local = email.split("@")[0]
-    cleaned = "".join(c for c in local if c.isalpha())
-    if not cleaned:
+    """Conservative: chars-before-first-dot-or-digit; fall back to 'there' if
+    too short (<3) or too long (>8). Long unsegmented locals are usually
+    concatenated Chinese pinyin; 'Hi there' beats 'Hi Chenchenzhaoyang'."""
+    import re
+    local = email.split("@")[0].lower()
+    m = re.match(r"^([a-z]+)", local)
+    if not m:
         return "there"
-    return cleaned[:1].upper() + cleaned[1:].lower()
+    name = m.group(1)
+    if len(name) < 3 or len(name) > 8:
+        return "there"
+    return name[:1].upper() + name[1:]
 
 
 SUBJECT_VARIANTS = [
@@ -96,11 +103,11 @@ I'm trying to figure out whether Analook is actually useful, or just a curiosity
 1. What were you trying to figure out about {target_str}? (one sentence is fine)
 2. Did Analook help, partially help, or miss the point?
 
-Just reply to this email — it comes directly to me (iris@gingiris.com), no template.
+Just hit reply — it lands straight in my inbox, no template.
 
 For context: I'm a solo bootstrapper. The tool you used was built in 4 weekends. Real feedback from real users is the only way I figure out what to build next.
 
-(If you'd like to keep using Analook beyond the free tier, the Pro plan is $29/month for 30 reports — happy to comp you a month if you give me 15 minutes of feedback by call. Cal.com link: https://cal.com/gingiris/15min)
+(If you'd like to keep using Analook beyond the free tier, Pro is $29/month for 30 reports — happy to comp you a month if you give me 15 minutes of feedback on a call. Just reply with 3 time slots in your timezone and I'll send a calendar invite.)
 
 — Iris
 Founder, Analook
@@ -167,7 +174,7 @@ def render_html(fn, report_count, last_url, last_product, unsub):
         Did Analook help, partially help, or miss the point?
       </td></tr>
     </table>
-    <p style="margin:18px 0 0 0;font-size:16px;line-height:1.65;color:#2b2522">Just hit reply &mdash; it lands in my personal inbox (<a href="mailto:iris@gingiris.com" style="color:#b8612d">iris@gingiris.com</a>), not a queue.</p>
+    <p style="margin:18px 0 0 0;font-size:16px;line-height:1.65;color:#2b2522">Just hit reply &mdash; lands straight in my inbox, no template, no queue.</p>
   </td></tr>
 
   <tr><td class="card" style="padding:20px 40px 0 40px;font-size:14px;line-height:1.65;color:#6b5f4f">
@@ -184,13 +191,9 @@ def render_html(fn, report_count, last_url, last_product, unsub):
         <div style="margin-top:10px;font-size:14px;color:#3d3424;line-height:1.6">
           If you'd like to keep using Analook beyond the free tier, Pro is <strong>$29/month</strong> for 30 reports. Happy to <strong>comp you a month</strong> if you give me 15 minutes of feedback on a call.
         </div>
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px">
-          <tr><td style="background:#1f1b16;border-radius:8px">
-            <a href="https://cal.com/gingiris/15min" style="display:inline-block;padding:11px 22px;font-size:14px;font-weight:600;color:#fffdf6;text-decoration:none;letter-spacing:0.01em">
-              Book a 15-min call &rarr;
-            </a>
-          </td></tr>
-        </table>
+        <div style="margin-top:12px;padding:10px 14px;background:#fffdf6;border:1px dashed #d8b873;border-radius:8px;font-size:13px;color:#3d3424;line-height:1.55">
+          &#9656; <strong>Just reply</strong> with 3 time slots in your timezone and I'll send a calendar invite.
+        </div>
       </td></tr>
     </table>
   </td></tr>
@@ -265,7 +268,7 @@ def main():
         fn = first_name(email)
         last_url, last_product = most_recent.get(uid, ("", ""))
         rc = rep_count[uid]
-        unsub = f"https://www.analook.com/unsubscribe?u={uid}&c={CAMPAIGN_ID}"
+        unsub = f"https://www.analook.com/unsubscribe.html?u={uid}&c={CAMPAIGN_ID}"
 
         # Subject rotation by uid hash (consistent per-user, varied across cohort)
         subj_idx = sum(ord(c) for c in uid) % len(SUBJECT_VARIANTS)

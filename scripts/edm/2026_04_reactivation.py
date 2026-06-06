@@ -51,7 +51,7 @@ if not (DRY_RUN or SEND):
 
 CAMPAIGN_ID = "2026_04_reactivation_supabase_bug"
 FROM_ADDR = "Iris from Analook <iris@mail.analook.com>"
-REPLY_TO = "iris@gingiris.com"
+REPLY_TO = "iris.wei@gingiris.com"
 
 # Iris's own accounts — never email these
 IRIS_EMAILS = {
@@ -64,7 +64,7 @@ CREDITS_TO_GRANT = 10
 
 
 # ── helpers ───────────────────────────────────────────────────────────────
-def sb_get(path: str) -> list | dict:
+def sb_get(path: str):
     req = urllib.request.Request(
         SUPABASE_URL + path,
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
@@ -89,7 +89,7 @@ def sb_patch(path: str, body: dict) -> dict:
         return json.loads(r.read())
 
 
-def sb_post(path: str, body: dict | list) -> dict:
+def sb_post(path: str, body: "dict | list") -> dict:
     req = urllib.request.Request(
         SUPABASE_URL + path,
         method="POST",
@@ -121,13 +121,23 @@ def resend_send(email: dict) -> dict:
 
 
 def first_name_from_email(email: str) -> str:
-    """Cheap heuristic for first name from email local-part."""
-    local = email.split("@")[0]
-    # Strip digits and dots — common patterns: "iris103195" → "iris", "iris.wei" → "iris"
-    cleaned = "".join(c for c in local if c.isalpha())
-    if not cleaned:
+    """Conservative first-name heuristic.
+
+    Takes chars up to the first dot or digit. Falls back to "there" when the
+    extracted string is too short (<3) or too long (>8) — long unsegmented
+    locals are almost always concatenated Chinese pinyin full names where we
+    cannot reliably guess the first name, and "Hi Chenchenzhaoyang" reads
+    worse than "Hi there".
+    """
+    import re
+    local = email.split("@")[0].lower()
+    m = re.match(r"^([a-z]+)", local)
+    if not m:
         return "there"
-    return cleaned[:1].upper() + cleaned[1:].lower()
+    name = m.group(1)
+    if len(name) < 3 or len(name) > 8:
+        return "there"
+    return name[:1].upper() + name[1:]
 
 
 # ── email template ────────────────────────────────────────────────────────
@@ -150,13 +160,13 @@ As compensation: I've added **{credits} free credits** to your Analook account. 
 If you want to try again, just sign back in: https://www.analook.com
 
 I've also written up the full postmortem and the structural fix we shipped, here:
-https://gingiris.github.io/growth-tools/blog/2026/04/29/saas-marketing-on-a-budget/#case-study-analook-0-39-in-4-weeks
+https://gingiris.tools/blog/2026/04/29/saas-marketing-on-a-budget/#case-study-analook-0-39-in-4-weeks
 
 Two things I'd love to know (one or both, no obligation):
 1. Were you affected? Did you run an analysis during 4/3-4/28 that didn't show up later?
 2. What would have made you stay/use Analook more frequently after signing up?
 
-Reply to this email — it goes directly to me (iris@gingiris.com).
+Just hit reply — it lands straight in my inbox.
 
 — Iris
 Founder, Analook
@@ -257,7 +267,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         What would have made you keep using Analook after signing up?
       </td></tr>
     </table>
-    <p style="margin:20px 0 0 0">Just hit reply &mdash; it lands in my personal inbox (<a href="mailto:iris@gingiris.com" style="color:#b8612d">iris@gingiris.com</a>).</p>
+    <p style="margin:20px 0 0 0">Just hit reply &mdash; it lands straight in my inbox.</p>
   </td></tr>
 
   <!-- sign-off -->
@@ -322,7 +332,7 @@ def main():
         email = p["email"]
         uid = p["id"]
         fn = first_name_from_email(email)
-        unsub = f"https://www.analook.com/unsubscribe?u={uid}&c={CAMPAIGN_ID}"
+        unsub = f"https://www.analook.com/unsubscribe.html?u={uid}&c={CAMPAIGN_ID}"
 
         text_body = TEXT_TEMPLATE.format(first_name=fn, credits=CREDITS_TO_GRANT, unsub_url=unsub)
         html_body = HTML_TEMPLATE.format(first_name=fn, credits=CREDITS_TO_GRANT, unsub_url=unsub)
