@@ -50,7 +50,7 @@ if not (DRY_RUN or SEND):
     sys.exit(1)
 
 CAMPAIGN_ID = "2026_04_reactivation_supabase_bug"
-FROM_ADDR = "Iris <iris@analook.com>"
+FROM_ADDR = "Iris from Analook <iris@mail.analook.com>"
 REPLY_TO = "iris@gingiris.com"
 
 # Iris's own accounts — never email these
@@ -169,39 +169,111 @@ Unsubscribe from Analook product updates: {unsub_url}
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
-<html><body style="font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1f2937; line-height: 1.6;">
-<p>Hi {first_name},</p>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A note from Iris at Analook</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  @media (prefers-color-scheme: dark) {{
+    .bg-wrap {{ background:#1a1612 !important; }}
+  }}
+  @media (max-width:620px) {{
+    .card {{ padding:32px 24px !important; }}
+    .h1 {{ font-size:28px !important; line-height:1.2 !important; }}
+  }}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f3ede0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f1b16;-webkit-font-smoothing:antialiased">
+<div class="bg-wrap" style="background:#f3ede0;padding:32px 16px">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="600" style="max-width:600px;margin:0 auto;background:#fffdf6;border:1px solid #e8dfca;border-radius:12px;overflow:hidden">
 
-<p>I'm Iris, and I built <a href="https://www.analook.com" style="color:#2563eb">Analook</a> — the competitor analysis tool you signed up for in April 2026.</p>
+  <!-- top accent stripe -->
+  <tr><td style="height:4px;background:linear-gradient(90deg,#b8612d 0%,#d8923f 50%,#b8612d 100%);font-size:0;line-height:0">&nbsp;</td></tr>
 
-<p>I owe you a quick honest note.</p>
+  <!-- header -->
+  <tr><td style="padding:28px 40px 0 40px">
+    <a href="https://www.analook.com" style="text-decoration:none;color:#1f1b16">
+      <span style="font-family:'Instrument Serif',Georgia,serif;font-size:24px;font-style:italic;letter-spacing:-0.01em">Analook</span>
+      <span style="display:inline-block;margin-left:8px;padding:3px 9px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#8a6a3a;background:#f5ead4;border-radius:999px;vertical-align:2px">A note from Iris</span>
+    </a>
+  </td></tr>
 
-<p>We had a backend misconfiguration between April 3rd and April 28th: a single environment variable in our Railway deployment had a trailing space in its name (literally one invisible character). Because of that, every analysis our users ran during that window completed successfully and showed you a job_id — but the report itself never persisted to our database. It only lived on Railway's ephemeral disk and got wiped on every redeploy.</p>
+  <!-- headline -->
+  <tr><td class="card" style="padding:24px 40px 8px 40px">
+    <h1 class="h1" style="margin:0;font-family:'Instrument Serif',Georgia,serif;font-size:34px;line-height:1.15;font-weight:400;letter-spacing:-0.015em;color:#1f1b16">
+      Hi {first_name} &mdash; <em style="font-style:italic;color:#b8612d">your April report</em><br>
+      didn't make it. Here's what happened.
+    </h1>
+  </td></tr>
 
-<p>The damage report: at least 5 external user reports lost, including yours if you'd run any analysis during that window.</p>
+  <!-- body -->
+  <tr><td class="card" style="padding:20px 40px 8px 40px;font-size:16px;line-height:1.65;color:#2b2522">
 
-<p>I caught this on April 28th when one of our active users emailed asking where his report had gone. Three weeks too late, in other words.</p>
+    <p style="margin:16px 0">I'm Iris, and I built <a href="https://www.analook.com" style="color:#b8612d;text-decoration:underline">Analook</a> — the competitor analysis tool you signed up for in April 2026.</p>
 
-<p>As compensation: <strong>I've added {credits} free credits to your Analook account.</strong> They don't expire. You can use them to run new analyses anytime — no card required.</p>
+    <p style="margin:16px 0">I owe you a quick honest note.</p>
 
-<p>If you want to try again, just sign back in: <a href="https://www.analook.com" style="color:#2563eb">https://www.analook.com</a></p>
+    <p style="margin:16px 0">Between April 3 and April 28, a single environment variable in our Railway deployment had a trailing space in its name — one invisible character. Every analysis users ran in that window finished successfully and returned a <code style="background:#f5ead4;padding:2px 6px;border-radius:4px;font-size:14px">job_id</code>, but the report never persisted to our database. It only lived on Railway's ephemeral disk and was wiped on the next redeploy.</p>
 
-<p>I've also written up <a href="https://gingiris.github.io/growth-tools/blog/2026/04/29/saas-marketing-on-a-budget/" style="color:#2563eb">the full postmortem and the structural fix we shipped</a>.</p>
+    <p style="margin:16px 0"><strong>At least 5 external reports were lost — yours among them if you ran anything that month.</strong></p>
 
-<p>Two things I'd love to know (one or both, no obligation):</p>
-<ol>
-  <li>Were you affected? Did you run an analysis during 4/3-4/28 that didn't show up later?</li>
-  <li>What would have made you stay/use Analook more frequently after signing up?</li>
-</ol>
+    <p style="margin:16px 0">I caught it on April 28 when an active user emailed asking where his report had gone. Three weeks too late.</p>
+  </td></tr>
 
-<p>Reply to this email — it goes directly to me (iris@gingiris.com).</p>
+  <!-- credits callout -->
+  <tr><td style="padding:8px 40px">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f9efd6;border:1px solid #e8d09a;border-radius:10px">
+      <tr><td style="padding:20px 24px">
+        <div style="font-family:'Instrument Serif',Georgia,serif;font-size:32px;line-height:1;color:#b8612d;font-style:italic;letter-spacing:-0.01em">+{credits} credits</div>
+        <div style="margin-top:6px;font-size:14px;color:#6b5a3a">Added to your account. No expiry. No card required.</div>
+      </td></tr>
+    </table>
+  </td></tr>
 
-<p>— Iris<br/>
-Founder, Analook<br/>
-<a href="https://gingiris.com" style="color:#6b7280;font-size:13px">gingiris.com</a></p>
+  <!-- CTA button -->
+  <tr><td style="padding:24px 40px 8px 40px">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+      <tr><td style="background:#1f1b16;border-radius:8px">
+        <a href="https://www.analook.com" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#fffdf6;text-decoration:none;letter-spacing:0.01em">
+          Use your credits  &rarr;
+        </a>
+      </td></tr>
+    </table>
+    <div style="margin-top:10px;font-size:13px;color:#8a7a5a">Or read <a href="https://gingiris.tools/blog/2026/04/29/saas-marketing-on-a-budget/" style="color:#b8612d">the full postmortem and structural fix</a>.</div>
+  </td></tr>
 
-<hr style="border:0;border-top:1px solid #e5e7eb;margin:32px 0 16px 0">
-<p style="font-size:11px;color:#6b7280">You're receiving this because you registered at analook.com. <a href="{unsub_url}" style="color:#6b7280">Unsubscribe</a> from Analook product updates.</p>
+  <!-- two questions -->
+  <tr><td class="card" style="padding:24px 40px 0 40px;font-size:16px;line-height:1.65;color:#2b2522">
+    <p style="margin:0 0 12px 0;font-weight:600;color:#1f1b16">If you have 30 seconds — two questions, no obligation:</p>
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+      <tr><td style="padding:8px 0;border-top:1px solid #f0e6cf">
+        <span style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;color:#b8612d;font-size:18px;margin-right:8px">01</span>
+        Were you affected? Did anything you ran during 4/3&ndash;4/28 not show up later?
+      </td></tr>
+      <tr><td style="padding:8px 0;border-top:1px solid #f0e6cf">
+        <span style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;color:#b8612d;font-size:18px;margin-right:8px">02</span>
+        What would have made you keep using Analook after signing up?
+      </td></tr>
+    </table>
+    <p style="margin:20px 0 0 0">Just hit reply &mdash; it lands in my personal inbox (<a href="mailto:iris@gingiris.com" style="color:#b8612d">iris@gingiris.com</a>).</p>
+  </td></tr>
+
+  <!-- sign-off -->
+  <tr><td class="card" style="padding:28px 40px 32px 40px">
+    <div style="font-family:'Instrument Serif',Georgia,serif;font-size:22px;font-style:italic;color:#1f1b16">— Iris</div>
+    <div style="font-size:13px;color:#6b5f4f;margin-top:2px">Founder, Analook &nbsp;·&nbsp; <a href="https://gingiris.com" style="color:#6b5f4f">gingiris.com</a> &nbsp;·&nbsp; ex&#8209;COO, AFFiNE (60K&nbsp;stars)</div>
+  </td></tr>
+
+  <!-- footer -->
+  <tr><td style="background:#fbf5e6;border-top:1px solid #e8dfca;padding:18px 40px;font-size:11px;line-height:1.6;color:#8a7a5a">
+    You're receiving this because you signed up at analook.com.<br>
+    <a href="{unsub_url}" style="color:#8a7a5a;text-decoration:underline">Unsubscribe</a> from Analook product updates.
+  </td></tr>
+
+</table>
+</div>
 </body></html>""".strip()
 
 

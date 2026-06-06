@@ -35,7 +35,7 @@ if not (DRY_RUN or SEND):
     sys.exit(1)
 
 CAMPAIGN_ID = "2026_05_activated_feedback"
-FROM_ADDR = "Iris <iris@analook.com>"
+FROM_ADDR = "Iris from Analook <iris@mail.analook.com>"
 REPLY_TO = "iris@gingiris.com"
 
 IRIS_EMAILS = {
@@ -100,7 +100,7 @@ Just reply to this email — it comes directly to me (iris@gingiris.com), no tem
 
 For context: I'm a solo bootstrapper. The tool you used was built in 4 weekends. Real feedback from real users is the only way I figure out what to build next.
 
-(If you'd like to keep using Analook beyond the free tier, the Pro plan is $29/month for 30 reports — happy to comp you a month if you give me 10 minutes of feedback by call. Cal.com link: https://cal.com/iris-gingiris)
+(If you'd like to keep using Analook beyond the free tier, the Pro plan is $29/month for 30 reports — happy to comp you a month if you give me 15 minutes of feedback by call. Cal.com link: https://cal.com/gingiris/15min)
 
 — Iris
 Founder, Analook
@@ -113,31 +113,100 @@ Unsubscribe: {{unsub}}
 
 def render_html(fn, report_count, last_url, last_product, unsub):
     target_str = (last_product or "your competitor") if last_url else "your research"
-    return f"""<!DOCTYPE html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1f2937;line-height:1.6">
-<p>Hi {fn},</p>
+    report_word = "report" if report_count == 1 else "reports"
+    last_target = last_url or "your target"
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>A quick question from Iris at Analook</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  @media (prefers-color-scheme: dark) { .bg-wrap { background:#1a1612 !important; } }
+  @media (max-width:620px) {
+    .card { padding:32px 24px !important; }
+    .h1 { font-size:28px !important; line-height:1.2 !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f3ede0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f1b16;-webkit-font-smoothing:antialiased">
+<div class="bg-wrap" style="background:#f3ede0;padding:32px 16px">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" width="600" style="max-width:600px;margin:0 auto;background:#fffdf6;border:1px solid #e8dfca;border-radius:12px;overflow:hidden">
 
-<p>I'm Iris, the founder of <a href="https://www.analook.com" style="color:#2563eb">Analook</a>. I noticed you ran <strong>{report_count} {'report' if report_count == 1 else 'reports'}</strong> this month — most recently on <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">{last_url or 'your target'}</code>.</p>
+  <tr><td style="height:4px;background:linear-gradient(90deg,#b8612d 0%,#d8923f 50%,#b8612d 100%);font-size:0;line-height:0">&nbsp;</td></tr>
 
-<p>I'm trying to figure out whether Analook is actually useful, or just a curiosity. Could I ask you two quick questions?</p>
+  <tr><td style="padding:28px 40px 0 40px">
+    <a href="https://www.analook.com" style="text-decoration:none;color:#1f1b16">
+      <span style="font-family:'Instrument Serif',Georgia,serif;font-size:24px;font-style:italic;letter-spacing:-0.01em">Analook</span>
+      <span style="display:inline-block;margin-left:8px;padding:3px 9px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#8a6a3a;background:#f5ead4;border-radius:999px;vertical-align:2px">Founder check-in</span>
+    </a>
+  </td></tr>
 
-<ol>
-<li>What were you trying to figure out about {target_str}? (one sentence is fine)</li>
-<li>Did Analook help, partially help, or miss the point?</li>
-</ol>
+  <tr><td class="card" style="padding:24px 40px 8px 40px">
+    <h1 class="h1" style="margin:0;font-family:'Instrument Serif',Georgia,serif;font-size:34px;line-height:1.15;font-weight:400;letter-spacing:-0.015em;color:#1f1b16">
+      Hi """ + fn + """ &mdash; <em style="font-style:italic;color:#b8612d">two questions</em>,<br>
+      30 seconds, no template.
+    </h1>
+  </td></tr>
 
-<p>Just reply to this email — it comes directly to me (iris@gingiris.com), no template.</p>
+  <tr><td class="card" style="padding:20px 40px 8px 40px;font-size:16px;line-height:1.65;color:#2b2522">
+    <p style="margin:16px 0">I'm Iris, the founder of <a href="https://www.analook.com" style="color:#b8612d;text-decoration:underline">Analook</a>. I noticed you ran <strong>""" + str(report_count) + """ """ + report_word + """</strong> this month &mdash; most recently on <code style="background:#f5ead4;padding:2px 6px;border-radius:4px;font-size:14px">""" + last_target + """</code>.</p>
 
-<p style="color:#6b7280;font-size:14px">For context: I'm a solo bootstrapper. The tool you used was built in 4 weekends. Real feedback from real users is the only way I figure out what to build next.</p>
+    <p style="margin:16px 0">I'm trying to figure out whether Analook is actually useful, or just a curiosity. Could I ask you:</p>
+  </td></tr>
 
-<p style="background:#f3f4f6;border-left:3px solid #2563eb;padding:12px 16px;color:#1f2937;font-size:14px">If you'd like to keep using Analook beyond the free tier, the <strong>Pro plan is $29/month</strong> for 30 reports — happy to comp you a month if you give me <strong>10 minutes of feedback by call</strong>. <a href="https://cal.com/iris-gingiris" style="color:#2563eb">Book a slot here</a>.</p>
+  <tr><td class="card" style="padding:8px 40px 8px 40px">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size:16px;line-height:1.65;color:#2b2522">
+      <tr><td style="padding:12px 0;border-top:1px solid #f0e6cf">
+        <span style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;color:#b8612d;font-size:18px;margin-right:8px">01</span>
+        What were you trying to figure out about """ + target_str + """? <span style="color:#8a7a5a">(one sentence is fine)</span>
+      </td></tr>
+      <tr><td style="padding:12px 0;border-top:1px solid #f0e6cf;border-bottom:1px solid #f0e6cf">
+        <span style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;color:#b8612d;font-size:18px;margin-right:8px">02</span>
+        Did Analook help, partially help, or miss the point?
+      </td></tr>
+    </table>
+    <p style="margin:18px 0 0 0;font-size:16px;line-height:1.65;color:#2b2522">Just hit reply &mdash; it lands in my personal inbox (<a href="mailto:iris@gingiris.com" style="color:#b8612d">iris@gingiris.com</a>), not a queue.</p>
+  </td></tr>
 
-<p>— Iris<br>
-Founder, Analook<br>
-<a href="https://gingiris.com" style="color:#6b7280;font-size:13px">gingiris.com (ex-AFFiNE COO, 60K stars)</a></p>
+  <tr><td class="card" style="padding:20px 40px 0 40px;font-size:14px;line-height:1.65;color:#6b5f4f">
+    <p style="margin:16px 0">For context: I'm a solo bootstrapper. The tool you used was built in 4 weekends. Real feedback from real users is the only way I figure out what to build next.</p>
+  </td></tr>
 
-<hr style="border:0;border-top:1px solid #e5e7eb;margin:32px 0 16px 0">
-<p style="font-size:11px;color:#6b7280">You're receiving this because you registered and used Analook. <a href="{unsub}" style="color:#6b7280">Unsubscribe</a>.</p>
+  <!-- Pro plan offer -->
+  <tr><td style="padding:8px 40px 8px 40px">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f9efd6;border:1px solid #e8d09a;border-radius:10px">
+      <tr><td style="padding:22px 24px">
+        <div style="font-family:'Instrument Serif',Georgia,serif;font-size:22px;line-height:1.2;color:#1f1b16;font-style:italic;letter-spacing:-0.01em">
+          One more thing &mdash; <span style="color:#b8612d">a month of Pro on me</span>
+        </div>
+        <div style="margin-top:10px;font-size:14px;color:#3d3424;line-height:1.6">
+          If you'd like to keep using Analook beyond the free tier, Pro is <strong>$29/month</strong> for 30 reports. Happy to <strong>comp you a month</strong> if you give me 15 minutes of feedback on a call.
+        </div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:14px">
+          <tr><td style="background:#1f1b16;border-radius:8px">
+            <a href="https://cal.com/gingiris/15min" style="display:inline-block;padding:11px 22px;font-size:14px;font-weight:600;color:#fffdf6;text-decoration:none;letter-spacing:0.01em">
+              Book a 15-min call &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td class="card" style="padding:28px 40px 32px 40px">
+    <div style="font-family:'Instrument Serif',Georgia,serif;font-size:22px;font-style:italic;color:#1f1b16">— Iris</div>
+    <div style="font-size:13px;color:#6b5f4f;margin-top:2px">Founder, Analook &nbsp;·&nbsp; <a href="https://gingiris.com" style="color:#6b5f4f">gingiris.com</a> &nbsp;·&nbsp; ex&#8209;COO, AFFiNE (60K&nbsp;stars)</div>
+  </td></tr>
+
+  <tr><td style="background:#fbf5e6;border-top:1px solid #e8dfca;padding:18px 40px;font-size:11px;line-height:1.6;color:#8a7a5a">
+    You're receiving this because you signed up and used Analook.<br>
+    <a href=\"""" + unsub + """\" style="color:#8a7a5a;text-decoration:underline">Unsubscribe</a> from Analook product updates.
+  </td></tr>
+
+</table>
+</div>
 </body></html>""".strip()
 
 
