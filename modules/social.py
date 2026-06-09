@@ -651,23 +651,34 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             account_bio = (prof.get("description") or "").lower()
             account_name_str = (prof.get("name") or "").lower()
             account_website = (prof.get("url") or "").lower()  # User's website link
+            account_handle = (prof.get("userName") or handle or "").lower()
             brand_lower = brand.lower()
             name_lower_check = name.lower()
 
-            # Signal 1: website field contains product domain → strong match
+            # Signal 1: website field contains product domain → strongest match
             website_match = any(d in account_website for d in [
                 f"{brand_lower}.com", f"{brand_lower}.io", f"{brand_lower}.dev",
                 f"{brand_lower}.ai", f"{brand_lower}.pro", f"{brand_lower}.co",
                 f"{brand_lower}.app", f"{brand_lower}.so",
             ] if d)
 
-            # Signal 2: bio or display name mentions brand/product
-            bio_match = (
+            # Signal 2: bio mentions brand/product
+            # IMPORTANT: Only count bio/name match if it's NOT just the handle
+            # itself (tautological). e.g. @spara having display name "Spara"
+            # doesn't prove it's the spara.com product account.
+            bio_mentions_brand = (
                 brand_lower in account_bio
-                or brand_lower in account_name_str
                 or name_lower_check in account_bio
-                or name_lower_check in account_name_str
             )
+            # Display name match only counts if it's more specific than the handle
+            # (e.g. display name "Spara AI" for brand "spara" is meaningful,
+            #  but display name "Spara" for handle @spara is tautological)
+            name_is_meaningful = (
+                (brand_lower in account_name_str or name_lower_check in account_name_str)
+                and account_name_str != account_handle  # not just the handle echoed
+                and len(account_name_str) > len(account_handle) + 1  # has extra context
+            )
+            bio_match = bio_mentions_brand or name_is_meaningful
 
             # Signal 3: verified business account → higher trust
             is_verified_biz = prof.get("verifiedType") == "Business"
