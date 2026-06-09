@@ -698,7 +698,7 @@ async def cancel_job(job_id: str):
 # Growth Audit jobs (separate from regular analysis jobs)
 _growth_audit_jobs: dict = {}
 
-GROWTH_AUDIT_CREDITS = 10  # Cost in credits for a growth audit
+GROWTH_AUDIT_CREDITS = 15  # Cost in credits — forces Pro plan ($29/mo, 30 credits)
 
 
 @app.post("/api/growth-audit")
