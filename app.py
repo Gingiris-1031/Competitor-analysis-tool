@@ -205,6 +205,7 @@ async def health_check():
         "PRODUCTHUNT_TOKEN": bool(os.environ.get("PRODUCTHUNT_TOKEN", "").strip()),
         "SUPABASE_URL": bool(os.environ.get("SUPABASE_URL", "").strip()),
         "POLAR_ACCESS_TOKEN": bool(os.environ.get("POLAR_ACCESS_TOKEN", "").strip()),
+        "TINYFISH_API_KEY": bool(os.environ.get("TINYFISH_API_KEY", "").strip()),
     }
 
     supabase_ok = get_supabase() is not None
