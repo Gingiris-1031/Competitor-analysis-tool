@@ -425,28 +425,55 @@ async def _analyze_snapshot(domain: str, timestamp: str) -> dict:
 
 
 async def _analyze_current_site(url: str) -> dict:
-    """抓取并分析当前官网（带重试）"""
+    """抓取并分析当前官网。
+
+    Strategy: TinyFish (headless Chromium, JS-rendered) → httpx fallback.
+    TinyFish handles SPAs and JS-heavy sites that httpx can't render,
+    resulting in more accurate social link extraction and page structure.
+    """
     from datetime import datetime
 
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-                resp = await client.get(url, headers={
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
-                })
-            ts = datetime.now().strftime("%Y%m%d%H%M%S")
-            result = _extract_page_structure(resp.text, ts, url)
-            result["is_current"] = True
-            # Verify we got real data
-            if result.get("slogan") and result["slogan"] != "N/A":
-                return result
-            if result.get("title") and result["title"] != "N/A":
-                return result
-        except Exception:
-            if attempt == 0:
-                await asyncio.sleep(2)
-                continue
-    
+    html = None
+    fetch_source = "httpx"
+
+    # Strategy 0: TinyFish (Chromium-rendered, handles SPAs)
+    try:
+        from .tinyfish import is_available, fetch_html
+        if is_available():
+            tf_result = await fetch_html(url, timeout=15)
+            if tf_result and tf_result.get("text"):
+                html = tf_result["text"]
+                fetch_source = "tinyfish"
+    except Exception:
+        pass
+
+    # Strategy 1: httpx fallback (with retry)
+    if not html:
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                    resp = await client.get(url, headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+                    })
+                if resp.status_code == 200:
+                    html = resp.text
+                    break
+            except Exception:
+                if attempt == 0:
+                    await asyncio.sleep(2)
+                    continue
+
+    if html:
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        result = _extract_page_structure(html, ts, url)
+        result["is_current"] = True
+        result["_fetch_source"] = fetch_source
+        # Verify we got real data
+        if result.get("slogan") and result["slogan"] != "N/A":
+            return result
+        if result.get("title") and result["title"] != "N/A":
+            return result
+
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     return {"timestamp": ts, "date": ts[:10], "is_current": True, "error": "Failed to fetch current site"}
 
