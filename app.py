@@ -29,6 +29,7 @@ from modules.github_oss import analyze_github_oss
 from modules.pr_news import analyze_pr_news
 from modules.funding import analyze_funding
 from modules.bizmodel import analyze_bizmodel
+from modules.growth_audit import run_growth_audit
 from modules.supabase_client import (
     verify_token_and_get_user, deduct_credit,
     get_user_profile, save_report_to_db, list_user_reports,
@@ -287,6 +288,7 @@ async def get_pricing():
             {"key": "pro", "name": "Pro", "price": 29, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
             {"key": "team", "name": "Team", "price": 99, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
+            {"key": "growth_audit", "name": "Growth Audit", "price": 49, "period": "once", "credits": 10, "features": ["Full growth diagnostic", "Executive Summary", "Diagnosis Report", "30-Day Action Plan", "Gingiris Playbook matching"]},
         ],
     }
 
@@ -686,6 +688,151 @@ async def cancel_job(job_id: str):
             if job["progress"][k] in ("pending", "running"):
                 job["progress"][k] = "done"
     return {"status": job["status"]}
+
+
+# =========================================================================
+# Growth Audit — Premium feature ($49 one-time or 10 credits)
+# =========================================================================
+
+# Growth Audit jobs (separate from regular analysis jobs)
+_growth_audit_jobs: dict = {}
+
+GROWTH_AUDIT_CREDITS = 10  # Cost in credits for a growth audit
+
+
+@app.post("/api/growth-audit")
+async def start_growth_audit(request: Request, bg: BackgroundTasks):
+    """Start a Growth Audit: produces 3 reports (Executive Summary + Diagnosis + Action Plan).
+    
+    Costs 10 credits or requires growth_audit product purchase.
+    Body: {"url": "example.com", "product_name": "Example"}
+    """
+    # Auth check
+    user = await _extract_user(request)
+    from modules.supabase_client import get_supabase, supabase_required
+    sb = get_supabase()
+
+    if sb:
+        if not user:
+            return JSONResponse(
+                {"error": "请先登录", "code": "AUTH_REQUIRED"},
+                status_code=401,
+            )
+        # Deduct 10 credits
+        from modules.supabase_client import deduct_credit
+        credits_ok = True
+        for _ in range(GROWTH_AUDIT_CREDITS):
+            ok = await deduct_credit(user["id"])
+            if not ok:
+                credits_ok = False
+                break
+        if not credits_ok:
+            return JSONResponse(
+                {
+                    "error": f"积分不足（Growth Audit 需要 {GROWTH_AUDIT_CREDITS} 积分）",
+                    "code": "CREDITS_EXHAUSTED",
+                    "required_credits": GROWTH_AUDIT_CREDITS,
+                    "upgrade_url": "https://www.analook.com/pricing.html",
+                },
+                status_code=402,
+            )
+
+    # Parse body
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    url = body.get("url", "").strip()
+    if not url:
+        return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
+
+    if not url.startswith("http"):
+        url = f"https://{url}"
+
+    product_name = body.get("product_name") or None
+
+    job_id = f"ga-{uuid.uuid4().hex[:8]}"
+    _growth_audit_jobs[job_id] = {
+        "status": "running",
+        "product_name": product_name or url,
+        "url": url,
+        "user_id": user["id"] if user else None,
+        "progress": {
+            "fetch": "pending",
+            "executive_summary": "pending",
+            "diagnosis": "pending",
+            "action_plan": "pending",
+        },
+        "reports": None,
+    }
+
+    bg.add_task(_run_growth_audit, job_id, url, product_name)
+    return {"job_id": job_id, "status": "started"}
+
+
+@app.get("/api/growth-audit/{job_id}")
+async def get_growth_audit_status(job_id: str):
+    """Poll Growth Audit job status and get results."""
+    job = _growth_audit_jobs.get(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+
+    response = {
+        "status": job["status"],
+        "product_name": job.get("product_name"),
+        "url": job.get("url"),
+        "progress": job.get("progress"),
+    }
+
+    if job["status"] == "completed" and job.get("reports"):
+        response["reports"] = job["reports"]
+        response["site_data_summary"] = job.get("site_data_summary")
+
+    if job["status"] == "failed":
+        response["error"] = job.get("error", "Unknown error")
+
+    return response
+
+
+async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
+    """Background task to run the full growth audit."""
+    try:
+        result = await run_growth_audit(
+            url=url,
+            product_name=product_name,
+            job_id=job_id,
+            jobs_dict=_growth_audit_jobs,
+        )
+
+        if result.get("error"):
+            _growth_audit_jobs[job_id]["status"] = "failed"
+            _growth_audit_jobs[job_id]["error"] = result["error"]
+        else:
+            _growth_audit_jobs[job_id]["status"] = "completed"
+            _growth_audit_jobs[job_id]["product_name"] = result.get("product_name", product_name)
+            _growth_audit_jobs[job_id]["reports"] = result.get("reports", {})
+            _growth_audit_jobs[job_id]["site_data_summary"] = result.get("site_data_summary")
+
+            # Save to Supabase if user authenticated
+            user_id = _growth_audit_jobs[job_id].get("user_id")
+            if user_id:
+                try:
+                    await save_report_to_db(
+                        job_id=job_id,
+                        user_id=user_id,
+                        url=url,
+                        product_name=result.get("product_name", ""),
+                        report=result,
+                        markdown=_json.dumps(result.get("reports", {}), ensure_ascii=False)[:50000],
+                    )
+                except Exception as e:
+                    log.error("Failed to save growth audit to DB: %s", e)
+
+    except Exception as e:
+        log.error("Growth audit failed for %s: %s", url, e)
+        _growth_audit_jobs[job_id]["status"] = "failed"
+        _growth_audit_jobs[job_id]["error"] = str(e)[:200]
 
 
 def _extract_pdf_text(pdf_bytes: bytes) -> str:
