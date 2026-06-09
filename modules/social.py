@@ -97,7 +97,7 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         twitter_task   = _twitter_with_timeout()
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
         reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
-        github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint)
+        github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint, domain=domain)
         instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
 
         channel_results = await _aio.gather(
@@ -1137,8 +1137,13 @@ async def _deep_reddit(client: httpx.AsyncClient, brand: str, name: str, domain:
     return result
 
 
-async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_hint: str = None) -> dict:
-    """深度 GitHub 分析"""
+async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_hint: str = None, domain: str = "") -> dict:
+    """深度 GitHub 分析 — with relevance validation to prevent false positives.
+
+    After finding a candidate org/user, validates it's actually related to the
+    product by checking the blog/website field, bio/description, and org name
+    against the target domain and brand.
+    """
     result = {
         "platform": "GitHub",
         "detected": False,
@@ -1150,51 +1155,90 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
         "top_repos": [],
         "note": "",
     }
-    
-    name_lower = name.lower().replace(" ","")
+
+    # Clean domain for matching (strip www. and TLD)
+    domain_clean = re.sub(r'^www\.', '', (domain or brand).lower())
+    domain_base = re.sub(r'\.[a-z]{2,6}$', '', domain_clean)  # e.g. "spara"
+    domain_variants = [domain_clean]  # e.g. ["spara.com"]
+    for tld in ["com", "io", "dev", "ai", "pro", "co", "app", "so"]:
+        domain_variants.append(f"{domain_base}.{tld}")
+
+    def _is_relevant(data: dict) -> bool:
+        """Check if a GitHub org/user is actually related to the target product."""
+        blog = (data.get("blog") or "").lower().strip().rstrip("/")
+        bio = (data.get("bio") or data.get("description") or "").lower()
+        display_name = (data.get("name") or "").lower()
+        company = (data.get("company") or "").lower()
+
+        # Signal 1: blog/website field contains product domain (strongest)
+        if blog:
+            for dv in domain_variants:
+                if dv in blog:
+                    return True
+
+        # Signal 2: bio/description mentions brand or product name
+        brand_lower = brand.lower()
+        name_lower_check = name.lower()
+        if brand_lower in bio or name_lower_check in bio:
+            return True
+        if brand_lower in display_name or name_lower_check in display_name:
+            return True
+
+        # Signal 3: company field references the brand
+        if brand_lower in company or name_lower_check in company:
+            return True
+
+        # Signal 4: it's an org (orgs are more likely to be the product itself)
+        # and the login matches the brand exactly (strong implicit signal)
+        login = (data.get("login") or "").lower()
+        if data.get("type") == "Organization" and login == brand_lower:
+            return True
+
+        # Signal 5: handle was explicitly provided by website social_links or Brave
+        # (handle_hint means external evidence pointed to this account)
+        if handle_hint and login == handle_hint.lower().strip("/").split("/")[-1]:
+            return True
+
+        return False
+
+    name_lower = name.lower().replace(" ", "")
     names_to_try = []
     if handle_hint:
         names_to_try.append(handle_hint)
     names_to_try.extend([f"{brand}hq", f"{name_lower}hq", brand, name_lower, f"{brand}-org"])
     names_to_try = list(dict.fromkeys(names_to_try))
+
+    data = None
+    matched_name = None
+
     try:
-        # Try HQ variant first, then brand
-        resp = await client.get(f"https://api.github.com/orgs/{names_to_try[0]}")
-        if resp.status_code != 200:
-            resp = await client.get(f"https://api.github.com/orgs/{brand}")
-        if resp.status_code == 200:
-            data = resp.json()
+        # Try all name variants as org first, then user
+        for alt in names_to_try:
+            for endpoint in ["orgs", "users"]:
+                try:
+                    r = await client.get(f"https://api.github.com/{endpoint}/{alt}")
+                    if r.status_code == 200:
+                        candidate = r.json()
+                        if _is_relevant(candidate):
+                            data = candidate
+                            matched_name = alt
+                            result["type"] = "organization" if endpoint == "orgs" else "user"
+                            break
+                except Exception:
+                    pass
+            if data:
+                break
+
+        if data:
             result["detected"] = True
-            result["type"] = "organization"
             result["url"] = data.get("html_url", "")
             result["public_repos"] = data.get("public_repos", 0)
             result["followers"] = data.get("followers", 0)
-        else:
-            # Try all name variants as org or user
-            found = False
-            for alt in names_to_try:
-                for endpoint in ["orgs", "users"]:
-                    try:
-                        r2 = await client.get(f"https://api.github.com/{endpoint}/{alt}")
-                        if r2.status_code == 200:
-                            data = r2.json()
-                            result["detected"] = True
-                            result["type"] = "organization" if endpoint == "orgs" else "user"
-                            result["url"] = data.get("html_url", "")
-                            result["public_repos"] = data.get("public_repos", 0)
-                            result["followers"] = data.get("followers", 0)
-                            brand = alt  # Use the found name for repo fetching
-                            found = True
-                            break
-                    except:
-                        pass
-                if found:
-                    break
-        
-        # Get top repos if found
-        if result["detected"]:
+
+            # Get top repos
+            endpoint_type = 'orgs' if result['type'] == 'organization' else 'users'
             repos_resp = await client.get(
-                f"https://api.github.com/{'orgs' if result['type'] == 'organization' else 'users'}/{brand}/repos?sort=stars&per_page=5"
+                f"https://api.github.com/{endpoint_type}/{matched_name}/repos?sort=stars&per_page=5"
             )
             if repos_resp.status_code == 200:
                 repos = repos_resp.json()
@@ -1209,9 +1253,13 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
                         "description": (r.get("description") or "")[:80],
                     })
                 result["stars_total"] = total_stars
+        else:
+            tried_str = ", ".join(names_to_try[:3])
+            result["note"] = f"未找到精确匹配（尝试了 {tried_str}…）"
+
     except Exception as e:
         result["note"] = f"Error: {str(e)[:100]}"
-    
+
     return result
 
 
