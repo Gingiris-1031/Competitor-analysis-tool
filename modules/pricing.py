@@ -16,12 +16,17 @@ _PRICING_PATHS = [
     "/upgrade", "/subscribe", "/#pricing", "/#plans",
 ]
 
-# Price regex: $9.99, $19/mo, €12, free, etc.
+# Price regex: $9.99, $2,100/mo, €12, free, etc.  Supports comma-separated thousands.
 _PRICE_RE = re.compile(
-    r'(?:free|\$\s*\d+(?:\.\d{1,2})?|€\s*\d+(?:\.\d{1,2})?|£\s*\d+(?:\.\d{1,2})?|\d+\s*(?:USD|EUR|GBP))',
+    r'(?:free|\$\s*\d[\d,]*(?:\.\d{1,2})?|€\s*\d[\d,]*(?:\.\d{1,2})?|£\s*\d[\d,]*(?:\.\d{1,2})?|\d[\d,]*\s*(?:USD|EUR|GBP))',
     re.IGNORECASE,
 )
-_DOLLAR_RE = re.compile(r'\$\s*(\d+(?:\.\d{1,2})?)')
+_DOLLAR_RE = re.compile(r'\$\s*(\d[\d,]*(?:\.\d{1,2})?)')
+
+
+def _parse_price(s: str) -> float:
+    """Parse a price string like '2,100.00' or '19' into a float."""
+    return float(s.replace(',', ''))
 
 
 async def analyze_pricing(url: str, product_name: str) -> dict:
@@ -199,7 +204,7 @@ def _find_price_cards(soup: BeautifulSoup) -> list:
                 continue
             price = 0.0
         else:
-            price = float(dollar_match.group(1))
+            price = _parse_price(dollar_match.group(1))
         
         # Extract name from headings — prefer short, plan-name-like headings
         headings = card.find_all(["h1", "h2", "h3", "h4", "h5", "strong", "b"])
@@ -236,7 +241,7 @@ def _find_price_cards(soup: BeautifulSoup) -> list:
         
         # Determine if annual price mentioned
         annual_match = _DOLLAR_RE.findall(card_text)
-        prices_in_card = [float(p) for p in annual_match]
+        prices_in_card = [_parse_price(p) for p in annual_match]
         
         tier = {
             "name": plan_name,
@@ -292,7 +297,7 @@ def _regex_extract_tiers(plain: str) -> list:
         
         price = 0.0 if "free" in line_lower else None
         if dollar_match:
-            price = float(dollar_match.group(1))
+            price = _parse_price(dollar_match.group(1))
         
         if price is None:
             continue
