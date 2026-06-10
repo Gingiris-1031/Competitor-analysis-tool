@@ -40,7 +40,7 @@ PRODUCTS = {
     "pro":           os.environ.get("POLAR_PRODUCT_PRO", "37fdbca9-b47b-4c30-8311-94315877a379"),
     "team":          os.environ.get("POLAR_PRODUCT_TEAM", "e3ceae17-4ac6-4952-b2ff-ac6eebf6b771"),
     "single_report": os.environ.get("POLAR_PRODUCT_SINGLE", "7599d40c-771f-4f3e-8ea7-e053075b95d6"),
-    "growth_audit":  os.environ.get("POLAR_PRODUCT_GROWTH_AUDIT", ""),  # $49 one-time, to be created in Polar dashboard
+    "growth_audit":  os.environ.get("POLAR_PRODUCT_GROWTH_AUDIT", "c1adc86c-d312-484c-8eb2-98202b858a00"),  # $49 one-time
 }
 
 # Free-tier cutover (2026-05-18): activation rate hit 37% but 0 paid because
@@ -54,6 +54,7 @@ PLAN_CREDITS = {
     "pro": 30,            # 30 reports/month
     "team": 100,          # 100 reports/month (was 999999 = unlimited, capped 2026-06-04)
     "single_report": 1,   # 1 report
+    "growth_audit": 15,   # 15 credits (= 1 growth audit)
     "free": 2,            # 2 reports/month for new users (was 3 pre-2026-05-18)
 }
 
