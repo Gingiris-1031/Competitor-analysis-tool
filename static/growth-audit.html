@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,374 +7,412 @@
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-QJDYKDLLVY');</script>
     <title>Growth Audit — AI Growth Strategy Diagnostic | Analook</title>
     <meta name="description" content="Get a complete AI-powered growth diagnostic for your product. Input your URL, receive Executive Summary + Diagnosis Report + 30-Day Action Plan. Powered by Gingiris Growth Framework.">
-    <meta name="keywords" content="growth audit, growth diagnostic, startup growth strategy, product growth, AI growth consultant, growth playbook, SaaS growth, free growth audit">
-    <meta property="og:title" content="Growth Audit — AI Growth Strategy Diagnostic">
-    <meta property="og:description" content="Input your URL. Get 3 professional growth reports in 5 minutes. $49 one-time.">
+    <meta name="keywords" content="growth audit, growth diagnostic, startup growth strategy, product growth analysis, AI growth consultant, SaaS growth audit, free growth tool">
+    <meta property="og:title" content="Growth Audit — AI Growth Strategy Diagnostic | Analook">
+    <meta property="og:description" content="Input your product URL. Get 3 professional growth reports in 5 minutes. Powered by Gingiris Growth Framework.">
     <meta property="og:url" content="https://www.analook.com/growth-audit.html">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="canonical" href="https://www.analook.com/growth-audit.html">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <!-- Supabase config -->
     <meta name="supabase-url" content="https://nkunysycqapregxubcil.supabase.co">
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        :root {
+            --cream-bg: #0D0D0F;
+            --cream-card: #16161A;
+            --cream-elev: #1C1C21;
+            --warm-border: rgba(255,255,255,0.06);
+            --warm-border-strong: rgba(255,255,255,0.14);
+            --ink: #F5F1EB;
+            --ink-muted: #A8A29E;
+            --ink-faint: #6B6560;
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--cream-bg);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+        .font-serif { font-family: "Instrument Serif", Georgia, serif; }
+        .font-mono { font-family: "JetBrains Mono", Menlo, monospace; }
+        .top-accent { background: linear-gradient(90deg, #FB923C 0%, #EC4899 50%, #F59E0B 100%); }
+        .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 14px; }
+        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 1px 0 rgba(255,255,255,0.02), 0 12px 32px -16px rgba(0,0,0,0.6); }
+        .url-pill:focus-within { border-color: var(--warm-border-strong); }
         .fade-in { animation: fadeIn 0.4s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
         .animate-pulse { animation: pulse 2s infinite; }
-        .report-content h1 { font-size: 1.5rem; font-weight: 800; margin: 1.5rem 0 0.75rem; color: #f1f5f9; }
-        .report-content h2 { font-size: 1.25rem; font-weight: 700; margin: 1.25rem 0 0.5rem; color: #e2e8f0; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
-        .report-content h3 { font-size: 1.1rem; font-weight: 600; margin: 1rem 0 0.4rem; color: #cbd5e1; }
-        .report-content p { margin: 0.5rem 0; line-height: 1.7; color: #94a3b8; }
-        .report-content ul, .report-content ol { margin: 0.5rem 0 0.5rem 1.5rem; color: #94a3b8; }
-        .report-content li { margin: 0.25rem 0; }
-        .report-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-        .report-content th, .report-content td { border: 1px solid #334155; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; }
-        .report-content th { background: #1e293b; color: #e2e8f0; font-weight: 600; }
-        .report-content td { color: #94a3b8; }
-        .report-content pre { background: #0f172a; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
-        .report-content code { font-family: 'SF Mono', monospace; font-size: 0.85rem; color: #a5f3fc; }
-        .report-content blockquote { border-left: 3px solid #f97316; padding-left: 1rem; margin: 0.75rem 0; color: #94a3b8; font-style: italic; }
-        .report-content strong { color: #e2e8f0; }
-        .tab-active { border-bottom: 2px solid #f97316; color: #f97316; }
+        /* Report markdown styles */
+        .report-content h1 { font-family: "Instrument Serif", Georgia, serif; font-size: 1.75rem; font-weight: 400; margin: 2rem 0 0.75rem; color: var(--ink); }
+        .report-content h2 { font-size: 1.2rem; font-weight: 600; margin: 1.5rem 0 0.5rem; color: var(--ink); border-bottom: 1px solid var(--warm-border); padding-bottom: 0.5rem; }
+        .report-content h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.4rem; color: var(--ink-muted); }
+        .report-content p { margin: 0.5rem 0; line-height: 1.75; color: var(--ink-muted); font-size: 0.9rem; }
+        .report-content ul, .report-content ol { margin: 0.5rem 0 0.5rem 1.5rem; color: var(--ink-muted); font-size: 0.9rem; }
+        .report-content li { margin: 0.3rem 0; line-height: 1.6; }
+        .report-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; }
+        .report-content th, .report-content td { border: 1px solid var(--warm-border); padding: 0.5rem 0.75rem; text-align: left; }
+        .report-content th { background: var(--cream-card); color: var(--ink); font-weight: 600; }
+        .report-content td { color: var(--ink-muted); }
+        .report-content pre { background: var(--cream-card); border: 1px solid var(--warm-border); border-radius: 10px; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
+        .report-content code { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: #a5f3fc; }
+        .report-content blockquote { border-left: 3px solid #FB923C; padding-left: 1rem; margin: 0.75rem 0; color: var(--ink-muted); font-style: italic; }
+        .report-content strong { color: var(--ink); }
+        .tab-active { border-bottom: 2px solid #FB923C; color: var(--ink) !important; }
     </style>
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Analook Growth Audit",
-        "description": "AI-powered growth diagnostic: input your product URL, get Executive Summary + Full Diagnosis + 30-Day Action Plan based on Gingiris Growth Framework.",
-        "url": "https://www.analook.com/growth-audit.html",
-        "applicationCategory": "BusinessApplication",
-        "offers": {"@type": "Offer", "price": "49", "priceCurrency": "USD"},
-        "author": {"@type": "Organization", "name": "Analook", "url": "https://www.analook.com"}
-    }
-    </script>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen">
+<body class="min-h-screen">
+    <!-- Top gradient accent stripe -->
+    <div class="top-accent" style="height: 4px;"></div>
 
-<!-- Header -->
-<header class="border-b border-gray-800 px-6 py-3 sticky top-0 z-50 bg-gray-950/90 backdrop-blur">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <a href="/" class="text-xl font-bold">Analook</a>
-            <span class="text-gray-600">|</span>
-            <span class="text-sm text-orange-400 font-medium">Growth Audit</span>
+    <!-- Header (matches main site) -->
+    <header class="border-b border-[color:var(--warm-border)] py-4">
+        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="flex items-baseline gap-2" style="text-decoration:none">
+                    <span class="font-serif italic text-[28px] text-[color:var(--ink)] leading-none">Analook</span>
+                    <span class="text-[10px] text-[color:var(--ink-muted)] uppercase tracking-[0.2em]">Growth Audit</span>
+                </a>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Competitor Analysis</a>
+                <a href="/growth-audit.html" class="text-sm text-orange-400 font-medium">Growth Audit</a>
+                <a href="/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Pricing</a>
+                <!-- Auth button (managed by auth.js) -->
+                <button id="auth-btn"
+                    class="text-sm bg-[color:var(--ink)] hover:bg-white text-[color:var(--cream-bg)] px-4 py-1.5 rounded-full font-medium transition-colors">
+                    Sign in
+                </button>
+                <div id="auth-user-area" class="hidden flex items-center gap-2 relative">
+                    <span id="credits-display"
+                        class="hidden text-xs bg-[color:var(--cream-card)] text-[color:var(--ink)] border border-[color:var(--warm-border)] px-2.5 py-1 rounded-full font-medium cursor-default">
+                        ⚡ — Credits
+                    </span>
+                    <button id="auth-avatar"
+                        class="w-8 h-8 rounded-full bg-[color:var(--ink)] text-[color:var(--cream-bg)] text-sm font-bold flex items-center justify-center hover:bg-white transition-colors focus:outline-none">
+                    </button>
+                    <div id="auth-dropdown"
+                        class="hidden absolute right-0 top-10 w-48 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl shadow-xl z-50 py-1">
+                        <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-[color:var(--ink-muted)] border-b border-[color:var(--warm-border)] truncate"></div>
+                        <button id="auth-logout-btn"
+                            class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[color:var(--cream-elev)] transition-colors">
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="flex items-center gap-4">
-            <a href="/" class="text-sm text-gray-400 hover:text-white">← Competitor Analysis</a>
-            <a href="/pricing.html" class="text-sm text-gray-400 hover:text-white">Pricing</a>
-            <button id="auth-btn" class="text-sm px-3 py-1.5 rounded-lg bg-gray-800 border border-gray-700 hover:border-orange-500 transition">Login</button>
-        </div>
-    </div>
-</header>
+    </header>
 
-<main class="max-w-4xl mx-auto px-6 py-12">
+    <main class="max-w-5xl mx-auto px-6 py-8">
 
-<!-- Landing Section -->
-<div id="landing-section">
-    <div class="text-center mb-12">
-        <div class="inline-flex items-center gap-2 bg-orange-500/10 border border-orange-500/30 rounded-full px-4 py-1.5 text-sm text-orange-400 mb-6">
-            🫚 Powered by Gingiris Growth Framework
-        </div>
-        <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
-            Full Growth Diagnostic<br>
-            <span class="text-orange-400">in 5 Minutes</span>
-        </h1>
-        <p class="text-lg text-gray-400 max-w-xl mx-auto">
-            Input your product URL. Get three professional growth reports — Executive Summary, Full Diagnosis, and a 30-Day Action Plan — powered by AI and battle-tested growth frameworks.
-        </p>
-    </div>
+        <!-- Hero Section -->
+        <section id="hero-section" class="text-center pt-16 pb-10">
+            <p class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-8">Powered by Gingiris Growth Framework · 30x Product Hunt #1 experience</p>
 
-    <!-- Input Form -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-8">
-        <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Product URL</label>
-            <div class="flex gap-3">
-                <input id="url-input" type="url" placeholder="https://yourproduct.com"
-                    class="flex-1 px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition text-lg">
-                <button id="start-btn" onclick="startAudit()"
-                    class="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl transition whitespace-nowrap">
-                    Start Audit →
+            <h1 class="font-serif text-[48px] sm:text-[64px] lg:text-[80px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
+                Full Growth<br><span class="italic">Diagnostic</span>
+            </h1>
+
+            <p class="text-lg text-[color:var(--ink-muted)] max-w-xl mx-auto leading-relaxed mb-12">
+                Input your product URL. Get three professional reports — Executive Summary, Full Diagnosis, and 30-Day Action Plan — in under 5 minutes.
+            </p>
+
+            <!-- Pill URL input -->
+            <div class="max-w-2xl mx-auto">
+                <div class="url-pill flex items-center rounded-full p-1.5 mb-4">
+                    <span class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
+                    <input type="text" id="url-input" placeholder="yourproduct.com"
+                        class="flex-1 bg-transparent border-0 focus:outline-none text-[15px] placeholder-[color:var(--ink-faint)] font-mono py-3 text-[color:var(--ink)]" />
+                    <button id="start-btn" onclick="startAudit()"
+                        class="bg-[color:var(--ink)] hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-[color:var(--cream-bg)] font-medium text-sm px-6 py-3 rounded-full transition-colors whitespace-nowrap">
+                        Start Audit →
+                    </button>
+                </div>
+
+                <!-- Optional product name -->
+                <details class="mt-6 text-left max-w-md mx-auto">
+                    <summary class="text-xs text-[color:var(--ink-muted)] cursor-pointer hover:text-[color:var(--ink)]">Advanced — specify product name</summary>
+                    <div class="mt-3">
+                        <input type="text" id="name-input" placeholder="Product name (auto-detect if blank)"
+                            class="w-full bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm text-[color:var(--ink)] placeholder-[color:var(--ink-faint)] focus:outline-none focus:border-[color:var(--warm-border-strong)]">
+                    </div>
+                </details>
+
+                <p class="text-xs text-[color:var(--ink-faint)] mt-6">Costs 15 credits · Pro plan ($29/mo) includes 30 credits · <a href="/pricing.html" class="text-orange-400 hover:underline">View pricing →</a></p>
+            </div>
+        </section>
+
+        <!-- What you get -->
+        <section class="py-12">
+            <h2 class="font-serif text-3xl text-center text-[color:var(--ink)] mb-8">Three reports, one URL</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="card-cream p-6">
+                    <div class="text-2xl mb-3">📋</div>
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">Executive Summary</div>
+                    <p class="text-sm text-[color:var(--ink-muted)]">Core findings, top 3 problems, quick wins, 6-month forecast, KPI targets, tool recommendations</p>
+                </div>
+                <div class="card-cream p-6">
+                    <div class="text-2xl mb-3">🔬</div>
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">Diagnosis Report</div>
+                    <p class="text-sm text-[color:var(--ink-muted)]">Product overview, 3D growth diagnosis, SEO/GEO audit, competitive positioning, channel strategy</p>
+                </div>
+                <div class="card-cream p-6">
+                    <div class="text-2xl mb-3">🎯</div>
+                    <div class="font-serif text-xl text-[color:var(--ink)] mb-2">30-Day Action Plan</div>
+                    <p class="text-sm text-[color:var(--ink-muted)]">Week-by-week execution with code templates, outreach scripts, KPI tracking, tool setup</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Social proof -->
+        <section class="text-center py-8 border-t border-[color:var(--warm-border)]">
+            <p class="text-sm text-[color:var(--ink-muted)]">Based on frameworks from growing AFFiNE to 60K+ GitHub stars · coaching 30+ Product Hunt #1 launches · 150+ AI startups advised</p>
+            <p class="text-xs text-[color:var(--ink-faint)] mt-2">Framework by <a href="https://gingiris.com" class="text-orange-400 hover:underline">Iris (生姜iris)</a> · Forbes Asia 30 Under 30 · <a href="https://gingiris.tools/skills/" class="text-orange-400 hover:underline">40+ AI playbooks</a></p>
+        </section>
+
+        <!-- Progress Section (hidden) -->
+        <section id="progress-section" class="hidden py-16">
+            <div class="card-cream p-10 text-center max-w-lg mx-auto">
+                <div class="animate-pulse mb-6">
+                    <div class="font-serif italic text-4xl mb-4">🫚</div>
+                    <h2 class="font-serif text-2xl text-[color:var(--ink)] mb-2">Generating your audit...</h2>
+                    <p class="text-sm text-[color:var(--ink-muted)] font-mono" id="progress-url"></p>
+                </div>
+                <div class="space-y-3 text-left max-w-xs mx-auto mt-8" id="progress-steps">
+                    <div class="flex items-center gap-3" id="step-fetch">
+                        <span class="w-5 h-5 rounded-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] flex items-center justify-center text-[10px]">⏳</span>
+                        <span class="text-sm text-[color:var(--ink-muted)]">Fetching website data</span>
+                    </div>
+                    <div class="flex items-center gap-3" id="step-exec">
+                        <span class="w-5 h-5 rounded-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] flex items-center justify-center text-[10px]">⏳</span>
+                        <span class="text-sm text-[color:var(--ink-muted)]">Executive Summary</span>
+                    </div>
+                    <div class="flex items-center gap-3" id="step-diag">
+                        <span class="w-5 h-5 rounded-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] flex items-center justify-center text-[10px]">⏳</span>
+                        <span class="text-sm text-[color:var(--ink-muted)]">Diagnosis Report</span>
+                    </div>
+                    <div class="flex items-center gap-3" id="step-plan">
+                        <span class="w-5 h-5 rounded-full bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] flex items-center justify-center text-[10px]">⏳</span>
+                        <span class="text-sm text-[color:var(--ink-muted)]">30-Day Action Plan</span>
+                    </div>
+                </div>
+                <p class="text-xs text-[color:var(--ink-faint)] mt-8">Typical wait: 2–5 minutes</p>
+            </div>
+        </section>
+
+        <!-- Results Section (hidden) -->
+        <section id="results-section" class="hidden py-8 fade-in">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="font-serif text-3xl text-[color:var(--ink)]" id="result-title"></h2>
+                    <p class="text-sm text-[color:var(--ink-muted)] font-mono" id="result-url"></p>
+                </div>
+                <button onclick="location.reload()" class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-4 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors">
+                    ↻ New Audit
                 </button>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Product Name <span class="text-gray-500">(optional)</span></label>
-            <input id="name-input" type="text" placeholder="Auto-detected from URL"
-                class="w-full px-4 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500 transition">
-        </div>
-        <p class="text-xs text-gray-500">Costs 10 credits · <a href="/pricing.html" class="text-orange-400 hover:underline">Get credits →</a></p>
-    </div>
 
-    <!-- What you get -->
-    <div class="grid md:grid-cols-3 gap-4 mb-12">
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div class="text-2xl mb-3">📋</div>
-            <h3 class="font-semibold mb-2">Executive Summary</h3>
-            <p class="text-sm text-gray-400">Core findings, top 3 problems, quick wins, 6-month forecast, KPIs</p>
-        </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div class="text-2xl mb-3">🔬</div>
-            <h3 class="font-semibold mb-2">Diagnosis Report</h3>
-            <p class="text-sm text-gray-400">Product overview, 3D growth diagnosis, SEO/GEO audit, competitive positioning, channel strategy</p>
-        </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <div class="text-2xl mb-3">🎯</div>
-            <h3 class="font-semibold mb-2">30-Day Action Plan</h3>
-            <p class="text-sm text-gray-400">Week-by-week execution guide with code templates, outreach scripts, KPI tracking</p>
-        </div>
-    </div>
-
-    <!-- Social proof -->
-    <div class="text-center text-sm text-gray-500">
-        <p>Based on experience growing AFFiNE to 60K+ GitHub stars · 30x Product Hunt #1 · 150+ AI startups advised</p>
-        <p class="mt-2">Framework by <a href="https://gingiris.com" class="text-orange-400 hover:underline">Iris (生姜iris)</a> · Forbes Asia 30 Under 30</p>
-    </div>
-</div>
-
-<!-- Progress Section (hidden) -->
-<div id="progress-section" class="hidden">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
-        <div class="animate-pulse mb-6">
-            <div class="text-4xl mb-4">🫚</div>
-            <h2 class="text-xl font-bold mb-2">Generating Your Growth Audit...</h2>
-            <p class="text-gray-400" id="progress-url"></p>
-        </div>
-        <div class="max-w-md mx-auto space-y-3 text-left" id="progress-steps">
-            <div class="flex items-center gap-3" id="step-fetch">
-                <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">⏳</span>
-                <span class="text-gray-400">Fetching website data...</span>
+            <!-- Tabs -->
+            <div class="flex border-b border-[color:var(--warm-border)] mb-6">
+                <button class="tab-btn px-5 py-3 text-sm font-medium tab-active" data-tab="exec" onclick="switchTab('exec')">📋 Executive Summary</button>
+                <button class="tab-btn px-5 py-3 text-sm font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]" data-tab="diag" onclick="switchTab('diag')">🔬 Diagnosis</button>
+                <button class="tab-btn px-5 py-3 text-sm font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]" data-tab="plan" onclick="switchTab('plan')">🎯 Action Plan</button>
             </div>
-            <div class="flex items-center gap-3" id="step-exec">
-                <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">⏳</span>
-                <span class="text-gray-400">Generating Executive Summary...</span>
+
+            <!-- Report Content -->
+            <div id="report-container" class="card-cream p-8 report-content min-h-[400px]"></div>
+
+            <!-- CTA after report -->
+            <div class="grid md:grid-cols-2 gap-4 mt-8">
+                <a href="https://gingiris.com" target="_blank" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors text-center">
+                    <div class="text-2xl mb-2">🫚</div>
+                    <div class="font-serif text-lg text-[color:var(--ink)] mb-1">Want expert help?</div>
+                    <p class="text-xs text-[color:var(--ink-muted)]">Book 1:1 growth advisory with Iris</p>
+                </a>
+                <a href="https://gingiris.tools/skills/" target="_blank" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors text-center">
+                    <div class="text-2xl mb-2">🤖</div>
+                    <div class="font-serif text-lg text-[color:var(--ink)] mb-1">Install AI Playbooks</div>
+                    <p class="text-xs text-[color:var(--ink-muted)]">40+ growth skills for Claude Code & Cursor</p>
+                </a>
             </div>
-            <div class="flex items-center gap-3" id="step-diag">
-                <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">⏳</span>
-                <span class="text-gray-400">Generating Diagnosis Report...</span>
+        </section>
+    </main>
+
+    <!-- Footer (matches main site) -->
+    <footer class="border-t border-[color:var(--warm-border)] py-8 mt-8">
+        <div class="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
+            <span>© 2026 Gingiris.</span>
+            <div class="flex gap-4">
+                <a href="/" class="hover:text-[color:var(--ink)]">Analook</a>
+                <a href="https://gingiris.tools" class="hover:text-[color:var(--ink)]">Gingiris Tools</a>
+                <a href="https://gingiris.tools/skills/" class="hover:text-[color:var(--ink)]">AI Skills</a>
+                <a href="https://gingiris.com" class="hover:text-[color:var(--ink)]">Advisory</a>
             </div>
-            <div class="flex items-center gap-3" id="step-plan">
-                <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">⏳</span>
-                <span class="text-gray-400">Generating 30-Day Action Plan...</span>
-            </div>
+            <span class="font-mono">analook.com</span>
         </div>
-        <p class="text-xs text-gray-500 mt-6">Typical wait: 2-5 minutes</p>
-    </div>
-</div>
+    </footer>
 
-<!-- Results Section (hidden) -->
-<div id="results-section" class="hidden">
-    <div class="mb-6 flex items-center justify-between">
-        <div>
-            <h2 class="text-2xl font-bold" id="result-title">Growth Audit Complete</h2>
-            <p class="text-gray-400 text-sm" id="result-url"></p>
-        </div>
-        <button onclick="location.reload()" class="text-sm px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:border-orange-500 transition">
-            ↻ New Audit
-        </button>
-    </div>
+    <!-- Auth JS (shared with main site — handles login modal, session, credits) -->
+    <script src="/js/auth.js"></script>
 
-    <!-- Tabs -->
-    <div class="flex border-b border-gray-800 mb-6">
-        <button class="tab-btn px-4 py-3 text-sm font-medium tab-active" data-tab="exec" onclick="switchTab('exec')">📋 Executive Summary</button>
-        <button class="tab-btn px-4 py-3 text-sm font-medium text-gray-400 hover:text-white" data-tab="diag" onclick="switchTab('diag')">🔬 Diagnosis</button>
-        <button class="tab-btn px-4 py-3 text-sm font-medium text-gray-400 hover:text-white" data-tab="plan" onclick="switchTab('plan')">🎯 Action Plan</button>
-    </div>
+    <script>
+    let currentJobId = null;
+    let reports = {};
 
-    <!-- Report Content -->
-    <div id="report-container" class="bg-gray-900 border border-gray-800 rounded-2xl p-8 report-content min-h-[400px]">
-    </div>
-</div>
+    async function startAudit() {
+        const urlInput = document.getElementById('url-input').value.trim();
+        const nameInput = document.getElementById('name-input')?.value.trim();
 
-</main>
+        if (!urlInput) { alert('Please enter a URL'); return; }
 
-<!-- Footer -->
-<footer class="border-t border-gray-800 mt-16 py-8 text-center text-sm text-gray-500">
-    <a href="https://www.analook.com" class="hover:text-white">Analook</a> ·
-    <a href="https://gingiris.tools" class="hover:text-white">Gingiris Tools</a> ·
-    <a href="https://gingiris.tools/skills/" class="hover:text-white">AI Skills</a> ·
-    <a href="https://gingiris.com" class="hover:text-white">Iris Advisory</a>
-</footer>
-
-<script>
-// Auth (simplified — reuses Supabase from main site)
-const SUPABASE_URL = document.querySelector('meta[name="supabase-url"]')?.content;
-const SUPABASE_ANON = document.querySelector('meta[name="supabase-anon"]')?.content;
-let authToken = localStorage.getItem('sb_token') || '';
-
-function updateAuthUI() {
-    const btn = document.getElementById('auth-btn');
-    if (authToken) {
-        btn.textContent = 'Account';
-        btn.onclick = () => window.location.href = '/';
-    } else {
-        btn.textContent = 'Login';
-        btn.onclick = () => window.location.href = '/?login=1';
-    }
-}
-updateAuthUI();
-
-let currentJobId = null;
-let pollTimer = null;
-let reports = {};
-
-async function startAudit() {
-    const url = document.getElementById('url-input').value.trim();
-    const productName = document.getElementById('name-input').value.trim();
-
-    if (!url) {
-        alert('Please enter a URL');
-        return;
-    }
-
-    if (!authToken) {
-        if (confirm('Growth Audit requires login. Go to login page?')) {
-            window.location.href = '/?login=1';
+        // Check auth
+        const token = window._analookAuth?.getToken?.();
+        if (!token) {
+            window._analookAuth?.showModal?.();
+            return;
         }
-        return;
-    }
 
-    // Start audit
-    const btn = document.getElementById('start-btn');
-    btn.disabled = true;
-    btn.textContent = 'Starting...';
+        const url = urlInput.startsWith('http') ? urlInput : `https://${urlInput}`;
+        const btn = document.getElementById('start-btn');
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
 
-    try {
-        const resp = await fetch('/api/growth-audit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ url, product_name: productName || undefined }),
-        });
+        try {
+            const resp = await fetch('/api/growth-audit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ url, product_name: nameInput || undefined }),
+            });
 
-        const data = await resp.json();
+            const data = await resp.json();
 
-        if (!resp.ok) {
-            if (data.code === 'AUTH_REQUIRED') {
-                alert('Please login first.');
-                window.location.href = '/?login=1';
+            if (!resp.ok) {
+                if (data.code === 'AUTH_REQUIRED') {
+                    window._analookAuth?.showModal?.();
+                    return;
+                }
+                if (data.code === 'CREDITS_EXHAUSTED') {
+                    alert(`Not enough credits. Growth Audit requires ${data.required_credits || 15} credits.\n\nPro plan ($29/mo) includes 30 credits.`);
+                    window.location.href = '/pricing.html';
+                    return;
+                }
+                alert(data.error || 'Failed to start audit');
                 return;
             }
-            if (data.code === 'CREDITS_EXHAUSTED') {
-                alert(`Not enough credits. Growth Audit requires ${data.required_credits || 10} credits. Upgrade your plan.`);
-                window.location.href = '/pricing.html';
+
+            currentJobId = data.job_id;
+            showProgress(url);
+            pollStatus();
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Start Audit →';
+        }
+    }
+
+    function showProgress(url) {
+        document.getElementById('hero-section').classList.add('hidden');
+        document.querySelector('section.py-12')?.classList.add('hidden'); // cards section
+        document.querySelector('section.text-center.py-8')?.classList.add('hidden'); // social proof
+        document.getElementById('progress-section').classList.remove('hidden');
+        document.getElementById('progress-url').textContent = url;
+    }
+
+    function updateStep(stepId, status) {
+        const el = document.getElementById(stepId);
+        if (!el) return;
+        const icon = el.querySelector('span:first-child');
+        const text = el.querySelector('span:last-child');
+        if (status === 'done') {
+            icon.textContent = '✓';
+            icon.className = 'w-5 h-5 rounded-full bg-green-900/50 border border-green-700/50 flex items-center justify-center text-[10px] text-green-400';
+            text.className = 'text-sm text-green-400';
+        } else if (status === 'running') {
+            icon.textContent = '⚡';
+            icon.className = 'w-5 h-5 rounded-full bg-orange-900/50 border border-orange-700/50 flex items-center justify-center text-[10px] text-orange-400 animate-pulse';
+            text.className = 'text-sm text-orange-400';
+        } else if (status === 'failed') {
+            icon.textContent = '✗';
+            icon.className = 'w-5 h-5 rounded-full bg-red-900/50 border border-red-700/50 flex items-center justify-center text-[10px] text-red-400';
+            text.className = 'text-sm text-red-400';
+        }
+    }
+
+    async function pollStatus() {
+        if (!currentJobId) return;
+        const token = window._analookAuth?.getToken?.();
+        try {
+            const resp = await fetch(`/api/growth-audit/${currentJobId}`, {
+                headers: token ? {'Authorization': `Bearer ${token}`} : {},
+            });
+            const data = await resp.json();
+
+            if (data.progress) {
+                updateStep('step-fetch', data.progress.fetch);
+                updateStep('step-exec', data.progress.executive_summary);
+                updateStep('step-diag', data.progress.diagnosis);
+                updateStep('step-plan', data.progress.action_plan);
+            }
+
+            if (data.status === 'completed') {
+                reports = data.reports || {};
+                showResults(data.product_name, data.url);
                 return;
             }
-            alert(data.error || 'Failed to start audit');
-            return;
+
+            if (data.status === 'failed') {
+                alert('Audit failed: ' + (data.error || 'Unknown error. Please try again.'));
+                location.reload();
+                return;
+            }
+
+            setTimeout(pollStatus, 3000);
+        } catch (e) {
+            setTimeout(pollStatus, 5000);
         }
-
-        currentJobId = data.job_id;
-        showProgress(url);
-        pollStatus();
-    } catch (e) {
-        alert('Network error: ' + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Start Audit →';
     }
-}
 
-function showProgress(url) {
-    document.getElementById('landing-section').classList.add('hidden');
-    document.getElementById('progress-section').classList.remove('hidden');
-    document.getElementById('progress-url').textContent = url;
-}
-
-function updateStep(stepId, status) {
-    const el = document.getElementById(stepId);
-    if (!el) return;
-    const icon = el.querySelector('span:first-child');
-    const text = el.querySelector('span:last-child');
-    if (status === 'done') {
-        icon.textContent = '✅';
-        icon.className = 'w-6 h-6 rounded-full bg-green-900 flex items-center justify-center text-xs';
-        text.className = 'text-green-400';
-    } else if (status === 'running') {
-        icon.textContent = '⚡';
-        icon.className = 'w-6 h-6 rounded-full bg-orange-900 flex items-center justify-center text-xs animate-pulse';
-        text.className = 'text-orange-400';
-    } else if (status === 'failed') {
-        icon.textContent = '❌';
-        icon.className = 'w-6 h-6 rounded-full bg-red-900 flex items-center justify-center text-xs';
-        text.className = 'text-red-400';
+    function showResults(productName, url) {
+        document.getElementById('progress-section').classList.add('hidden');
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('result-title').textContent = productName;
+        document.getElementById('result-url').textContent = url;
+        switchTab('exec');
     }
-}
 
-async function pollStatus() {
-    if (!currentJobId) return;
-
-    try {
-        const resp = await fetch(`/api/growth-audit/${currentJobId}`, {
-            headers: authToken ? {'Authorization': `Bearer ${authToken}`} : {},
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('tab-active');
+            btn.classList.add('text-[color:var(--ink-muted)]');
         });
-        const data = await resp.json();
+        const active = document.querySelector(`[data-tab="${tab}"]`);
+        active.classList.add('tab-active');
+        active.classList.remove('text-[color:var(--ink-muted)]');
 
-        // Update progress UI
-        if (data.progress) {
-            updateStep('step-fetch', data.progress.fetch);
-            updateStep('step-exec', data.progress.executive_summary);
-            updateStep('step-diag', data.progress.diagnosis);
-            updateStep('step-plan', data.progress.action_plan);
-        }
+        const container = document.getElementById('report-container');
+        let content = '';
+        if (tab === 'exec') content = reports.executive_summary || '*Report generation failed. Please try again.*';
+        else if (tab === 'diag') content = reports.diagnosis_report || '*Report generation failed. Please try again.*';
+        else if (tab === 'plan') content = reports.action_plan || '*Report generation failed. Please try again.*';
 
-        if (data.status === 'completed') {
-            reports = data.reports || {};
-            showResults(data.product_name, data.url);
-            return;
-        }
-
-        if (data.status === 'failed') {
-            alert('Audit failed: ' + (data.error || 'Unknown error'));
-            location.reload();
-            return;
-        }
-
-        // Keep polling
-        pollTimer = setTimeout(pollStatus, 3000);
-    } catch (e) {
-        pollTimer = setTimeout(pollStatus, 5000);
+        container.innerHTML = marked.parse(content);
     }
-}
 
-function showResults(productName, url) {
-    document.getElementById('progress-section').classList.add('hidden');
-    document.getElementById('results-section').classList.remove('hidden');
-    document.getElementById('result-title').textContent = `${productName} — Growth Audit`;
-    document.getElementById('result-url').textContent = url;
-    switchTab('exec');
-}
-
-function switchTab(tab) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('tab-active');
-        btn.classList.add('text-gray-400');
-    });
-    document.querySelector(`[data-tab="${tab}"]`).classList.add('tab-active');
-    document.querySelector(`[data-tab="${tab}"]`).classList.remove('text-gray-400');
-
-    // Render content
-    const container = document.getElementById('report-container');
-    let content = '';
-    if (tab === 'exec') content = reports.executive_summary || 'Report not available.';
-    else if (tab === 'diag') content = reports.diagnosis_report || 'Report not available.';
-    else if (tab === 'plan') content = reports.action_plan || 'Report not available.';
-
-    container.innerHTML = marked.parse(content);
-}
-
-// Handle direct URL params
-const params = new URLSearchParams(window.location.search);
-if (params.get('url')) {
-    document.getElementById('url-input').value = params.get('url');
-}
-</script>
+    // Handle URL params (e.g. from gingiris.tools CTA)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('url')) {
+        document.getElementById('url-input').value = params.get('url').replace(/^https?:\/\//, '');
+    }
+    </script>
 </body>
 </html>
