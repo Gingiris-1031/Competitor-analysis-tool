@@ -172,9 +172,56 @@
         .report-content blockquote { border-left: 3px solid #FB923C; padding-left: 1rem; margin: 0.75rem 0; color: var(--ink-muted); font-style: italic; }
         .report-content strong { color: var(--ink); }
         .tab-active { border-bottom: 2px solid #FB923C; color: var(--ink) !important; }
+
+        /* ── Toast (replaces native alert()) ────────────────────────────── */
+        #toast-stack {
+            position: fixed; top: 24px; right: 24px; z-index: 1000;
+            display: flex; flex-direction: column; gap: 10px;
+            pointer-events: none;
+            max-width: calc(100vw - 48px); width: 380px;
+        }
+        .toast {
+            pointer-events: auto;
+            background: var(--cream-card);
+            border: 1px solid var(--warm-border);
+            border-left: 3px solid #FB923C;
+            border-radius: 10px;
+            padding: 14px 18px 14px 16px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+            color: var(--ink);
+            font-size: 13.5px;
+            line-height: 1.55;
+            display: flex; align-items: flex-start; gap: 12px;
+            animation: toastIn 0.22s cubic-bezier(.22,.9,.3,1.15);
+        }
+        .toast--error { border-left-color: #f87171; }
+        .toast--success { border-left-color: #34d399; }
+        .toast--info { border-left-color: #FB923C; }
+        .toast__icon { flex: 0 0 18px; font-size: 14px; line-height: 1.4; padding-top: 1px; }
+        .toast__body { flex: 1; }
+        .toast__title { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+        .toast__msg { color: var(--ink-muted); white-space: pre-line; }
+        .toast__close {
+            cursor: pointer; color: var(--ink-faint); font-size: 16px; line-height: 1;
+            padding: 0 0 0 4px; background: none; border: none;
+        }
+        .toast__close:hover { color: var(--ink); }
+        .toast.leaving { animation: toastOut 0.18s ease-in forwards; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toastOut {
+            to { opacity: 0; transform: translateY(-6px) scale(0.98); }
+        }
+        @media (max-width: 540px) {
+            #toast-stack { top: 12px; right: 12px; width: calc(100vw - 24px); }
+        }
     </style>
 </head>
 <body class="min-h-screen">
+    <!-- Toast stack (cream-branded replacement for native alert()) -->
+    <div id="toast-stack" aria-live="polite" aria-atomic="true"></div>
     <!-- Top gradient accent stripe -->
     <div class="top-accent" style="height: 4px;"></div>
 
@@ -281,7 +328,7 @@
         <!-- Social proof -->
         <section class="text-center py-8 border-t border-[color:var(--warm-border)]">
             <p class="text-sm text-[color:var(--ink-muted)]">Based on frameworks from growing AFFiNE to 60K+ GitHub stars · coaching 30+ Product Hunt #1 launches · 150+ AI startups advised</p>
-            <p class="text-xs text-[color:var(--ink-faint)] mt-2">Framework by <a href="https://gingiris.com" class="text-orange-400 hover:underline">Iris (生姜iris)</a> · Forbes Asia 30 Under 30 · <a href="https://gingiris.tools/skills/" class="text-orange-400 hover:underline">40+ AI playbooks</a></p>
+            <p class="text-xs text-[color:var(--ink-faint)] mt-2">Framework by <a href="https://gingiris.com" class="text-orange-400 hover:underline">Iris (生姜iris)</a> · ex-COO of AFFiNE (60K stars) · <a href="https://gingiris.tools/skills/" class="text-orange-400 hover:underline">40+ AI growth playbooks</a></p>
         </section>
 
         <!-- Progress Section (hidden) -->
@@ -373,11 +420,44 @@
     let currentJobId = null;
     let reports = {};
 
+    /**
+     * Branded toast notification — replaces blocking native alert().
+     *   showToast({ title, message, kind: 'info'|'error'|'success', duration })
+     */
+    function showToast({ title, message = '', kind = 'info', duration = 5500 } = {}) {
+        const stack = document.getElementById('toast-stack');
+        if (!stack) { console.warn('toast stack missing, falling back:', title, message); return; }
+        const t = document.createElement('div');
+        t.className = `toast toast--${kind}`;
+        const icon = kind === 'error' ? '⚠' : kind === 'success' ? '✓' : 'ⓘ';
+        t.innerHTML = `
+            <span class="toast__icon" aria-hidden="true">${icon}</span>
+            <div class="toast__body">
+                ${title ? `<div class="toast__title"></div>` : ''}
+                ${message ? `<div class="toast__msg"></div>` : ''}
+            </div>
+            <button class="toast__close" aria-label="Dismiss">×</button>
+        `;
+        if (title) t.querySelector('.toast__title').textContent = title;
+        if (message) t.querySelector('.toast__msg').textContent = message;
+        const dismiss = () => {
+            t.classList.add('leaving');
+            setTimeout(() => t.remove(), 200);
+        };
+        t.querySelector('.toast__close').addEventListener('click', dismiss);
+        stack.appendChild(t);
+        if (duration > 0) setTimeout(dismiss, duration);
+        return t;
+    }
+
     async function startAudit() {
         const urlInput = document.getElementById('url-input').value.trim();
         const nameInput = document.getElementById('name-input')?.value.trim();
 
-        if (!urlInput) { alert('Please enter a URL'); return; }
+        if (!urlInput) {
+            showToast({ kind: 'info', title: 'URL needed', message: 'Paste a product URL (e.g. https://example.com) to start the audit.' });
+            return;
+        }
 
         // Check auth
         const token = window._analookAuth?.getToken?.();
@@ -409,11 +489,17 @@
                     return;
                 }
                 if (data.code === 'CREDITS_EXHAUSTED') {
-                    alert(`Not enough credits. Growth Audit needs ${data.required_credits || 10} credits.\n\nPro $29/mo = 3 audits/month. Redirecting to pricing…`);
-                    window.location.href = '/pricing.html';
+                    const need = data.required_credits || 10;
+                    showToast({
+                        kind: 'info',
+                        title: `Out of credits — needs ${need}`,
+                        message: `Pro $29/mo = 3 audits/month (30 credits). Taking you to pricing…`,
+                        duration: 3500,
+                    });
+                    setTimeout(() => { window.location.href = '/pricing.html'; }, 1800);
                     return;
                 }
-                alert(data.error || 'Failed to start audit');
+                showToast({ kind: 'error', title: 'Failed to start audit', message: data.error || 'Please try again in a moment.' });
                 return;
             }
 
@@ -421,7 +507,7 @@
             showProgress(url);
             pollStatus();
         } catch (e) {
-            alert('Network error: ' + e.message);
+            showToast({ kind: 'error', title: 'Network error', message: e.message });
         } finally {
             btn.disabled = false;
             btn.textContent = 'Start Audit →';
@@ -479,8 +565,13 @@
             }
 
             if (data.status === 'failed') {
-                alert('Audit failed: ' + (data.error || 'Unknown error. Please try again.'));
-                location.reload();
+                showToast({
+                    kind: 'error',
+                    title: 'Audit failed',
+                    message: (data.error || 'Unknown error.') + ' Reloading…',
+                    duration: 3500,
+                });
+                setTimeout(() => location.reload(), 2200);
                 return;
             }
 
