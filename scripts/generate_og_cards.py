@@ -42,6 +42,7 @@ PAGES = [
     ("alt-semrush.png",        "7 best SEMrush",                   "alternatives",   "Free + paid marketing intelligence tools.",                   "analook.com/alternatives"),
     ("alt-crayon.png",         "6 best Crayon",                    "alternatives",   "Including a free competitive-intel tool.",                    "analook.com/alternatives"),
     ("alt-klue.png",           "6 best Klue",                      "alternatives",   "From free founder stack to enterprise battlecards.",          "analook.com/alternatives"),
+    ("growth-audit.png",       "Full Growth",                      "Diagnostic",     "3 reports in 5 minutes · Gingiris Growth Framework.",         "analook.com/growth-audit"),
 ]
 
 BG = (10, 10, 10)            # #0A0A0A

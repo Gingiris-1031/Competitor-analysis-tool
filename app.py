@@ -289,7 +289,11 @@ async def get_pricing():
             {"key": "pro", "name": "Pro", "price": 29, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
             {"key": "team", "name": "Team", "price": 99, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
-            {"key": "growth_audit", "name": "Growth Audit", "price": 49, "period": "once", "credits": 10, "features": ["Full growth diagnostic", "Executive Summary", "Diagnosis Report", "30-Day Action Plan", "Gingiris Playbook matching"]},
+            # Growth Audit is a CREDIT-PRICED tool (10 credits / use). It's not a
+            # standalone purchase tier — to run it you buy Pro ($29/mo → 3 audits/mo)
+            # or Team. No standalone Polar product exists for it; if a one-time
+            # tier is re-added later, also wire POLAR_PRODUCT_GROWTH + the
+            # add_credits branch in modules/polar_payment.py.
         ],
     }
 
@@ -698,7 +702,7 @@ async def cancel_job(job_id: str):
 # Growth Audit jobs (separate from regular analysis jobs)
 _growth_audit_jobs: dict = {}
 
-GROWTH_AUDIT_CREDITS = 15  # Cost in credits — forces Pro plan ($29/mo, 30 credits)
+GROWTH_AUDIT_CREDITS = 10  # Pro $29/mo (30 credits) = exactly 3 audits/month
 
 
 @app.post("/api/growth-audit")

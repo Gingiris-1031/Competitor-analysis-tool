@@ -173,5 +173,12 @@
     <priority>1.0</priority>
     <lastmod>2026-06-05</lastmod>
   </url>
+  <!-- Growth Audit (revenue tool — Service + WebApplication + FAQPage schema) -->
+  <url>
+    <loc>https://www.analook.com/growth-audit.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <lastmod>2026-06-10</lastmod>
+  </url>
 
 </urlset>
