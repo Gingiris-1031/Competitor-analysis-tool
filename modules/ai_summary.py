@@ -235,6 +235,193 @@ def _resolve_source(facts: dict, dotted: str) -> str:
     return _UNKNOWN
 
 
+def _resolve_fact_value(facts: dict, dotted: str):
+    """Walk facts by dotted path. Return the `v` value of the leaf, or None.
+
+    Different from _resolve_source — that returns the source label;
+    this returns the actual value the LLM should have written.
+    """
+    cur = facts
+    for part in dotted.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return None
+    if isinstance(cur, dict) and "v" in cur:
+        return cur["v"]
+    return None
+
+
+# ─── Pass 2.5: Numeric fact-check ───────────────────────────────────────────
+# After the LLM emits prose with [fact:KEY] citations, we double-check that
+# the NUMBER it wrote before each marker actually matches the value in the
+# facts JSON. The LLM occasionally rounds, fabricates a "close" number, or
+# introduces a range when the fact is exact. Pass 2.5 catches those and
+# REPLACES the wrong text with the canonical value, so the user always
+# sees the source-of-truth number even if the LLM drifted.
+
+
+# Captures things like:
+#   "12,000 [fact:traffic.monthly_visits]"
+#   "12K [fact:traffic.monthly_visits]"
+#   "约 12000 [fact:traffic.monthly_visits]"
+#   "$3,200 [fact:traffic.equiv_paid_ad_cost_usd_per_month]"
+#   "8 个 [fact:traffic.keywords_top10]"
+#   "2026-04-15 [fact:producthunt.first_launch]"
+_NUM_BEFORE_FACT_RE = re.compile(
+    r"(?P<lead>[$¥€£￥]?\s*"
+    r"(?P<num>[\d][\d,]*(?:\.\d+)?(?:\s*[%KMB]|\s*万|\s*亿|\s*-\s*[\d][\d,]*)?)\s*)"
+    r"(?:个|篇|条|次|名|位|月|days?|weeks?|months?|years?|hrs?|hours?|minutes?|days)?\s*"
+    r"\[fact:(?P<key>[a-zA-Z0-9_.]+)\]"
+)
+
+
+def _parse_loose_number(s: str):
+    """Parse a number string the LLM might have written: '12,000', '12K',
+    '$3,200', '约 1.2万', '8'. Returns a float, or None on parse failure.
+    Discards $ signs, commas, and trailing 个/篇/条 etc.
+    """
+    if not isinstance(s, str):
+        return None
+    raw = s.strip()
+    # Strip currency / leading symbols
+    raw = re.sub(r"^[\$¥€£￥约~]+\s*", "", raw)
+    # Range? Take the lower bound for comparison.
+    if "-" in raw:
+        raw = raw.split("-")[0].strip()
+    # Suffix multiplier
+    mult = 1.0
+    m = re.match(r"^([\d.,]+)\s*([KMB万亿]?)\s*$", raw)
+    if not m:
+        # try just the number part
+        m2 = re.search(r"([\d][\d,]*(?:\.\d+)?)", raw)
+        if not m2:
+            return None
+        try:
+            return float(m2.group(1).replace(",", ""))
+        except ValueError:
+            return None
+    num_s, suffix = m.group(1), m.group(2)
+    try:
+        n = float(num_s.replace(",", ""))
+    except ValueError:
+        return None
+    if suffix == "K":
+        n *= 1_000
+    elif suffix == "M":
+        n *= 1_000_000
+    elif suffix == "B":
+        n *= 1_000_000_000
+    elif suffix == "万":
+        n *= 10_000
+    elif suffix == "亿":
+        n *= 100_000_000
+    return n
+
+
+def _format_canonical(value):
+    """Format a fact value for inline display. Numbers get thousand-separators."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return f"{value:,}"
+    if isinstance(value, float):
+        if value == int(value):
+            return f"{int(value):,}"
+        return f"{value:,.2f}"
+    return str(value)
+
+
+# Drift > this fraction triggers replacement. 1.5% absorbs harmless rounding
+# (12000 → 12K written as "12.0K" then re-read as 12000) but catches the
+# "200K" LLM hallucination when the fact says 12000.
+_NUMERIC_DRIFT_TOLERANCE = 0.015
+
+
+def _verify_numeric_claims(prose: str, facts: dict) -> tuple:
+    """Scan prose for `NUMBER [fact:KEY]` patterns and verify each NUMBER
+    matches `facts[KEY].v`. On mismatch, rewrite to the canonical number
+    with a ⚠️ marker so the user sees both the corrected value AND that
+    we caught an LLM drift.
+
+    Returns: (rewritten_prose, list_of_fixes) where fixes is
+        [(key, written, canonical), ...]
+    """
+    fixes: list = []
+    if not prose or not facts:
+        return prose, fixes
+
+    def repl(m):
+        written_full = m.group("lead").strip()
+        written_num = m.group("num").strip()
+        key = m.group("key")
+        canonical = _resolve_fact_value(facts, key)
+        if canonical is None:
+            # Fact key doesn't resolve — leave for confidence pass to flag 🔴
+            return m.group(0)
+
+        # Skip date / string facts — we only verify numerics here.
+        if not isinstance(canonical, (int, float)):
+            return m.group(0)
+
+        w = _parse_loose_number(written_num)
+        c = float(canonical)
+        if w is None:
+            return m.group(0)
+
+        # Drift check
+        denom = max(abs(c), 1.0)
+        drift = abs(w - c) / denom
+        if drift <= _NUMERIC_DRIFT_TOLERANCE:
+            return m.group(0)  # close enough — accept LLM's formatting
+
+        # Mismatch — record & rewrite
+        fixes.append({
+            "key": key,
+            "llm_wrote": written_full,
+            "canonical": _format_canonical(canonical),
+            "drift_pct": round(drift * 100, 1),
+        })
+        log.warning(
+            "Numeric drift: key=%s llm=%r canonical=%r drift=%.1f%%",
+            key, written_full, canonical, drift * 100,
+        )
+        # Replace just the leading number, keep the [fact:] marker for
+        # the confidence pass to render its badge.
+        canonical_str = _format_canonical(canonical)
+        return f"{canonical_str}⚠️ [fact:{key}]"
+
+    rewritten = _NUM_BEFORE_FACT_RE.sub(repl, prose)
+    return rewritten, fixes
+
+
+# Uncited-number sniff: catches NUMBERS that look specific (≥4 digits or
+# K/M/万/亿 magnitude) but have NO [fact:] marker nearby. These are the
+# highest hallucination risk — the LLM bypassed the citation rule.
+_UNCITED_LARGE_NUM_RE = re.compile(
+    r"(?<![\d.])(\d{1,3}(?:[,\d]{3,}|(?:\.\d+)?[KMB万亿])\b)(?![\d.])"
+)
+
+
+def _scan_uncited_numbers(prose: str, window: int = 60) -> list:
+    """Return a list of {value, position} for large numbers not followed
+    within `window` chars by a [fact:] citation. Caller can flag them or
+    leave them — we don't auto-rewrite (we don't know the truth).
+    """
+    if not prose:
+        return []
+    suspicious: list = []
+    for m in _UNCITED_LARGE_NUM_RE.finditer(prose):
+        tail = prose[m.end():m.end() + window]
+        if "[fact:" not in tail:
+            suspicious.append({
+                "value":  m.group(0),
+                "pos":    m.start(),
+                "context": prose[max(0, m.start() - 30):m.end() + 30],
+            })
+    return suspicious
+
+
 def _confidence_emoji(src: str) -> str:
     if src in ("dataforseo", "github", "tinyfish", "producthunt"):
         return "🟢"
@@ -444,6 +631,30 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
                 result["content"] = result["content"][:json_match.start()].rstrip()
             except Exception:
                 pass
+
+        # Pass 2.5 — numeric fact-check. Catches the LLM hallucinating
+        # "around 200K" when DataForSEO said 12,000. Auto-rewrites with
+        # the canonical value + ⚠️ marker. Runs BEFORE the confidence
+        # badges so the markers Pass 3 sees are still raw [fact:KEY].
+        try:
+            corrected, fixes = _verify_numeric_claims(result["content"], facts)
+            result["content"] = corrected
+            result["numeric_fixes"] = fixes
+            suspicious = _scan_uncited_numbers(result["content"])
+            result["uncited_numbers"] = suspicious
+            if fixes:
+                log.warning(
+                    "Pass-2.5 caught %d numeric drift(s): %s",
+                    len(fixes),
+                    [(f["key"], f["llm_wrote"], f["canonical"]) for f in fixes[:5]],
+                )
+            if suspicious:
+                log.info(
+                    "Pass-2.5: %d uncited large numbers — LLM bypassed citation",
+                    len(suspicious),
+                )
+        except Exception as e:
+            log.warning("Pass-2.5 numeric fact-check failed: %s", e)
 
         # Pass 3 — replace [fact:KEY] markers with confidence badges +
         # append the legend footer. Stays in `content` so the existing
