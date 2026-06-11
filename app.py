@@ -218,6 +218,14 @@ async def health_check():
         "keys_configured": sum(1 for v in keys.values() if v),
         "keys": keys,
     }
+
+    # Cache stats — surface cache_hit_rate so we can verify the TTL cache
+    # is actually saving DataForSEO bills. Cheap call (one COUNT/SUM query).
+    try:
+        from modules.audit_cache import stats as _cache_stats
+        body["audit_cache"] = await _cache_stats()
+    except Exception:
+        body["audit_cache"] = {"sources": {}, "available": False}
     if degraded:
         body["warning"] = (
             "SUPABASE_URL is set but client failed to initialize — "

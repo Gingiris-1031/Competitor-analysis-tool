@@ -395,6 +395,169 @@ def _verify_numeric_claims(prose: str, facts: dict) -> tuple:
     return rewritten, fixes
 
 
+# ─── Pass 1.5: Cross-source signal detection ────────────────────────────────
+# Runs AFTER fact extraction (Pass 1), BEFORE the LLM call (Pass 2).
+# Compares values from different sources for the same entity and surfaces
+# correlations or conflicts as STRUCTURED INSIGHTS the LLM is told to use.
+#
+# This is the differentiation play: Crayon/SimilarWeb give one number; we
+# call out when sources disagree. "DataForSEO says 12K monthly visits but
+# Twitter has 50K followers — this product is social-led, not SEO-led" is
+# the kind of insight that only a multi-source tool can produce.
+
+
+def _detect_source_conflicts(facts: dict) -> list:
+    """Walk the facts dict for known cross-source signal patterns. Returns
+    a list of {kind, message, sources, severity} dicts.
+
+    Each pattern is curated to surface ACTIONABLE growth narrative — not
+    just statistical anomalies. The LLM uses these in the synthesis as
+    "跨源信号" callouts.
+    """
+    out: list = []
+    if not facts:
+        return out
+
+    def g(path):
+        return _resolve_fact_value(facts, path)
+
+    # Generic helper to clamp numbers for readable comparison
+    def n(v):
+        try:
+            return float(v) if v is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    traffic = n(g("traffic.monthly_organic_visits"))
+    tw_followers = n(g("social.twitter.followers"))
+    ig_followers = n(g("social.instagram.followers"))
+    yt_subs = n(g("social.youtube.followers"))
+    gh_stars = n(g("github.stars"))
+    gh_contribs = n(g("github.contributors"))
+    backlinks = n(g("traffic.backlinks"))
+    referring_domains = n(g("traffic.referring_domains"))
+    ph_first_launch = g("producthunt.first_launch")
+    ph_total_upvotes = n(g("producthunt.total_upvotes"))
+    ph_best_rank = n(g("producthunt.best_rank"))
+    wayback_first_seen = g("product.first_seen")
+    has_free_tier = g("pricing.has_free_tier")
+
+    # ── Pattern 1: Social >> Traffic → community-led / social-led product ──
+    largest_social = max((s for s in (tw_followers, ig_followers, yt_subs) if s),
+                         default=None)
+    if traffic and largest_social and largest_social > traffic * 5:
+        out.append({
+            "kind": "social_dominant_distribution",
+            "severity": "high",
+            "sources": ["dataforseo", "social"],
+            "message": (
+                f"Twitter / 社交粉丝（{int(largest_social):,}）远超月有机访问"
+                f"（{int(traffic):,}，比例 {largest_social / max(traffic, 1):.1f}x）。"
+                "→ 用户主要从社交媒体进入，不是 SEO 漏斗。这是 social-led 或 "
+                "community-led 产品的明显信号 — 复刻策略时社媒投入应权重大于内容 SEO。"
+            ),
+        })
+
+    # ── Pattern 2: GitHub stars + recent PH = OSS launch-driven growth ──
+    if gh_stars and ph_total_upvotes and gh_stars > 300 and ph_total_upvotes > 200:
+        out.append({
+            "kind": "oss_launch_synergy",
+            "severity": "medium",
+            "sources": ["github", "producthunt"],
+            "message": (
+                f"GitHub {int(gh_stars):,} stars + PH 总票数 {int(ph_total_upvotes):,}"
+                f"（最佳排名 #{int(ph_best_rank) if ph_best_rank else '?'}） — "
+                "经典的开源 + PH launch 双引擎组合。建议研究他们的"
+                "「PH 发布前 README 优化」+ HN/Reddit 配套节奏。"
+            ),
+        })
+
+    # ── Pattern 3: Wayback first_seen vs PH launch → site predated PH ──
+    if wayback_first_seen and ph_first_launch:
+        try:
+            from datetime import datetime as _dt
+            wb_d = _dt.fromisoformat(str(wayback_first_seen).replace("Z", "+00:00").replace(" ", "T")[:19])
+            ph_d = _dt.fromisoformat(str(ph_first_launch).replace("Z", "+00:00").replace(" ", "T")[:19])
+            delta_days = (ph_d - wb_d).days
+            if delta_days > 90:
+                out.append({
+                    "kind": "site_predates_ph",
+                    "severity": "medium",
+                    "sources": ["wayback", "producthunt"],
+                    "message": (
+                        f"域名首次出现 {wb_d.date()} 比 PH 首发"
+                        f"（{ph_d.date()}）早 {delta_days} 天。"
+                        "→ 不是 day-one PH launch，先打磨 ~{}个月后才发 PH。"
+                        "复刻时不要急于 launch — 这个产品类型可能需要先有 traction。"
+                    ).format(round(delta_days / 30)),
+                })
+            elif delta_days < 7 and delta_days >= 0:
+                out.append({
+                    "kind": "day_zero_ph_launch",
+                    "severity": "medium",
+                    "sources": ["wayback", "producthunt"],
+                    "message": (
+                        f"域名 {wb_d.date()} 注册，PH {ph_d.date()} 发布 — "
+                        f"几乎是 day-zero launch。"
+                        "→ MVP-first 打法：先 ship，PH 当 PR 引擎。"
+                    ),
+                })
+        except (ValueError, TypeError):
+            pass
+
+    # ── Pattern 4: Backlinks vs Referring domains → link quality ──
+    if backlinks and referring_domains:
+        ratio = backlinks / max(referring_domains, 1)
+        if ratio > 30:
+            out.append({
+                "kind": "concentrated_backlinks",
+                "severity": "low",
+                "sources": ["dataforseo"],
+                "message": (
+                    f"反链 {int(backlinks):,} 来自 {int(referring_domains)} 个引用域名"
+                    f"（每域 {ratio:.0f} 条链接）。这种高比率通常意味着 "
+                    "PBN / 模板链接 / 论坛签名 — 链接质量偏低，被惩罚风险较高。"
+                ),
+            })
+        elif ratio < 3 and referring_domains > 50:
+            out.append({
+                "kind": "diverse_backlinks",
+                "severity": "low",
+                "sources": ["dataforseo"],
+                "message": (
+                    f"反链 {int(backlinks):,} 分布在 {int(referring_domains)} 个域名"
+                    f"（每域 {ratio:.1f} 条）。链接源多样 — 自然增长的健康信号。"
+                ),
+            })
+
+    # ── Pattern 5: GitHub contributors > 10 + free tier → community OSS ──
+    if gh_contribs and has_free_tier and gh_contribs > 10:
+        out.append({
+            "kind": "active_oss_community",
+            "severity": "medium",
+            "sources": ["github", "homepage"],
+            "message": (
+                f"GitHub {int(gh_contribs)} 名外部贡献者 + 免费层 — "
+                "活跃的 OSS 社区已经形成。这意味着 contributor onboarding 流程做得不错，"
+                "复刻时务必抄他们的 CONTRIBUTING.md + first-time-PR 标签策略。"
+            ),
+        })
+
+    return out
+
+
+def _format_conflicts_for_prompt(conflicts: list) -> str:
+    """Render conflict list as a Markdown section for the LLM prompt."""
+    if not conflicts:
+        return "（暂无跨源信号检测到）"
+    lines = []
+    for c in conflicts:
+        sev_emoji = {"high": "🔥", "medium": "⚡", "low": "💡"}.get(c.get("severity"), "💡")
+        sources_str = " + ".join(c.get("sources", []))
+        lines.append(f"- {sev_emoji} **{c['kind']}** ({sources_str}): {c['message']}")
+    return "\n".join(lines)
+
+
 # Uncited-number sniff: catches NUMBERS that look specific (≥4 digits or
 # K/M/万/亿 magnitude) but have NO [fact:] marker nearby. These are the
 # highest hallucination risk — the LLM bypassed the citation rule.
@@ -471,6 +634,13 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     log.info("Pass-1 facts extracted: %d top-level fields, JSON %d chars",
              len(facts), len(facts_json_str))
 
+    # Pass 1.5 — deterministic cross-source signal detection.
+    conflicts = _detect_source_conflicts(facts)
+    conflicts_md = _format_conflicts_for_prompt(conflicts)
+    if conflicts:
+        log.info("Pass-1.5 cross-source signals detected: %d (kinds: %s)",
+                 len(conflicts), [c["kind"] for c in conflicts])
+
     context        = _safe(_build_context, product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
     wayback_insight = _safe(_build_wayback_insight, website)
     ph_insight     = _safe(_build_ph_insight, producthunt)
@@ -500,6 +670,15 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 引用示例：
 > 月访问 12,000 [fact:traffic.monthly_organic_visits]，主要来自 8 个 Top-10 关键词 [fact:traffic.keywords_top10]。
+
+---
+
+## 🔥 跨源信号（程序自动检测，**必须在报告中体现**）
+
+下面是把不同 source 数据**并排比较**后浮现的洞察。这些是 Crayon / SimilarWeb 等单源工具看不到的差异化信号。
+**报告里至少要引用 1-2 个跨源信号作为支撑论据**（在「增长密码」「内容与传播」或「风险与机会」段落里）。
+
+{conflicts_md}
 
 ---
 
@@ -673,9 +852,11 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
         except Exception as e:
             log.warning("Pass-3 confidence application failed: %s", e)
 
-    # Always attach the facts JSON to the result — frontend / debugging
-    # downstream may want to surface it as a "data dossier" tab.
+    # Always attach the facts JSON + cross-source signals to the result —
+    # frontend / debugging downstream may want to surface them as a
+    # "data dossier" + "cross-source insights" UI tab.
     result["facts"] = facts
+    result["cross_source_signals"] = conflicts
 
     return result
 

@@ -48,7 +48,33 @@ async def _post_with_retry(client, url: str, headers: dict, json_body, max_retri
 
 
 async def analyze_domain(domain: str) -> dict:
-    """综合域名分析：排名概览 + 反链 + 历史趋势 + Top 关键词"""
+    """综合域名分析：排名概览 + 反链 + 历史趋势 + Top 关键词
+
+    Wrapped with the audit_cache TTL helper (24h default). DataForSEO calls
+    are the slowest single hop in the audit (~30s + paid API quota), so
+    cache hits make a HUGE difference for rerunning the same domain
+    within a day (Autopilot weekly diffs benefit on every other run).
+    """
+    domain_key = (domain or "").strip().lower().rstrip("/")
+    if not domain_key:
+        return {"error": "empty domain"}
+
+    try:
+        from .audit_cache import cached_fetch, TTL
+        return await cached_fetch(
+            source="dataforseo",
+            cache_key=domain_key,
+            ttl_seconds=TTL.DATAFORSEO,
+            fetch_fn=lambda: _analyze_domain_uncached(domain),
+        )
+    except Exception:
+        # Defensive — cache layer failures must never block the audit.
+        return await _analyze_domain_uncached(domain)
+
+
+async def _analyze_domain_uncached(domain: str) -> dict:
+    """The actual DataForSEO call. Kept separate so the cached wrapper
+    above can call this on miss / fallback."""
     auth = _get_auth_header()
     if not auth:
         return {"error": "DataForSEO credentials not found"}
