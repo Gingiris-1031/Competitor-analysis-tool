@@ -1615,6 +1615,70 @@ async def get_me(request: Request):
     return profile
 
 
+# ─── Referral-source survey (acquisition attribution) ──────────────────────
+# All users hit a one-question modal on first authenticated page hit. The
+# modal blocks until they answer. We need this because we have no other
+# signal for "where did this user come from" — utm params are flaky and
+# direct-paste from Twitter/LinkedIn lose them entirely.
+
+_REFERRAL_SOURCES_ALLOWED = {
+    "twitter", "linkedin", "google_search", "geo", "referral", "other",
+}
+
+
+@app.post("/api/profile/referral")
+async def submit_referral_source(request: Request):
+    """Record where the user heard about Analook.
+
+    Body: {"source": "twitter" | "linkedin" | "google_search" | "geo" |
+                     "referral" | "other",
+           "other":  "optional free text — required when source='other'"}
+    Idempotent: re-submitting overwrites silently. We don't gate that
+    because someone might mis-tap; they should be able to fix it via
+    UI later if we add an /account page.
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    source = (body.get("source") or "").strip().lower()
+    other = (body.get("other") or "").strip()[:200] or None
+
+    if source not in _REFERRAL_SOURCES_ALLOWED:
+        return JSONResponse({
+            "error": "source 取值非法",
+            "allowed": sorted(_REFERRAL_SOURCES_ALLOWED),
+        }, status_code=400)
+
+    # source='other' requires free-text — otherwise drop the data entirely.
+    if source == "other" and not other:
+        return JSONResponse({
+            "error": "选 'Other' 时请填写来源描述",
+        }, status_code=400)
+
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Supabase 未配置"}, status_code=503)
+
+    from datetime import datetime, timezone
+    try:
+        sb.table("profiles").update({
+            "referral_source": source,
+            "referral_other":  other,
+            "referral_at":     datetime.now(timezone.utc).isoformat(),
+        }).eq("id", user["id"]).execute()
+    except Exception as e:
+        log.error("Failed to save referral_source for %s: %s", user["id"], e)
+        return JSONResponse({"error": "保存失败，请重试"}, status_code=500)
+
+    return {"ok": True, "source": source}
+
+
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
     job = jobs.get(job_id)

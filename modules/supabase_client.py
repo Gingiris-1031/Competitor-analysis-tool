@@ -86,7 +86,8 @@ async def get_user_profile(user_id: str) -> dict | None:
         return None
     try:
         result = sb.table("profiles").select(
-            "id, email, plan_type, credits_balance, credits_used, credits_monthly_quota, reports_public_default"
+            "id, email, plan_type, credits_balance, credits_used, credits_monthly_quota, "
+            "reports_public_default, referral_source"
         ).eq("id", user_id).single().execute()
         return result.data
     except Exception as e:
