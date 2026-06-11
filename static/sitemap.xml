@@ -180,5 +180,12 @@
     <priority>0.95</priority>
     <lastmod>2026-06-10</lastmod>
   </url>
+  <!-- Growth Autopilot (subscription tier — recurring audit + weekly diff digest) -->
+  <url>
+    <loc>https://www.analook.com/autopilot.html</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.95</priority>
+    <lastmod>2026-06-11</lastmod>
+  </url>
 
 </urlset>

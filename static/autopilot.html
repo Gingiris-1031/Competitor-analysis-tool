@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Growth Autopilot — Analook</title>
+<meta name="description" content="Track your product's growth every week — automated growth audit, diff vs last run, weekly digest. Powered by Analook + Gingiris Growth Framework.">
+<meta property="og:title" content="Growth Autopilot — Analook">
+<meta property="og:description" content="Weekly growth audit on autopilot. Diff vs last run. See progress compound.">
+<meta property="og:url" content="https://www.analook.com/autopilot.html">
+<meta property="og:image" content="https://www.analook.com/assets/og/growth-audit.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://www.analook.com/autopilot.html">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="supabase-url" content="https://nkunysycqapregxubcil.supabase.co">
+<meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    :root {
+        --cream-bg:#0D0D0F; --cream-card:#16161A; --cream-elev:#1C1C21;
+        --warm-border:rgba(255,255,255,0.06); --warm-border-strong:rgba(255,255,255,0.16);
+        --ink:#F5F1EB; --ink-muted:rgba(245,241,235,0.72); --ink-faint:rgba(245,241,235,0.50);
+        --accent:#FB923C; --accent-soft:#FDBA74;
+        --good:#34d399; --warn:#fbbf24; --bad:#f87171;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--cream-bg); color:var(--ink); font-family:"Inter",sans-serif; -webkit-font-smoothing:antialiased; }
+    .font-serif { font-family:"Instrument Serif",Georgia,serif; }
+    .font-mono { font-family:"JetBrains Mono",monospace; }
+    /* Toast — reused from growth-audit */
+    #toast-stack { position:fixed; top:24px; right:24px; z-index:1000; display:flex; flex-direction:column; gap:10px; pointer-events:none; max-width:calc(100vw - 48px); width:380px; }
+    .toast { pointer-events:auto; background:var(--cream-card); border:1px solid var(--warm-border); border-left:3px solid #FB923C; border-radius:10px; padding:14px 18px 14px 16px; box-shadow:0 12px 40px rgba(0,0,0,0.45); color:var(--ink); font-size:13.5px; line-height:1.55; display:flex; align-items:flex-start; gap:12px; animation: toastIn 0.22s cubic-bezier(.22,.9,.3,1.15); }
+    .toast--error { border-left-color:#f87171; }
+    .toast--success { border-left-color:#34d399; }
+    .toast__icon { flex:0 0 18px; font-size:14px; padding-top:1px; }
+    .toast__body { flex:1; }
+    .toast__title { font-weight:600; }
+    .toast__msg { color:var(--ink-muted); white-space:pre-line; }
+    .toast__close { cursor:pointer; color:var(--ink-faint); font-size:16px; background:none; border:none; }
+    .toast.leaving { animation:toastOut 0.18s ease-in forwards; }
+    @keyframes toastIn { from { opacity:0; transform:translateY(-8px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes toastOut { to { opacity:0; transform:translateY(-6px) scale(.98); } }
+    /* Progress chip */
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+    .pill--good { background:rgba(52,211,153,0.12); color:#34d399; }
+    .pill--warn { background:rgba(251,191,36,0.12); color:#fbbf24; }
+    .pill--bad { background:rgba(248,113,113,0.12); color:#f87171; }
+    .pill--muted { background:rgba(245,241,235,0.06); color:var(--ink-muted); }
+</style>
+</head>
+<body class="min-h-screen">
+<div id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+<!-- Header -->
+<header class="border-b border-[color:var(--warm-border)]">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="text-xl font-serif italic">Analook</a>
+        <nav class="flex items-center gap-6 text-sm">
+            <a href="/growth-audit.html" class="text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]">Audit</a>
+            <a href="/autopilot.html" class="text-orange-400 font-medium">Autopilot</a>
+            <a href="/pricing.html" class="text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]">Pricing</a>
+            <span id="auth-section" class="text-[color:var(--ink-muted)]"></span>
+        </nav>
+    </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-10">
+
+<!-- Hero -->
+<section class="text-center pt-6 pb-12 border-b border-[color:var(--warm-border)]">
+    <p class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-6">Growth Autopilot · weekly diff · powered by Gingiris framework</p>
+    <h1 class="font-serif text-5xl md:text-6xl leading-tight tracking-tight">
+        Watch your <em class="italic text-orange-400">product</em>'s growth<br>compound, week by week.
+    </h1>
+    <p class="text-[color:var(--ink-muted)] mt-5 max-w-2xl mx-auto text-base">Add your URL. We re-run the full growth audit every week, diff against the last snapshot, and email you what got resolved / what's new / what's still open. Stop launching once — start improving forever.</p>
+</section>
+
+<!-- Add / Subscriptions -->
+<section class="py-10">
+    <div class="grid md:grid-cols-3 gap-6">
+
+        <!-- Left: Add form -->
+        <div class="md:col-span-1">
+            <div class="bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl p-6">
+                <h2 class="font-serif text-2xl mb-4">Track a product</h2>
+                <p class="text-sm text-[color:var(--ink-muted)] mb-5">Your own product. We'll re-audit weekly + email you the diff.</p>
+
+                <label class="text-xs text-[color:var(--ink-muted)] uppercase tracking-wide">Product URL</label>
+                <input id="add-url" type="text" placeholder="https://yourproduct.com"
+                    class="w-full mt-1 mb-4 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500/50">
+
+                <label class="text-xs text-[color:var(--ink-muted)] uppercase tracking-wide">Product name (optional)</label>
+                <input id="add-name" type="text" placeholder="Auto-detected if blank"
+                    class="w-full mt-1 mb-4 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500/50">
+
+                <label class="text-xs text-[color:var(--ink-muted)] uppercase tracking-wide">Frequency</label>
+                <select id="add-freq" class="w-full mt-1 mb-4 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-orange-500/50">
+                    <option value="weekly">Weekly (recommended)</option>
+                    <option value="daily">Daily (Team tier)</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+
+                <details class="text-xs text-[color:var(--ink-muted)] mb-4">
+                    <summary class="cursor-pointer hover:text-[color:var(--ink)]">Competitive Lens (track up to 3 competitors as benchmark)</summary>
+                    <textarea id="add-competitors" rows="3" placeholder="competitor1.com&#10;competitor2.com"
+                        class="w-full mt-2 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-orange-500/50"></textarea>
+                </details>
+
+                <button onclick="addSubscription()"
+                    class="w-full bg-orange-500 text-[color:var(--cream-bg)] font-semibold py-3 rounded-lg hover:bg-orange-400 transition-colors">
+                    Start tracking →
+                </button>
+
+                <p class="text-[10px] text-[color:var(--ink-faint)] mt-3 leading-relaxed">
+                    Free: 0 active subs · Pro $29/mo: 3 subs · <strong class="text-orange-400">Autopilot $49/mo</strong>: 10 subs + Competitive Lens · Team $149/mo: 30 subs daily + Slack webhook
+                </p>
+            </div>
+        </div>
+
+        <!-- Right: list of tracked products -->
+        <div class="md:col-span-2">
+            <div class="flex items-center justify-between mb-5">
+                <h2 class="font-serif text-2xl">Your tracked products</h2>
+                <span id="sub-count" class="text-xs text-[color:var(--ink-muted)]">—</span>
+            </div>
+            <div id="sub-list" class="space-y-3">
+                <div class="text-center text-[color:var(--ink-faint)] text-sm py-12">Loading…</div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="py-12 border-t border-[color:var(--warm-border)]">
+    <h2 class="font-serif text-3xl text-center mb-10">How Autopilot compounds your growth</h2>
+    <div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div class="bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl p-6">
+            <div class="text-2xl mb-3">🫚</div>
+            <h3 class="font-serif text-lg mb-2 italic">Week 1: baseline</h3>
+            <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">Full growth diagnostic + Action Plan, just like the one-shot tool — but persistent. Your starting line, snapshotted.</p>
+        </div>
+        <div class="bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl p-6">
+            <div class="text-2xl mb-3">📈</div>
+            <h3 class="font-serif text-lg mb-2 italic">Every week after: diff</h3>
+            <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">We re-audit, identify what got resolved (✅), what newly appeared (🆕), and what's still open (⏳). Email digest hits your inbox Monday morning.</p>
+        </div>
+        <div class="bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl p-6">
+            <div class="text-2xl mb-3">🎯</div>
+            <h3 class="font-serif text-lg mb-2 italic">Month 1+: progress timeline</h3>
+            <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">Dashboard shows the curve. "Fixed 8 things, added 12 new pages, ranking +24 positions" — proof your work compounds.</p>
+        </div>
+    </div>
+</section>
+
+</main>
+
+<footer class="border-t border-[color:var(--warm-border)] mt-16 py-8 text-center text-xs text-[color:var(--ink-faint)]">
+    Built by <a href="https://gingiris.com" class="hover:text-[color:var(--ink)]">Iris (ex-COO of AFFiNE, 60K stars)</a> ·
+    <a href="/growth-audit.html" class="hover:text-[color:var(--ink)]">Try the one-shot audit</a> ·
+    <a href="https://huggingface.co/Gingiris" class="hover:text-[color:var(--ink)]">40+ Gingiris Skills on HF</a>
+</footer>
+
+<!-- Auth -->
+<script src="/js/auth.js"></script>
+
+<script>
+function showToast({title, message='', kind='info', duration=5500}={}) {
+    const stack = document.getElementById('toast-stack');
+    if (!stack) return;
+    const t = document.createElement('div');
+    t.className = `toast toast--${kind}`;
+    const icon = kind === 'error' ? '⚠' : kind === 'success' ? '✓' : 'ⓘ';
+    t.innerHTML = `<span class="toast__icon">${icon}</span>
+        <div class="toast__body">${title ? `<div class="toast__title"></div>` : ''}${message ? `<div class="toast__msg"></div>` : ''}</div>
+        <button class="toast__close">×</button>`;
+    if (title) t.querySelector('.toast__title').textContent = title;
+    if (message) t.querySelector('.toast__msg').textContent = message;
+    const dismiss = () => { t.classList.add('leaving'); setTimeout(() => t.remove(), 200); };
+    t.querySelector('.toast__close').addEventListener('click', dismiss);
+    stack.appendChild(t);
+    if (duration > 0) setTimeout(dismiss, duration);
+}
+
+async function api(path, opts={}) {
+    const token = window._analookAuth?.getToken?.();
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const r = await fetch(path, {...opts, headers});
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+}
+
+function fmtDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+}
+
+function statusPill(status) {
+    if (status === 'active')    return '<span class="pill pill--good">▸ active</span>';
+    if (status === 'paused')    return '<span class="pill pill--warn">⏸ paused</span>';
+    if (status === 'cancelled') return '<span class="pill pill--muted">✕ cancelled</span>';
+    return `<span class="pill pill--muted">${status}</span>`;
+}
+
+async function loadSubscriptions() {
+    const { ok, status, data } = await api('/api/autopilot/subscriptions');
+    if (status === 401) {
+        document.getElementById('sub-list').innerHTML = `
+            <div class="text-center text-[color:var(--ink-muted)] py-12">
+                <p class="mb-4">Sign in to manage your Growth Autopilot.</p>
+                <button onclick="window._analookAuth?.showModal?.()" class="bg-orange-500 text-[color:var(--cream-bg)] px-5 py-2 rounded-lg text-sm font-semibold">Sign in</button>
+            </div>`;
+        document.getElementById('sub-count').textContent = '';
+        return;
+    }
+    if (!ok) {
+        showToast({kind:'error', title:'Failed to load', message: data.error || ''});
+        return;
+    }
+    const subs = data.subscriptions || [];
+    document.getElementById('sub-count').textContent = subs.length === 0 ? 'none yet' : `${subs.length} active`;
+    if (subs.length === 0) {
+        document.getElementById('sub-list').innerHTML = `
+            <div class="text-center text-[color:var(--ink-faint)] py-12 border border-dashed border-[color:var(--warm-border)] rounded-xl">
+                No products tracked yet. Add one on the left to start.
+            </div>`;
+        return;
+    }
+    document.getElementById('sub-list').innerHTML = subs.map(s => `
+        <div class="bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl p-5 hover:border-[color:var(--warm-border-strong)] transition-colors">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="font-serif text-xl">${escapeHtml(s.product_name || s.target_url)}</span>
+                        ${statusPill(s.status)}
+                    </div>
+                    <a href="${escapeHtml(s.target_url)}" target="_blank" class="text-xs font-mono text-[color:var(--ink-muted)] hover:text-orange-400 break-all">${escapeHtml(s.target_url)}</a>
+                </div>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="openDashboard('${s.id}')" class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3 py-1.5 rounded-full hover:border-[color:var(--warm-border-strong)]">Open</button>
+                    ${s.status === 'active' ? `<button onclick="updateSub('${s.id}', {status:'paused'})" class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3 py-1.5 rounded-full hover:border-[color:var(--warm-border-strong)]">Pause</button>` : ''}
+                    ${s.status === 'paused' ? `<button onclick="updateSub('${s.id}', {status:'active'})" class="text-xs bg-orange-900/30 border border-orange-700/40 text-orange-400 px-3 py-1.5 rounded-full">Resume</button>` : ''}
+                    <button onclick="cancelSub('${s.id}')" class="text-xs text-red-400/60 hover:text-red-400 px-2">✕</button>
+                </div>
+            </div>
+            <div class="mt-3 grid grid-cols-3 gap-4 text-xs text-[color:var(--ink-muted)]">
+                <div><span class="uppercase tracking-wide opacity-60">Frequency</span><br><span class="font-medium text-[color:var(--ink)]">${s.frequency}</span></div>
+                <div><span class="uppercase tracking-wide opacity-60">Last run</span><br><span class="font-mono">${fmtDate(s.last_run_at)}</span></div>
+                <div><span class="uppercase tracking-wide opacity-60">Next run</span><br><span class="font-mono">${fmtDate(s.next_run_at)}</span></div>
+            </div>
+            ${(s.competitor_urls && s.competitor_urls.length) ? `
+                <div class="mt-3 text-xs text-[color:var(--ink-muted)]">
+                    <span class="uppercase tracking-wide opacity-60">Competitive Lens:</span>
+                    ${s.competitor_urls.map(c => `<span class="inline-block bg-[color:var(--cream-elev)] px-2 py-0.5 rounded ml-1 font-mono">${escapeHtml(c)}</span>`).join('')}
+                </div>
+            ` : ''}
+        </div>`).join('');
+}
+
+function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+async function addSubscription() {
+    const target_url = document.getElementById('add-url').value.trim();
+    if (!target_url) { showToast({title:'URL required', message:'Paste a product URL.'}); return; }
+    const product_name = document.getElementById('add-name').value.trim() || undefined;
+    const frequency = document.getElementById('add-freq').value;
+    const competitor_urls = (document.getElementById('add-competitors').value || '')
+        .split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+
+    const { ok, status, data } = await api('/api/autopilot/subscriptions', {
+        method: 'POST',
+        body: JSON.stringify({ target_url, product_name, frequency, competitor_urls }),
+    });
+    if (status === 401) { window._analookAuth?.showModal?.(); return; }
+    if (status === 402) {
+        showToast({kind:'info', title:'Plan limit reached', message: data.error || 'Upgrade to track more.'});
+        setTimeout(() => window.location.href = '/pricing.html', 1800);
+        return;
+    }
+    if (!ok) { showToast({kind:'error', title:'Could not add', message: data.error || ''}); return; }
+
+    showToast({kind:'success', title:'Tracking started', message: `First audit will run within a minute.`});
+    document.getElementById('add-url').value = '';
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-competitors').value = '';
+    loadSubscriptions();
+}
+
+async function updateSub(id, patch) {
+    const { ok, data } = await api(`/api/autopilot/subscriptions/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+    });
+    if (!ok) { showToast({kind:'error', title:'Update failed', message: data.error || ''}); return; }
+    loadSubscriptions();
+}
+
+async function cancelSub(id) {
+    if (!confirm('Stop tracking this product? You can re-add it later.')) return;
+    const { ok, data } = await api(`/api/autopilot/subscriptions/${id}`, { method: 'DELETE' });
+    if (!ok) { showToast({kind:'error', title:'Cancel failed', message: data.error || ''}); return; }
+    showToast({kind:'success', title:'Stopped tracking'});
+    loadSubscriptions();
+}
+
+function openDashboard(id) {
+    window.location.href = `/autopilot.html?sub=${id}`;
+}
+
+document.addEventListener('DOMContentLoaded', loadSubscriptions);
+</script>
+
+</body>
+</html>

@@ -294,6 +294,20 @@ async def get_pricing():
             # or Team. No standalone Polar product exists for it; if a one-time
             # tier is re-added later, also wire POLAR_PRODUCT_GROWTH + the
             # add_credits branch in modules/polar_payment.py.
+            {"key": "autopilot", "name": "Growth Autopilot", "price": 49, "period": "month", "credits": 30, "features": [
+                "10 tracked products (weekly audit + diff)",
+                "Competitive Lens: 3 competitors as benchmark per product",
+                "Weekly email digest with progress timeline",
+                "30 audit credits (covers Pro audit usage too)",
+                "Full /api/autopilot access",
+            ]},
+            {"key": "autopilot_team", "name": "Autopilot Team", "price": 149, "period": "month", "credits": 999999, "features": [
+                "30 tracked products (daily audit + diff)",
+                "20 competitors / product",
+                "Daily digest + Slack/Discord webhook",
+                "PDF history export",
+                "Priority support",
+            ]},
         ],
     }
 
@@ -879,6 +893,129 @@ async def share_audit_page(job_id: str):
     """Public, link-only share page. Serves the cream/Instrument-Serif themed
     static viewer which fetches /api/share/audit/{job_id} client-side."""
     return FileResponse("static/share-audit.html")
+
+
+# ─── Growth Autopilot endpoints ────────────────────────────────────────────
+# Phase 1 (today): CRUD on subscriptions + dashboard query. Cron worker and
+# email digest land in Phase 2.
+
+@app.get("/api/autopilot/subscriptions")
+async def autopilot_list(request: Request):
+    """List the current user's autopilot subscriptions."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    from modules import autopilot
+    return {"subscriptions": autopilot.list_user_subscriptions(user["id"])}
+
+
+@app.post("/api/autopilot/subscriptions")
+async def autopilot_subscribe(request: Request):
+    """Create a new Growth Autopilot subscription for the authenticated user.
+
+    Body: {"target_url": "...", "product_name": "...", "frequency": "weekly",
+           "competitor_urls": ["..."]}
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    target_url = (body.get("target_url") or "").strip()
+    if not target_url:
+        return JSONResponse({"error": "缺少 target_url"}, status_code=400)
+
+    from modules import autopilot
+    try:
+        row = autopilot.create_subscription(
+            user_id=user["id"],
+            target_url=target_url,
+            product_name=body.get("product_name") or None,
+            frequency=body.get("frequency") or "weekly",
+            competitor_urls=body.get("competitor_urls") or [],
+        )
+        return {"subscription": row}
+    except ValueError as e:
+        return JSONResponse(
+            {"error": str(e), "code": "TIER_LIMIT_OR_DUPLICATE"},
+            status_code=402,
+        )
+    except Exception as e:
+        log.error("autopilot subscribe failed: %s", e)
+        return JSONResponse({"error": "服务器错误，请稍后再试"}, status_code=500)
+
+
+@app.patch("/api/autopilot/subscriptions/{sub_id}")
+async def autopilot_update(sub_id: str, request: Request):
+    """Update product_name / frequency / competitor_urls / status."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+    from modules import autopilot
+    row = autopilot.update_subscription(user["id"], sub_id, body)
+    if not row:
+        return JSONResponse({"error": "Not found or no valid fields"}, status_code=404)
+    return {"subscription": row}
+
+
+@app.delete("/api/autopilot/subscriptions/{sub_id}")
+async def autopilot_cancel(sub_id: str, request: Request):
+    """Cancel (soft-delete) a subscription."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    from modules import autopilot
+    if autopilot.cancel_subscription(user["id"], sub_id):
+        return {"ok": True}
+    return JSONResponse({"error": "Not found"}, status_code=404)
+
+
+@app.get("/api/autopilot/subscriptions/{sub_id}/dashboard")
+async def autopilot_dashboard(sub_id: str, request: Request):
+    """Return the progress timeline for one subscription: latest snapshot,
+    latest diff, last 8 diffs as a trend strip."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+
+    from modules.supabase_client import get_supabase
+    from modules import autopilot
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Supabase not configured"}, status_code=503)
+
+    sub_rows = sb.table("autopilot_subscriptions").select("*").eq(
+        "id", sub_id
+    ).eq("user_id", user["id"]).execute()
+    if not sub_rows.data:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    sub = sub_rows.data[0]
+
+    snaps = autopilot.latest_two_snapshots(sub_id)
+    last_diffs = sb.table("autopilot_diffs").select(
+        "id,progress_score,resolved_findings,new_findings,persistent_findings,summary_md,created_at"
+    ).eq("subscription_id", sub_id).order(
+        "created_at", desc=True
+    ).limit(8).execute()
+    last_digests = sb.table("autopilot_digests").select(
+        "id,resend_email_id,recipient,last_event,sent_at"
+    ).eq("subscription_id", sub_id).order(
+        "sent_at", desc=True
+    ).limit(8).execute()
+
+    return {
+        "subscription":  sub,
+        "latest_snapshot": snaps[0] if snaps else None,
+        "diffs":         last_diffs.data or [],
+        "digests":       last_digests.data or [],
+    }
 
 
 async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
