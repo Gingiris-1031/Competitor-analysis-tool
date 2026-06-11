@@ -32,6 +32,55 @@ def _extract_brand(domain: str) -> str:
     return brand
 
 
+def _domain_root(host: str) -> str:
+    """Normalize a URL or host to its bare host (no scheme, www, path or query)."""
+    host = (host or "").lower().strip()
+    host = re.sub(r'^https?://', '', host)
+    host = re.split(r'[/?#]', host)[0]
+    host = re.sub(r'^www\.', '', host)
+    return host
+
+
+def _verify_match(hit: dict, domain: str, brand: str, product_name: str) -> bool:
+    """Guard against fuzzy false positives.
+
+    Discovery happens through Brave search + slug enumeration, which can surface
+    an unrelated product that merely *looks* similar (e.g. querying "gingiris"
+    returned "Genpire"). Before trusting a hit, require it to actually correspond
+    to the queried site — either by its registered website domain OR by product
+    name. A hit that matches neither is rejected as a false positive.
+    """
+    def _norm(s: str) -> str:
+        return re.sub(r'[^a-z0-9]', '', (s or '').lower())
+
+    # 1) Website-domain match (strongest signal) ------------------------------
+    site = _domain_root(hit.get("website", ""))
+    target = _domain_root(domain)
+    if site and target:
+        if site == target or site.endswith("." + target) or target.endswith("." + site):
+            return True
+        # Same brand under a different TLD (foo.com vs foo.io)
+        site_brand = _extract_brand(site)
+        if site_brand and site_brand == _extract_brand(target):
+            return True
+
+    # 2) Product-name match ---------------------------------------------------
+    n_hit = _norm(hit.get("name", ""))
+    n_brand = _norm(brand)
+    n_prod = _norm(product_name)
+    if n_hit:
+        if n_hit in (n_brand, n_prod):
+            return True
+        # versioned / suffixed names: "Notion 2.0" ⊇ "notion", "ChatGPT-4" ⊇ "chatgpt"
+        if (n_brand and n_brand in n_hit) or (n_prod and n_prod in n_hit):
+            return True
+        # PH name is a prefix of the brand (rare, e.g. brand carries a suffix)
+        if n_brand and n_hit in n_brand and len(n_hit) >= 4:
+            return True
+
+    return False
+
+
 async def _discover_launches_via_http(product_slug: str, client: httpx.AsyncClient) -> list:
     """
     Fetch the PH product page over plain HTTP and extract launch slugs from the HTML.
@@ -108,7 +157,40 @@ async def _discover_launches_via_api(
 
 
 async def analyze_producthunt(domain: str, product_name: str) -> dict:
-    """查询产品在 Product Hunt 上的表现"""
+    """查询产品在 Product Hunt 上的表现。
+
+    Thin wrapper around the discovery implementation that applies a final
+    correctness gate: any matched product must actually correspond to the
+    queried domain/brand (see ``_verify_match``). This prevents fuzzy
+    discovery from confidently attributing an unrelated launch (e.g. showing
+    "Genpire" for gingiris.tools) to the site under analysis.
+    """
+    result = await _analyze_producthunt_impl(domain, product_name)
+    if result.get("found"):
+        brand = _extract_brand(domain)
+        if not _verify_match(result, domain, brand, product_name):
+            log.info(
+                "PH match rejected for %s: '%s' (%s) matches neither domain nor name",
+                domain, result.get("name"), result.get("website"),
+            )
+            return {
+                "found": False,
+                "rejected_match": {
+                    "name": result.get("name"),
+                    "url": result.get("url"),
+                    "website": result.get("website"),
+                },
+                "note": (
+                    "未在 Product Hunt 上找到与该域名/品牌匹配的产品"
+                    "（已过滤一个名称与域名都不匹配的疑似误匹配结果）。"
+                    "可手动搜索：producthunt.com/search?q=" + brand
+                ),
+            }
+    return result
+
+
+async def _analyze_producthunt_impl(domain: str, product_name: str) -> dict:
+    """查询产品在 Product Hunt 上的表现（discovery only — see analyze_producthunt）"""
     brand = _extract_brand(domain)
     name_slug = product_name.lower().replace(" ", "-")
 
@@ -257,7 +339,7 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
             except Exception:
                 pass
 
-        if not product_slug not in launch_slugs:
+        if product_slug and product_slug not in launch_slugs:
             launch_slugs.insert(0, product_slug)
         launch_slugs = list(dict.fromkeys(launch_slugs))
 

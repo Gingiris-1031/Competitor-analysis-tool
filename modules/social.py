@@ -27,6 +27,33 @@ def _extract_brand(domain: str) -> str:
     return brand
 
 
+def _handle_matches_brand(handle: str, brand: str, product_name: str) -> bool:
+    """Sanity-check a fuzzily-discovered social handle against the brand.
+
+    Brave search returns the most-frequent handle for a loose query like
+    `"gingiris" official twitter`, which can surface an unrelated account
+    (e.g. @gingrnation for gingiris). When we can't validate via an API
+    (bio/website/verified signals), require the handle to actually overlap
+    the brand or product name — otherwise reject it as a false positive.
+    """
+    def _norm(s: str) -> str:
+        return re.sub(r'[^a-z0-9]', '', (s or '').lower())
+
+    h = _norm(handle)
+    b = _norm(brand)
+    n = _norm(product_name)
+    if not h:
+        return False
+    # Accept when the brand/name is contained in the handle (brand, brandhq,
+    # brandofficial, get-brand…) or vice-versa (handle is an abbreviation the
+    # brand contains). Require ≥4 chars on the matched token to avoid spurious
+    # short-substring hits.
+    for token in (b, n):
+        if token and len(token) >= 4 and (token in h or (h in token and len(h) >= 4)):
+            return True
+    return False
+
+
 async def analyze_social(domain: str, product_name: str, website_social_links: dict = None) -> dict:
     """深度分析社交媒体存在与传播。优先使用 Brave Search 找到官方账号，其次用官网链接。"""
     brand = _extract_brand(domain)
@@ -772,11 +799,21 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     # Strategy 2: Brave Search fallback (instant, handle + estimated followers)
     # ------------------------------------------------------------------
     if not result["detected"]:
-        handle = handle_hint
+        handle = handle_hint  # site-declared handle is trusted as-is
         if not handle:
             try:
                 from .web_search import brave_find_twitter
-                handle = await brave_find_twitter(brand, name, domain="")
+                brave_handle = await brave_find_twitter(brand, name, domain="")
+                # Brave handles are fuzzy and API-unvalidated here — only trust
+                # one that plausibly belongs to the brand. Rejects e.g.
+                # @gingrnation surfacing for "gingiris".
+                if brave_handle and _handle_matches_brand(brave_handle, brand, name):
+                    handle = brave_handle
+                elif brave_handle:
+                    log.info(
+                        "Twitter brave handle @%s rejected for brand=%s (no name overlap)",
+                        brave_handle, brand,
+                    )
             except Exception:
                 pass
         if handle:

@@ -1771,6 +1771,10 @@ async def export_markdown(job_id: str):
 
 @app.get("/api/share/{job_id}")
 async def get_share_info(job_id: str):
+    # Mirror get_report's 3-tier lookup (memory → disk → Supabase). Without the
+    # Supabase fallback the report page itself loads (get_report has it) but the
+    # Share button 404s for any report not in the warm in-memory cache — e.g.
+    # after a Railway restart, or when opened from a shared link / history.
     job = jobs.get(job_id)
     product_name = None
     url = None
@@ -1784,6 +1788,20 @@ async def get_share_info(job_id: str):
                 data = _json.load(f)
             product_name = data.get("product_name")
             url = data.get("url")
+    # Supabase fallback (survives Railway restarts / cross-instance shares)
+    if not product_name:
+        try:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                result = sb.table("reports").select(
+                    "product_name,url"
+                ).eq("id", job_id).limit(1).execute()
+                if result.data:
+                    product_name = result.data[0].get("product_name")
+                    url = result.data[0].get("url")
+        except Exception as e:
+            log.error("Share info fetch from Supabase failed: %s", e)
     if not product_name:
         return JSONResponse({"error": "Job not found"}, status_code=404)
 
