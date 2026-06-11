@@ -901,14 +901,70 @@
         }
     });
 
+    /**
+     * Pull the first meaningful "headline" from the Executive Summary so
+     * shares can carry a unique hook instead of generic copy. Strategy:
+     *   1. Find the first H3 / bold under "核心发现" / "Core findings".
+     *   2. Strip markdown noise (** *, etc.), cap at 110 chars.
+     *   3. Fall back to product name + generic copy if extraction fails.
+     */
+    function extractTopFinding() {
+        const md = reports.executive_summary || '';
+        if (!md) return null;
+        // Look for the first bullet OR first H3 under a "核心发现" section
+        const sectionMatch = md.match(/#{1,3}\s*[🎯🚨🔥📊]?\s*(?:核心发现|Core findings|Top finding|Key finding)[^\n]*\n+([\s\S]+?)(?=\n#{1,3}\s|\n---|\n$)/i);
+        let body = sectionMatch ? sectionMatch[1] : md.slice(0, 800);
+        // Take first bullet OR first sentence
+        const bulletMatch = body.match(/^\s*[-*]\s*\*?\*?([^*\n]+)/m);
+        let candidate = bulletMatch ? bulletMatch[1] : body.split('\n').find(l => l.trim().length > 20);
+        if (!candidate) return null;
+        // Strip markdown bold / inline code / leading/trailing whitespace
+        candidate = candidate
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/^\s*[-*]\s*/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (candidate.length < 20) return null;
+        if (candidate.length > 110) candidate = candidate.slice(0, 107).trim() + '…';
+        return candidate;
+    }
+
     function shareTo(platform) {
         const productName = document.getElementById('result-title').textContent || 'my product';
-        const text = `Just got a free 5-min growth audit on ${productName} from Analook 🫚\n\nThree reports: Executive Summary, full Diagnosis, and a 30-day Action Plan. Built on the Gingiris Growth Framework by @gingiris (ex-COO of AFFiNE, 60K stars).`;
-        const shareUrl = 'https://www.analook.com/growth-audit.html?utm_source=' + platform + '&utm_medium=share&utm_campaign=audit_share';
+        const topFinding = extractTopFinding();
+
+        // Build the share URL: prefer the public per-audit share page when we
+        // have a job id (anyone can read it), fall back to the tool homepage.
+        let shareUrl;
+        let shareKind;  // for the analytics utm_content
+        if (currentJobId) {
+            shareUrl = `${location.origin}/share/audit/${currentJobId}?utm_source=${platform}&utm_medium=share&utm_campaign=audit_share`;
+            shareKind = 'report';
+        } else {
+            shareUrl = `https://www.analook.com/growth-audit.html?utm_source=${platform}&utm_medium=share&utm_campaign=audit_share`;
+            shareKind = 'tool';
+        }
+
+        // Twitter/X text: top finding hook if we have one, otherwise generic
+        const hookLine = topFinding
+            ? `Key finding for ${productName}:\n"${topFinding}"\n`
+            : '';
+        const cta = currentJobId
+            ? 'Full 3-report audit (Diagnosis + 30-day Plan + Exec Summary) here:'
+            : 'Get your own 5-min AI growth audit:';
+        const tweetText = `${hookLine}\n${cta}`;
+        const linkedinTitle = topFinding
+            ? `Growth audit for ${productName} — top finding: ${topFinding}`
+            : `I just ran a 5-min growth audit on ${productName} with Analook`;
 
         if (platform === 'copy') {
             navigator.clipboard.writeText(shareUrl).then(() => {
-                showToast({ kind: 'success', title: 'Link copied', message: 'Paste it anywhere.' });
+                showToast({
+                    kind: 'success',
+                    title: 'Link copied',
+                    message: shareKind === 'report' ? 'Anyone with this link can view the audit.' : 'Paste anywhere.',
+                });
             }).catch(() => {
                 showToast({ kind: 'error', title: 'Copy failed', message: 'Select the URL manually.' });
             });
@@ -918,12 +974,14 @@
 
         let target = '';
         if (platform === 'twitter') {
-            target = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+            target = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
         } else if (platform === 'linkedin') {
             target = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
         } else if (platform === 'reddit') {
-            const title = `I got a free 5-minute AI growth audit for ${productName} — full diagnosis + 30-day action plan`;
-            target = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(title)}`;
+            const redditTitle = topFinding
+                ? `Got a free AI growth audit for ${productName} — top finding: "${topFinding}"`
+                : `I got a free 5-minute AI growth audit for ${productName} — full diagnosis + 30-day action plan`;
+            target = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(redditTitle)}`;
         }
         if (target) {
             window.open(target, '_blank', 'noopener,noreferrer,width=600,height=620');

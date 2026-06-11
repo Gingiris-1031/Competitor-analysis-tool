@@ -800,6 +800,70 @@ async def get_growth_audit_status(job_id: str):
     return response
 
 
+# ─── Growth Audit public share ─────────────────────────────────────────────
+# Phase 2: lets a user share their completed audit at /share/audit/<job_id>.
+# No auth required to read; the share URL is unguessable (full uuid hex).
+@app.get("/api/share/audit/{job_id}")
+async def get_growth_audit_share(job_id: str):
+    """Public read-only view of a completed Growth Audit (no auth).
+
+    Looks first in the in-memory jobs dict (warm cache), then falls back to
+    Supabase `reports` table where _run_growth_audit persists completed
+    audits when the user is authenticated.
+    """
+    # In-memory hit
+    job = _growth_audit_jobs.get(job_id)
+    if job and job.get("status") == "completed" and job.get("reports"):
+        return {
+            "product_name": job.get("product_name") or "Growth Audit",
+            "url": job.get("url"),
+            "reports": job["reports"],
+            "site_data_summary": job.get("site_data_summary"),
+            "shared_at": "now",
+        }
+
+    # Supabase fallback (audit was persisted on completion)
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            result = sb.table("reports").select(
+                "job_id,product_name,url,report,created_at"
+            ).eq("job_id", job_id).execute()
+            rows = result.data or []
+            if rows:
+                row = rows[0]
+                report_payload = row.get("report") or {}
+                if isinstance(report_payload, str):
+                    try:
+                        report_payload = _json.loads(report_payload)
+                    except Exception:
+                        report_payload = {}
+                reports = report_payload.get("reports") or {}
+                if reports:
+                    return {
+                        "product_name": row.get("product_name") or "Growth Audit",
+                        "url": row.get("url"),
+                        "reports": reports,
+                        "site_data_summary": report_payload.get("site_data_summary"),
+                        "shared_at": row.get("created_at"),
+                    }
+    except Exception as e:
+        log.error("Share fetch from Supabase failed: %s", e)
+
+    return JSONResponse(
+        {"error": "Audit not found or not yet completed."},
+        status_code=404,
+    )
+
+
+@app.get("/share/audit/{job_id}")
+async def share_audit_page(job_id: str):
+    """Public, link-only share page. Serves the cream/Instrument-Serif themed
+    static viewer which fetches /api/share/audit/{job_id} client-side."""
+    return FileResponse("static/share-audit.html")
+
+
 async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
     """Background task to run the full growth audit."""
     try:
@@ -1600,6 +1664,49 @@ except Exception as _mcp_err:
     # Non-fatal: if mcp dep is missing or mounting fails, keep HTTP API running.
     import logging as _log
     _log.getLogger(__name__).warning("MCP server not mounted: %s", _mcp_err)
+
+# ─── Extension-less path → .html alias ─────────────────────────────────────
+# Starlette's StaticFiles(html=True) maps a DIRECTORY path to its index.html,
+# but does NOT map a bare filename ("/pricing") to "/pricing.html". So users
+# typing or linking to "/pricing", "/comparison", "/unsubscribe", etc. hit
+# 404s even though the file exists. We register lightweight 308-permanent
+# redirects for every existing .html file at /static root (and one level
+# deep under /docs, /alternatives, /compare, /blog, /research) so the
+# extension-less URL is the canonical one.
+def _register_html_aliases():
+    from fastapi.responses import RedirectResponse
+    import os as _os
+    seen = set()
+    # Walk static/ shallow (root) + the known sub-trees that have .html pages.
+    roots = [
+        ("", "static"),
+        ("docs/", "static/docs"),
+        ("compare/", "static/compare"),
+        ("alternatives/", "static/alternatives"),
+        ("blog/", "static/blog"),
+        ("research/", "static/research"),
+    ]
+    for prefix, dirpath in roots:
+        if not _os.path.isdir(dirpath):
+            continue
+        for fname in _os.listdir(dirpath):
+            if not fname.endswith(".html") or fname == "index.html":
+                continue
+            stem = fname[:-5]  # strip .html
+            route = f"/{prefix}{stem}"
+            if route in seen:
+                continue
+            seen.add(route)
+            target = f"/{prefix}{fname}"
+            # Closure-binding trick so the lambda captures the right target.
+            def _make(target_url):
+                async def _alias():
+                    return RedirectResponse(url=target_url, status_code=308)
+                return _alias
+            app.add_api_route(route, _make(target), methods=["GET", "HEAD"],
+                              include_in_schema=False)
+_register_html_aliases()
+# ───────────────────────────────────────────────────────────────────────────
 
 app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
 app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
