@@ -547,31 +547,34 @@ def _build_github_insight(github_oss: dict) -> str:
 
 
 async def _call_llm(prompt: str) -> dict:
-    """调用 LLM — 优先 TeamoRouter（重试2次），fallback DeepSeek（重试2次）"""
-    import logging
-    _log = logging.getLogger(__name__)
+    """LLM call: DeepSeek primary, OpenRouter fallback (opt-in).
 
-    teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
-    _log.warning("_call_llm START: teamo=%s ds=%s prompt_len=%d",
-                 bool(teamo_key), bool(os.environ.get("DEEPSEEK_API_KEY","").strip()), len(prompt))
-    if not teamo_key:
+    Old TeamoRouter path was removed 2026-06-11 after the provider's
+    URL changed, model catalog changed, AND the account ran out of
+    balance simultaneously — three failure modes that all routed
+    through 'fallback to DeepSeek anyway' while burning 6+ min of
+    retry latency per LLM call. See growth_audit._call_llm_long for
+    the same pattern used by the audit pipeline.
+    """
+    # ─── Primary: DeepSeek ───────────────────────────────────────────────
+    ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not ds_key:
         try:
-            teamo_key = open(os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
+            ds_key = open(os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
         except FileNotFoundError:
             pass
 
-    last_teamo_err = None
-    if teamo_key:
-        model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
+    last_ds_err = None
+    if ds_key:
         for attempt in range(2):
-            last_teamo_err = f"attempt {attempt} started"
             try:
-                async with httpx.AsyncClient(timeout=120) as client:
+                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
                     resp = await client.post(
-                        "https://router.teamolab.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
+                        "https://api.deepseek.com/chat/completions",
+                        headers={"Authorization": f"Bearer {ds_key}",
+                                 "Content-Type": "application/json"},
                         json={
-                            "model": model,
+                            "model": "deepseek-chat",
                             "messages": [{"role": "user", "content": prompt}],
                             "temperature": 0.6,
                             "max_tokens": 4000,
@@ -579,55 +582,57 @@ async def _call_llm(prompt: str) -> dict:
                     )
                     resp.raise_for_status()
                     data = resp.json()
-                    actual_model = data.get("model", model)
                     content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     if content:
-                        return {"success": True, "content": content, "source": f"TeamoRouter ({actual_model})"}
-                    # Empty content — retry
-                    last_teamo_err = "empty response"
+                        return {"success": True, "content": content, "source": "DeepSeek"}
+                    last_ds_err = "empty response"
             except Exception as e:
-                last_teamo_err = str(e)
+                last_ds_err = str(e)
+            if attempt < 1:
+                await asyncio.sleep(3)
+
+    # ─── Fallback: OpenRouter (opt-in via OPENROUTER_API_KEY) ────────────
+    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    last_or_err = None
+    if or_key:
+        model = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+                    resp = await client.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {or_key}",
+                            "Content-Type":  "application/json",
+                            "HTTP-Referer":  "https://www.analook.com",
+                            "X-Title":       "Analook AI Summary",
+                        },
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.6,
+                            "max_tokens": 4000,
+                        },
+                    )
+                    if resp.status_code in (401, 402, 403):
+                        last_or_err = f"HTTP {resp.status_code}"
+                        break
+                    resp.raise_for_status()
+                    data = resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content:
+                        return {"success": True, "content": content,
+                                "source": f"OpenRouter ({data.get('model', model)})"}
+                    last_or_err = "empty response"
+            except Exception as e:
+                last_or_err = str(e)
             if attempt < 1:
                 await asyncio.sleep(2)
 
-    # DeepSeek fallback
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
-        try:
-            api_key = open(os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
-        except FileNotFoundError:
-            pass
-    if not api_key:
-        return _fallback_summary()
-
-    last_ds_err = None
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                resp = await client.post(
-                    "https://api.deepseek.com/chat/completions",
-                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                    json={
-                        "model": "deepseek-chat",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.6,
-                        "max_tokens": 4000,
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return {"success": True, "content": content, "source": "DeepSeek"}
-                last_ds_err = "empty response"
-        except Exception as e:
-            last_ds_err = str(e)
-        if attempt < 1:
-            await asyncio.sleep(3)
-
-    _tk = bool(teamo_key)
-    _dk = bool(os.environ.get("DEEPSEEK_API_KEY", "").strip())
-    note = f"LLM 调用失败 (TeamoRouter[key={_tk}]: {last_teamo_err or 'skipped'} / DeepSeek[key={_dk}]: {last_ds_err or 'skipped'})"
+    note = (
+        f"LLM 调用失败 (DeepSeek[key={bool(ds_key)}]: {last_ds_err or 'skipped'} / "
+        f"OpenRouter[key={bool(or_key)}]: {last_or_err or 'skipped'})"
+    )
     return {"success": False, "content": "", "note": note[:250], "source": "error"}
 
 
@@ -635,7 +640,7 @@ def _fallback_summary() -> dict:
     return {
         "success": False,
         "content": "",
-        "note": "⚙️ AI 分析需配置 TEAMOROUTER_API_KEY 或 DEEPSEEK_API_KEY 环境变量。",
+        "note": "⚙️ AI 分析需配置 DEEPSEEK_API_KEY 或 OPENROUTER_API_KEY 环境变量。",
         "source": "fallback",
     }
 

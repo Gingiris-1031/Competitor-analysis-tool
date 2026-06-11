@@ -10,6 +10,7 @@ import httpx
 import json
 import logging
 import os
+from typing import Optional
 from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
@@ -216,131 +217,131 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
     return results
 
 
-# ─── LLM Call (reuse pattern from ai_summary.py) ───────────────────────────
+# ─── LLM Call ───────────────────────────────────────────────────────────────
+# Provider stack:
+#   PRIMARY:   DeepSeek (direct, cheapest)
+#   FALLBACK:  OpenRouter (300+ models, pay-as-you-go) — opt-in via
+#              OPENROUTER_API_KEY env. We never recommend going via a
+#              relay/router as primary again after the TeamoRouter incident
+#              (URL moved + model renamed + account froze, three failure
+#              modes that all silently fell through to fallback while
+#              wasting 6+ min of retry budget per LLM call).
+#
+# Adding a new provider? Drop another _try_<name>() helper here and call it
+# in _call_llm_long. Keep response shape {success, content, source}.
 
 
-# Process-level circuit breaker: once we've seen TeamoRouter return
-# insufficient-balance OR a 4xx, stop trying it for the rest of this Python
-# process (audit-flow-wide). Resets on restart. This is what fixes the
-# "stuck for 8+ min" symptom Iris saw — every Phase-2 task was paying the
-# full TeamoRouter probe latency before falling to DeepSeek.
-_TEAMO_DOWN = False
-_TEAMO_DOWN_REASON = ""
+async def _try_deepseek(messages: list, max_tokens: int) -> Optional[dict]:
+    """Direct DeepSeek call. Returns dict on success, None on miss."""
+    import os as _os
+    key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if not key:
+        try:
+            key = open(_os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
+        except FileNotFoundError:
+            return None
+    if not key:
+        return None
+
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
+                resp = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {key}",
+                             "Content-Type": "application/json"},
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": messages,
+                        "temperature": 0.5,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return {"success": True, "content": content, "source": "DeepSeek"}
+        except Exception as e:
+            log.warning("DeepSeek attempt %d failed: %s", attempt, e)
+        if attempt < 1:
+            await asyncio.sleep(3)
+    return None
+
+
+async def _try_openrouter(messages: list, max_tokens: int) -> Optional[dict]:
+    """OpenRouter fallback. Reads OPENROUTER_API_KEY env. Returns None if
+    no key configured — i.e. completely opt-in.
+    """
+    import os as _os
+    key = _os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not key:
+        return None
+
+    # Model picker: default to claude-sonnet-4 (best quality/cost balance
+    # in mid-2026). Override via OPENROUTER_MODEL env if Iris wants a
+    # cheaper Llama or a faster Gemini.
+    model = _os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
+                resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                        # OpenRouter optionally accepts these for analytics.
+                        "HTTP-Referer": "https://www.analook.com",
+                        "X-Title": "Analook Growth Audit",
+                    },
+                    json={
+                        "model": model,
+                        "messages": messages,
+                        "temperature": 0.5,
+                        "max_tokens": max_tokens,
+                    },
+                )
+                # 402 = out of balance — log and skip retry.
+                if resp.status_code in (401, 402, 403):
+                    log.warning("OpenRouter rejected: HTTP %d (%s)",
+                                resp.status_code, resp.text[:200])
+                    return None
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return {"success": True, "content": content,
+                            "source": f"OpenRouter ({data.get('model', model)})"}
+        except Exception as e:
+            log.warning("OpenRouter attempt %d failed: %s", attempt, e)
+        if attempt < 1:
+            await asyncio.sleep(2)
+    return None
 
 
 async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int = 8000) -> dict:
-    """Call the upstream LLM. DeepSeek-first now (TeamoRouter's account is
-    out of balance and the URL/model both changed under us — three failure
-    modes simultaneously). When TEAMOROUTER_API_KEY is set AND
-    TEAMOROUTER_ENABLE=1, we'll still try the new endpoint as a secondary.
+    """Run the prompt through whichever provider is configured & healthy.
 
+    Order: DeepSeek (direct) → OpenRouter (if OPENROUTER_API_KEY set).
     Returns: {success, content, source}.
     """
-    global _TEAMO_DOWN, _TEAMO_DOWN_REASON
-    import os as _os
-
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
+        {"role": "user",   "content": user_prompt},
     ]
 
-    # ─── Primary: DeepSeek ───────────────────────────────────────────────
-    ds_key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not ds_key:
-        try:
-            ds_key = open(_os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
-        except FileNotFoundError:
-            pass
+    # Primary
+    result = await _try_deepseek(messages, max_tokens)
+    if result:
+        return result
 
-    if ds_key:
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
-                    resp = await client.post(
-                        "https://api.deepseek.com/chat/completions",
-                        headers={"Authorization": f"Bearer {ds_key}",
-                                 "Content-Type": "application/json"},
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": messages,
-                            "temperature": 0.5,
-                            "max_tokens": max_tokens,
-                        },
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content:
-                        return {"success": True, "content": content, "source": "DeepSeek"}
-            except Exception as e:
-                log.warning("DeepSeek attempt %d failed: %s", attempt, e)
-            if attempt < 1:
-                await asyncio.sleep(3)
+    # Fallback (opt-in)
+    result = await _try_openrouter(messages, max_tokens)
+    if result:
+        return result
 
-    # ─── Secondary: TeamoRouter (only if explicitly enabled and not down) ─
-    # We default it OFF because TeamoRouter returned 402 / Insufficient
-    # balance in our 2026-06-11 probe. To re-enable: set TEAMOROUTER_ENABLE=1
-    # AND top up at https://router.teamolab.com/dashboard.
-    if _TEAMO_DOWN:
-        # Don't waste retry budget on a router we already know is broken.
-        return {"success": False, "content": "", "source": "error",
-                "note": f"DeepSeek failed and TeamoRouter circuit-broken: {_TEAMO_DOWN_REASON}"}
-
-    if _os.environ.get("TEAMOROUTER_ENABLE", "0").strip() != "1":
-        return {"success": False, "content": "", "source": "error",
-                "note": "All LLMs failed; TeamoRouter disabled until top-up."}
-
-    teamo_key = _os.environ.get("TEAMOROUTER_API_KEY", "").strip()
-    if not teamo_key:
-        try:
-            teamo_key = open(_os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
-        except FileNotFoundError:
-            pass
-
-    if teamo_key:
-        # URL + model both renamed circa 2026-06-11. Old values were:
-        #   url   = https://router.teamolab.com/v1/chat/completions  (now 301)
-        #   model = TeamoRouter-best                                  (now 404)
-        model = _os.environ.get("TEAMOROUTER_MODEL", "claude-sonnet-4-6")
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-                    resp = await client.post(
-                        "https://teamorouter.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {teamo_key}",
-                                 "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": messages,
-                            "temperature": 0.5,
-                            "max_tokens": max_tokens,
-                        },
-                    )
-                    # Detect insufficient balance / bad key — trip the breaker
-                    # so the next 5 LLM calls in this audit don't repeat the
-                    # waste.
-                    if resp.status_code in (401, 402, 403):
-                        try:
-                            err = resp.json().get("error", {})
-                            reason = err.get("message", "") or err.get("type", "")
-                        except Exception:
-                            reason = f"HTTP {resp.status_code}"
-                        _TEAMO_DOWN = True
-                        _TEAMO_DOWN_REASON = reason[:160]
-                        log.warning("TeamoRouter circuit-broken: %s", reason)
-                        break
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content:
-                        return {"success": True, "content": content,
-                                "source": f"TeamoRouter ({data.get('model', model)})"}
-            except Exception as e:
-                log.warning("TeamoRouter attempt %d failed: %s", attempt, e)
-            if attempt < 1:
-                await asyncio.sleep(2)
-
-    return {"success": False, "content": "", "source": "error", "note": "All LLMs failed."}
+    return {"success": False, "content": "", "source": "error",
+            "note": "All LLM providers failed or unconfigured."}
 
 
 # ─── Report Generation ──────────────────────────────────────────────────────
