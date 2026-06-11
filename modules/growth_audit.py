@@ -405,6 +405,93 @@ def _build_site_context(site_data: dict) -> str:
     return "\n".join(parts)
 
 
+# ─── Post-LLM Sanitizer ─────────────────────────────────────────────────────
+# Even with strong prompts, LLMs slip in "absence on homepage = nonexistence"
+# phrasing under long-form generation pressure. The sanitizer is a deterministic
+# safety net: it rewrites known anti-patterns into the canonical "首页未展示"
+# phrasing so users never see a confidently-wrong claim about their own
+# channel program (KOL / Discord / PH / Reddit / paid spend).
+#
+# Patterns are (regex, replacement) pairs. They are intentionally narrow —
+# we only rewrite phrases that confidently assert nonexistence; we leave
+# "首页未展示 KOL" alone (that's the correct version we want).
+
+import re as _re
+
+# Rules MUST run longest-pattern-first to avoid nested re-rewriting (e.g. so
+# "未发现 Discord" doesn't re-match inside a sentence we just rewrote that
+# now contains "未发现 Discord 入口"). We also use a sentinel marker so we
+# don't re-process replaced text.
+_SCRUB_MARKER = "​"  # zero-width space, invisible
+
+_ABSENCE_REWRITES = [
+    # ── KOL — long patterns first ─────────────────────────────────────────
+    (r"无\s*KOL\s*合作\s*迹象", "首页未展示 KOL 合作墙（不代表用户未启动 KOL 计划）"),
+    (r"未发现\s*KOL\s*合作\s*痕迹", "首页未展示 KOL 合作展示（用户的 KOL 名单通常不在 marketing site 上）"),
+    (r"未发现[^。\n]{0,20}KOL\s*合作", "首页未展示 KOL 合作展示（KOL 名单通常不在 marketing site 上）"),
+    (r"无明确的?\s*KOL\s*合作[^，。\n]*?", "首页未展示 KOL 合作（不代表未合作）"),
+    (r"无\s*KOL\s*合作", "首页未展示 KOL 合作（不代表未合作）"),
+    (r"缺乏\s*KOL\s*评测", "首页未展示 KOL 评测引用（如已有，请用户提供链接）"),
+    (r"无\s*KOL\s*评测", "首页未展示 KOL 评测（如已有 KOL 内容请用户提供）"),
+
+    # ── Community / Discord / Slack — combo patterns first ───────────────
+    (r"未发现社区(?:链接)?\s*\(?[^)）]*?(?:Reddit|Discord|Slack)[^)）]*?\)?\s*(?:或\s*KOL\s*合作\s*痕迹)?",
+     "首页未展示社区入口（如已有 Reddit/Discord/Slack 请用户提供链接）"),
+    (r"外部链接无\s*Discord(?:\s*/\s*Slack)?\s*入口", "首页前 N 个外链中未发现 Discord/Slack 入口（footer 或 /community 子页面可能存在）"),
+    (r"无\s*Discord\s*/\s*Slack\s*入口", "首页未直接展示 Discord/Slack 入口"),
+    (r"站内无社区链接", "首页主链接区未展示社区入口（footer 或子页面可能存在）"),
+    (r"无任何社区入口", "首页未展示社区入口"),
+    (r"对于 Dev Tool 是严重缺失", "对于 Dev Tool，若尚未建立社区，是值得补强的维度"),
+    (r"对于 Dev Tool，这是关键缺失", "对于 Dev Tool，如尚未建立社区，是值得补强的维度"),
+    (r"缺乏社区", "首页未展示社区入口（如已有 Discord/Slack/论坛，请用户提供）"),
+    # Catch-all for stray "未发现 Discord/Reddit" (after combo patterns above)
+    (r"未发现\s*Discord(?!【)", "首页未展示 Discord 引用"),  # negative-lookahead to avoid re-matching
+    (r"未发现\s*Reddit(?!【)", "首页未展示 Reddit 引用"),
+
+    # ── Product Hunt ─────────────────────────────────────────────────────
+    (r"无\s*Product\s*Hunt\s*活动\s*痕迹", "首页未展示 Product Hunt badge（不代表未发布过；可能在 PH 平台有 launch 记录）"),
+    (r"未发现\s*Product\s*Hunt", "首页未展示 Product Hunt 引用"),
+    (r"无\s*PH\s*活动", "首页未展示 PH 引用"),
+    # PH "无提及" — pure absence claim
+    (r"(\|\s*\*\*Product\s*Hunt\*\*\s*\|\s*)无提及", r"\1首页未展示 PH badge / launch 引用"),
+
+    # ── Reddit ───────────────────────────────────────────────────────────
+    (r"无\s*Reddit\s*活动", "首页未展示 Reddit 内容引用"),
+
+    # ── Paid spend / Sales pipeline ──────────────────────────────────────
+    (r"无任何数据表明正在进行付费投放", "本次审计不包含付费投放数据采集（用户可提供 GA / 广告后台数据）"),
+    (r"无付费广告", "本次审计未抓取付费投放数据"),
+    (r"无\s*Sales[^，。\n]*?活动", "本次审计未抓取 Sales pipeline 数据"),
+]
+
+# Hard-banned phrases that should never make it to a paid customer.
+# If any matches after rewrites, we append a notice so the user knows the
+# LLM made a category error.
+_HARD_FORBIDDEN = [
+    r"100\+\s*founders",                       # fake testimonial number
+    r"B2B 采购中\s*\d+%",                        # fake stat
+    r"行业基准是\s*\d+%",                        # fake stat
+]
+
+
+def _scrub_absence_phrases(md: str) -> str:
+    """Run the absence-rewrite + forbidden-phrase passes over LLM output."""
+    if not md:
+        return md
+    out = md
+    for pattern, replacement in _ABSENCE_REWRITES:
+        out = _re.sub(pattern, replacement, out)
+    # Detect hard-banned phrases (don't rewrite — surface them so we can
+    # diagnose prompts that failed). They are usually rare.
+    forbidden_hits = []
+    for pattern in _HARD_FORBIDDEN:
+        if _re.search(pattern, out):
+            forbidden_hits.append(pattern)
+    if forbidden_hits:
+        log.warning("Sanitizer detected hard-forbidden phrases: %s", forbidden_hits)
+    return out
+
+
 async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
     """Phase 1：诊断报告（事实层）。
 
@@ -686,7 +773,10 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     _update("diagnosis", "running")
     diag_result = await generate_diagnosis_report(site_data, product_name)
     if isinstance(diag_result, dict) and diag_result.get("success"):
-        reports["diagnosis_report"] = diag_result["content"]
+        # Run the absence-phrase sanitizer before downstream stages see this
+        # — otherwise Action Plan + Executive Summary will inherit the
+        # confidently-wrong claims and amplify them.
+        reports["diagnosis_report"] = _scrub_absence_phrases(diag_result["content"])
         sources["diag"] = diag_result.get("source", "?")
         _update("diagnosis", "done")
     else:
@@ -708,7 +798,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         site_data, product_name, reports["diagnosis_report"]
     )
     if isinstance(plan_result, dict) and plan_result.get("success"):
-        reports["action_plan"] = plan_result["content"]
+        reports["action_plan"] = _scrub_absence_phrases(plan_result["content"])
         sources["plan"] = plan_result.get("source", "?")
         _update("action_plan", "done")
     else:
@@ -723,7 +813,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
             reports["diagnosis_report"], reports["action_plan"],
         )
         if isinstance(exec_result, dict) and exec_result.get("success"):
-            reports["executive_summary"] = exec_result["content"]
+            reports["executive_summary"] = _scrub_absence_phrases(exec_result["content"])
             sources["exec"] = exec_result.get("source", "?")
             _update("executive_summary", "done")
         else:
