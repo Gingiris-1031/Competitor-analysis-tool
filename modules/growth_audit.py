@@ -219,63 +219,47 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
 # ─── LLM Call (reuse pattern from ai_summary.py) ───────────────────────────
 
 
+# Process-level circuit breaker: once we've seen TeamoRouter return
+# insufficient-balance OR a 4xx, stop trying it for the rest of this Python
+# process (audit-flow-wide). Resets on restart. This is what fixes the
+# "stuck for 8+ min" symptom Iris saw — every Phase-2 task was paying the
+# full TeamoRouter probe latency before falling to DeepSeek.
+_TEAMO_DOWN = False
+_TEAMO_DOWN_REASON = ""
+
+
 async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int = 8000) -> dict:
-    """调用 LLM，支持 system + user 分离，更大 max_tokens。
-    优先 TeamoRouter，fallback DeepSeek。
+    """Call the upstream LLM. DeepSeek-first now (TeamoRouter's account is
+    out of balance and the URL/model both changed under us — three failure
+    modes simultaneously). When TEAMOROUTER_API_KEY is set AND
+    TEAMOROUTER_ENABLE=1, we'll still try the new endpoint as a secondary.
+
+    Returns: {success, content, source}.
     """
-    teamo_key = os.environ.get("TEAMOROUTER_API_KEY", "").strip()
-    if not teamo_key:
-        try:
-            teamo_key = open(os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
-        except FileNotFoundError:
-            pass
+    global _TEAMO_DOWN, _TEAMO_DOWN_REASON
+    import os as _os
 
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
     ]
 
-    # Try TeamoRouter
-    if teamo_key:
-        model = os.environ.get("TEAMOROUTER_MODEL", "TeamoRouter-best")
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=180) as client:
-                    resp = await client.post(
-                        "https://router.teamolab.com/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {teamo_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": messages,
-                            "temperature": 0.5,
-                            "max_tokens": max_tokens,
-                        },
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content:
-                        return {"success": True, "content": content, "source": f"TeamoRouter ({data.get('model', model)})"}
-            except Exception as e:
-                log.warning("TeamoRouter attempt %d failed: %s", attempt, e)
-            if attempt < 1:
-                await asyncio.sleep(2)
-
-    # Fallback: DeepSeek
-    ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    # ─── Primary: DeepSeek ───────────────────────────────────────────────
+    ds_key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not ds_key:
         try:
-            ds_key = open(os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
+            ds_key = open(_os.path.expanduser("~/.cola/secrets/deepseek_api_key")).read().strip()
         except FileNotFoundError:
             pass
 
     if ds_key:
         for attempt in range(2):
             try:
-                async with httpx.AsyncClient(timeout=180) as client:
+                async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
                     resp = await client.post(
                         "https://api.deepseek.com/chat/completions",
-                        headers={"Authorization": f"Bearer {ds_key}", "Content-Type": "application/json"},
+                        headers={"Authorization": f"Bearer {ds_key}",
+                                 "Content-Type": "application/json"},
                         json={
                             "model": "deepseek-chat",
                             "messages": messages,
@@ -293,7 +277,70 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
             if attempt < 1:
                 await asyncio.sleep(3)
 
-    return {"success": False, "content": "", "source": "error", "note": "LLM 不可用"}
+    # ─── Secondary: TeamoRouter (only if explicitly enabled and not down) ─
+    # We default it OFF because TeamoRouter returned 402 / Insufficient
+    # balance in our 2026-06-11 probe. To re-enable: set TEAMOROUTER_ENABLE=1
+    # AND top up at https://router.teamolab.com/dashboard.
+    if _TEAMO_DOWN:
+        # Don't waste retry budget on a router we already know is broken.
+        return {"success": False, "content": "", "source": "error",
+                "note": f"DeepSeek failed and TeamoRouter circuit-broken: {_TEAMO_DOWN_REASON}"}
+
+    if _os.environ.get("TEAMOROUTER_ENABLE", "0").strip() != "1":
+        return {"success": False, "content": "", "source": "error",
+                "note": "All LLMs failed; TeamoRouter disabled until top-up."}
+
+    teamo_key = _os.environ.get("TEAMOROUTER_API_KEY", "").strip()
+    if not teamo_key:
+        try:
+            teamo_key = open(_os.path.expanduser("~/.cola/secrets/teamorouter_api_key")).read().strip()
+        except FileNotFoundError:
+            pass
+
+    if teamo_key:
+        # URL + model both renamed circa 2026-06-11. Old values were:
+        #   url   = https://router.teamolab.com/v1/chat/completions  (now 301)
+        #   model = TeamoRouter-best                                  (now 404)
+        model = _os.environ.get("TEAMOROUTER_MODEL", "claude-sonnet-4-6")
+        for attempt in range(2):
+            try:
+                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+                    resp = await client.post(
+                        "https://teamorouter.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {teamo_key}",
+                                 "Content-Type": "application/json"},
+                        json={
+                            "model": model,
+                            "messages": messages,
+                            "temperature": 0.5,
+                            "max_tokens": max_tokens,
+                        },
+                    )
+                    # Detect insufficient balance / bad key — trip the breaker
+                    # so the next 5 LLM calls in this audit don't repeat the
+                    # waste.
+                    if resp.status_code in (401, 402, 403):
+                        try:
+                            err = resp.json().get("error", {})
+                            reason = err.get("message", "") or err.get("type", "")
+                        except Exception:
+                            reason = f"HTTP {resp.status_code}"
+                        _TEAMO_DOWN = True
+                        _TEAMO_DOWN_REASON = reason[:160]
+                        log.warning("TeamoRouter circuit-broken: %s", reason)
+                        break
+                    resp.raise_for_status()
+                    data = resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content:
+                        return {"success": True, "content": content,
+                                "source": f"TeamoRouter ({data.get('model', model)})"}
+            except Exception as e:
+                log.warning("TeamoRouter attempt %d failed: %s", attempt, e)
+            if attempt < 1:
+                await asyncio.sleep(2)
+
+    return {"success": False, "content": "", "source": "error", "note": "All LLMs failed."}
 
 
 # ─── Report Generation ──────────────────────────────────────────────────────
