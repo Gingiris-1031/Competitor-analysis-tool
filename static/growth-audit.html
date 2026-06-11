@@ -357,7 +357,17 @@
                         <span class="text-sm text-[color:var(--ink-muted)]">30-Day Action Plan</span>
                     </div>
                 </div>
-                <p class="text-xs text-[color:var(--ink-faint)] mt-8">Typical wait: 2–5 minutes</p>
+                <!-- Progress bar — animated based on per-step weighted timing -->
+                <div class="mt-8 max-w-xs mx-auto">
+                    <div class="flex justify-between items-baseline mb-1.5">
+                        <span class="text-[11px] text-[color:var(--ink-muted)] font-mono tabular-nums" id="progress-elapsed">0:00</span>
+                        <span class="text-[11px] text-[color:var(--ink)] font-semibold tabular-nums" id="progress-percent">0%</span>
+                    </div>
+                    <div class="h-1.5 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-full overflow-hidden">
+                        <div id="progress-fill" class="h-full" style="width:0%;background:linear-gradient(90deg,#FB923C 0%,#FDBA74 100%);box-shadow:0 0 12px rgba(251,146,60,0.4);transition:width 0.6s cubic-bezier(.4,.0,.2,1)"></div>
+                    </div>
+                </div>
+                <p class="text-xs text-[color:var(--ink-faint)] mt-5" id="progress-eta">Typical wait: 2–5 minutes</p>
             </div>
         </section>
 
@@ -520,11 +530,86 @@
         document.querySelector('section.text-center.py-8')?.classList.add('hidden'); // social proof
         document.getElementById('progress-section').classList.remove('hidden');
         document.getElementById('progress-url').textContent = url;
+        startProgressEngine();
+    }
+
+    /* ── Animated progress engine ──────────────────────────────────────
+     * Each step has a weight (% of total) and an expected duration.
+     * While a step is "running", the bar fills linearly toward that step's
+     * upper bound (capped at 92% of its band so it never overshoots before
+     * the backend says "done"). When a step completes, the bar snaps to
+     * that step's exact upper bound. The elapsed timer ticks every 200ms.
+     */
+    const PROGRESS_STEPS = [
+        { stepEl: 'step-fetch', key: 'fetch',             weight: 8,  expectedSec: 12 },
+        { stepEl: 'step-exec',  key: 'executive_summary', weight: 27, expectedSec: 45 },
+        { stepEl: 'step-diag',  key: 'diagnosis',         weight: 37, expectedSec: 75 },
+        { stepEl: 'step-plan',  key: 'action_plan',       weight: 28, expectedSec: 60 },
+    ];
+    const stepState = {}; // stepEl -> {status, startedAt}
+    let auditStartTime = null;
+    let progressTimer = null;
+
+    function startProgressEngine() {
+        auditStartTime = Date.now();
+        Object.keys(stepState).forEach(k => delete stepState[k]);
+        document.getElementById('progress-fill').style.width = '2%';
+        document.getElementById('progress-percent').textContent = '0%';
+        document.getElementById('progress-elapsed').textContent = '0:00';
+        document.getElementById('progress-eta').textContent = 'Estimated wait: 2–5 minutes';
+        if (progressTimer) clearInterval(progressTimer);
+        progressTimer = setInterval(tickProgress, 250);
+    }
+
+    function stopProgressEngine() {
+        if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+    }
+
+    function tickProgress() {
+        // Compute weighted % across all steps.
+        let pct = 0;
+        let activeStepLabel = null;
+        for (const s of PROGRESS_STEPS) {
+            const st = stepState[s.stepEl];
+            if (!st || st.status === 'pending') break;
+            if (st.status === 'done') {
+                pct += s.weight;
+                continue;
+            }
+            if (st.status === 'running') {
+                const elapsed = (Date.now() - st.startedAt) / 1000;
+                const frac = Math.min(elapsed / s.expectedSec, 0.92);  // cap below 100% so we don't lie
+                pct += s.weight * frac;
+                activeStepLabel = document.querySelector(`#${s.stepEl} span:last-child`)?.textContent || null;
+                break;
+            }
+            if (st.status === 'failed') break;
+        }
+        pct = Math.min(Math.round(pct), 99);
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-percent').textContent = pct + '%';
+        // Elapsed timer
+        const secs = Math.floor((Date.now() - auditStartTime) / 1000);
+        const mm = Math.floor(secs / 60);
+        const ss = secs % 60;
+        document.getElementById('progress-elapsed').textContent = mm + ':' + String(ss).padStart(2, '0');
+        // Live "what we're doing" line below bar
+        if (activeStepLabel) {
+            document.getElementById('progress-eta').textContent = '⚡ ' + activeStepLabel + ' …';
+        }
     }
 
     function updateStep(stepId, status) {
         const el = document.getElementById(stepId);
         if (!el) return;
+        // Track state transitions for the progress engine.
+        const prev = stepState[stepId];
+        if (!prev || prev.status !== status) {
+            stepState[stepId] = {
+                status,
+                startedAt: (status === 'running' ? Date.now() : (prev?.startedAt || Date.now())),
+            };
+        }
         const icon = el.querySelector('span:first-child');
         const text = el.querySelector('span:last-child');
         if (status === 'done') {
@@ -559,12 +644,19 @@
             }
 
             if (data.status === 'completed') {
+                // Snap the bar to 100% briefly so the eye registers completion
+                // before we swap to the results section.
+                document.getElementById('progress-fill').style.width = '100%';
+                document.getElementById('progress-percent').textContent = '100%';
+                document.getElementById('progress-eta').textContent = '✓ Audit ready — opening reports';
+                stopProgressEngine();
                 reports = data.reports || {};
-                showResults(data.product_name, data.url);
+                setTimeout(() => showResults(data.product_name, data.url), 450);
                 return;
             }
 
             if (data.status === 'failed') {
+                stopProgressEngine();
                 showToast({
                     kind: 'error',
                     title: 'Audit failed',
