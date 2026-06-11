@@ -1286,6 +1286,11 @@ async def _run_analysis(job_id: str):
     _soc_channels = job["results"].get("social", {}).get("channels", {})
     _ws_cur = (_website_res.get("current_site") or {})
     _ws_social_links = _ws_cur.get("social_links") or {}
+    # Snapshot the site's self-declared Twitter handle BEFORE the reconcile loop
+    # below can overwrite it with a (possibly wrong) detected handle. The site's
+    # own published handle is ground truth — Phase 1.8 uses it to correct fuzzy
+    # mismatches (e.g. @testingcatalog → declared @tiny_fish for tinyfish.ai).
+    _declared_tw = ((_ws_social_links.get("twitter") or {}).get("handle") or "").strip()
     for _platform in ("twitter", "youtube", "instagram", "tiktok", "facebook"):
         _ch = _soc_channels.get(_platform, {})
         if _ch.get("detected") and _ch.get("handle") and _ws_social_links.get(_platform):
@@ -1295,22 +1300,36 @@ async def _run_analysis(job_id: str):
                 _ws_social_links[_platform]["url"] = _ch["url"]
             _ws_social_links[_platform]["verified"] = True
 
-    # Phase 1.8: Retry Twitter if not detected — now we have website social_links
+    # Phase 1.8: Trust the site's self-declared Twitter handle as authoritative.
+    # Re-verify against it when we detected nothing OR detected a handle that
+    # disagrees with what the site publishes — a wrong fuzzy match (e.g.
+    # @testingcatalog) must not block correction to the declared @tiny_fish.
     _tw_ch = _soc_channels.get("twitter", {})
-    if not (isinstance(_tw_ch, dict) and _tw_ch.get("detected")):
-        _tw_hint = _ws_social_links.get("twitter", {}).get("handle")
-        if _tw_hint:
-            from modules.social import _deep_twitter_caravo
-            try:
-                _tw_retry = await asyncio.wait_for(
-                    _deep_twitter_caravo(_brand_lower, product_name, handle_hint=_tw_hint),
-                    timeout=55,
-                )
-                if isinstance(_tw_retry, dict) and _tw_retry.get("detected"):
-                    soc = job["results"].setdefault("social", {})
-                    soc.setdefault("channels", {})["twitter"] = _tw_retry
-            except Exception:
-                pass
+    _detected_tw = _tw_ch.get("handle") if isinstance(_tw_ch, dict) else None
+
+    def _norm_handle(h):
+        return (h or "").lstrip("@").lower().replace("_", "")
+
+    _needs_tw_retry = bool(_declared_tw) and (
+        not (isinstance(_tw_ch, dict) and _tw_ch.get("detected"))
+        or _norm_handle(_declared_tw) != _norm_handle(_detected_tw)
+    )
+    if _needs_tw_retry:
+        from modules.social import _deep_twitter_caravo
+        try:
+            _tw_retry = await asyncio.wait_for(
+                _deep_twitter_caravo(_brand_lower, product_name, handle_hint=_declared_tw),
+                timeout=55,
+            )
+            if isinstance(_tw_retry, dict) and _tw_retry.get("detected"):
+                soc = job["results"].setdefault("social", {})
+                soc.setdefault("channels", {})["twitter"] = _tw_retry
+                # Keep the website link consistent with the corrected handle
+                if isinstance(_ws_social_links.get("twitter"), dict):
+                    _ws_social_links["twitter"]["handle"] = _tw_retry["handle"].lstrip("@")
+                    _ws_social_links["twitter"]["verified"] = True
+        except Exception:
+            pass
 
     # ================================================================
     # Phase 2: Propagation + Traffic Peaks (parallel, ~10s)

@@ -707,11 +707,18 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             )
             bio_match = bio_mentions_brand or name_is_meaningful
 
-            # Signal 3: verified business account → higher trust
+            # Signal 3: verified business account → a *booster*, never sole proof.
+            # A popular unrelated verified business (e.g. @testingcatalog, an
+            # AI-news account) must NOT match just for carrying a Business badge;
+            # require the handle or display name to actually relate to the brand.
             is_verified_biz = prof.get("verifiedType") == "Business"
+            verified_and_relevant = is_verified_biz and (
+                _handle_matches_brand(account_handle, brand, name)
+                or _handle_matches_brand(account_name_str, brand, name)
+            )
 
             # Accept if ANY strong signal matches
-            if not website_match and not bio_match and not is_verified_biz:
+            if not website_match and not bio_match and not verified_and_relevant:
                 return None
 
             return prof
