@@ -1489,53 +1489,44 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
             f"| **{info['title']}** | {info['best_for']} | "
             f"[`Gingiris/{slug}`](https://huggingface.co/datasets/Gingiris/{slug}) |"
         )
+    # Compact install guide. The previous version repeated the same
+    # 3-method block for every skill (~30 lines × 9 skills = ~270 lines
+    # of nearly-identical content). Iris flagged it as noise. New
+    # structure: explain methods ONCE with <SLUG> placeholder, then a
+    # batch-install one-liner for everything-at-once.
+    batch_slugs = " ".join(skills)
     lines.extend([
         "",
-        f"{sub_h} 📦 详细安装指南",
+        f"{sub_h} 📦 安装",
         "",
-        "**Gingiris Skills 是什么**：每个 skill 是一份 SKILL.md，包含完整方法论、触发关键词、操作步骤。"
-        "发布在 [Hugging Face](https://huggingface.co/Gingiris) 作为 dataset。"
-        "可在 Claude Code、Cursor、Gemini CLI、Aider 等支持 skill 加载的 AI agent IDE 里使用。",
+        "Skills 是 SKILL.md 文件，可在 Claude Code / Cursor / Gemini CLI 等 "
+        "AI agent IDE 里使用。下面 `<SLUG>` 替换成上方表格里的 slug 即可。",
         "",
-        "**三种安装方式**（任选其一）：",
+        "**方法 A — 一键批量装全部（推荐）**",
+        "",
+        "```bash",
+        "mkdir -p ~/.claude/skills",
+        f"for s in {batch_slugs}; do",
+        '  git clone "https://huggingface.co/datasets/Gingiris/$s" \\',
+        '    "$HOME/.claude/skills/$s"',
+        "done",
+        "# 重启 Claude Code 即生效",
+        "```",
+        "",
+        "**方法 B — 单装 1 个**",
+        "",
+        "```bash",
+        "git clone https://huggingface.co/datasets/Gingiris/<SLUG> \\",
+        "  ~/.claude/skills/<SLUG>",
+        "```",
+        "",
+        "**方法 C — 其他 IDE / 浏览器读**",
+        "",
+        "- Cursor / Gemini CLI: `huggingface-cli download Gingiris/<SLUG> --repo-type dataset --local-dir ./.cursor/rules/<SLUG>`（先 `pip install -U huggingface_hub`）",
+        "- 在线读: <https://huggingface.co/datasets/Gingiris/><SLUG> 或 <https://gingiris.tools/skills>",
+        "",
+        "**触发**：装好后在 AI agent 对话里描述场景（例如 \"我们要做 launch\"），agent 自动加载对应 skill 作上下文。",
     ])
-
-    for slug in skills:
-        info = GINGIRIS_SKILL_REGISTRY[slug]
-        lines.extend([
-            "",
-            f"{sub_h} {info['title']}  &nbsp;·&nbsp; `{slug}`",
-            "",
-            f"**Skill 内容**：{info['desc']}",
-            "",
-            f"**适用产品**：{info['best_for']}",
-            "",
-            "**方法 A — Claude Code（推荐，从 HF 克隆到 skill 池）**",
-            "",
-            "```bash",
-            "mkdir -p ~/.claude/skills",
-            f"git clone https://huggingface.co/datasets/Gingiris/{slug} \\",
-            f"  ~/.claude/skills/{slug}",
-            "# 重启 Claude Code 即生效",
-            "```",
-            "",
-            "**方法 B — HuggingFace CLI（任何 IDE 通用）**",
-            "",
-            "```bash",
-            f"# 需先安装：pip install -U huggingface_hub",
-            f"huggingface-cli download Gingiris/{slug} \\",
-            f"  --repo-type dataset \\",
-            f"  --local-dir ./.cursor/rules/{slug}",
-            "```",
-            "",
-            "**方法 C — 浏览器在线阅读（不安装）**",
-            "",
-            f"- HF 主页：https://huggingface.co/datasets/Gingiris/{slug}",
-            f"- 在线版：https://gingiris.tools/skills  →  搜 `{slug}`",
-            "",
-            "**触发方式**：装好后，在 AI agent 里描述对应场景（例如 \"我们要做 Product Hunt launch\" "
-            "会触发 `gingiris-launch`），agent 自动加载 skill 内容作为上下文。",
-        ])
     return "\n".join(lines)
 
 
