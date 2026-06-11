@@ -93,6 +93,38 @@ B. **不允许出现以下短语，除非数据里有原文佐证**：
    "B2B 采购中 X% 的用户"、"行业基准是"、"参考竞品 X 收 $N"、"100+ founders"。
 C. **数据缺失时的标准答案**：写 "数据不足（未抓取）"或 "不在抓取范围"，**不要**用 "应该有"、"通常是"补全。
 D. **每条结论必须可追溯**：在重要 finding 后用 `（依据：<数据小节名>）` 标注来源。
+
+## 🚨 反推论谬误（重要：absence on homepage ≠ nonexistence）
+
+E. **"首页没看到 X" ≠ "用户没做 X"**。以下信号本质上**不在抓取范围内**，缺失只能写"首页/sitemap 未展示"，**不能**写"未启动/未合作/无活动"：
+   - KOL / 网红 / influencer 合作（合作记录通常在 CRM、Notion、Slack，不在首页）
+   - Product Hunt 历史发布（PH 发布过未必在 homepage 留链）
+   - Reddit / Discord / Slack 社区运营（运营痕迹通常不公开展示在首页）
+   - 付费投放 / SEM / 社媒广告（广告创意不在 homepage）
+   - Sales pipeline / outbound 活动（B2B 销售不在 public-facing）
+   - 已建立的 partnership / integration 生态（除非首页有 logo 墙）
+   - Newsletter 订阅数 / 社群人数 / 客户数
+   - 内部 GA / GSC / Mixpanel 数据
+F. **所有渠道类建议必须以"如尚未启动"为前提**。例如："**如尚未启动**，可以考虑识别 Micro-KOL..."，而不是"启动 KOL 外联"。
+G. **诊断报告必须有一段"## 本次审计的盲区"**，明确列出**未抓取**的维度（KOL 合作 / 付费投放 / Sales / 内部分析 / 客户访谈 / churn / paid spend），让用户知道边界。
+
+## 🚨 渠道-产品类型匹配矩阵（不要一刀切）
+
+H. **渠道推荐必须先判产品类型，再选对应渠道**：
+
+| 产品类型 | 推荐渠道 | 不推荐 / 谨慎推荐 |
+|---|---|---|
+| **Enterprise Infra / API / B2B SDK**（如 TinyFish, Browserless, Vanta） | HN/Show HN, 技术博客 (Dev.to, blog), Dev advocacy, GTM enablement, LinkedIn outbound, Sales-led, GitHub examples/cookbook | **不推**：Product Hunt（带个人开发者非企业买家）、UGC 矩阵、TikTok |
+| **Developer Tool / OSS**（如 AFFiNE, Supabase） | GitHub Stars 体系, HN, Reddit (r/programming, 相关 subs), Awesome lists, Show HN, Dev.to | UGC 矩阵（不太适合）|
+| **Consumer / Prosumer SaaS / PLG**（如 Notion, Linear early stage） | Product Hunt, UGC 矩阵, X/Twitter, 创作者运营, SEO/Content, 社区 | 纯 outbound（CAC 太高）|
+| **Mobile App / Consumer App** | ASO, Creator matrix (TikTok/Reels/Shorts), 应用商店内 ads, UGC | 纯 SEO（mobile 流量来源不同）|
+| **B2B Mid-market SaaS** | SEO/Content, LinkedIn outbound, Webinar, ABM, Sales-led, 客户案例 | UGC 矩阵 |
+| **B2C / Marketplace** | Paid social, SEO, Referral, Influencer | 纯技术内容 |
+
+I. **判断产品类型的优先信号**：首页 hero 价值主张 → 客户案例品牌 → 定价金额 → ICP 描述。
+   - 月费 > $500 OR 客户是 enterprise/Fortune 500 → 偏 sales-led，不推 PH/UGC
+   - 月费 < $100 OR 个人/团队 用户为主 → 偏 PLG，PH/UGC 有意义
+   - 完全开源、强调 GitHub stars → OSS 路径
 """
 
 # ─── TinyFish Fetch ─────────────────────────────────────────────────────────
@@ -405,7 +437,13 @@ async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
 ## 2. 增长诊断（三维度）
 ### 2.1 产品类型分类（SaaS / OSS / AI / Mobile / Dev Tool / Consumer Web）
 ### 2.2 增长阶段判定（Pre-launch / Launch / Cold Start / Growth / Scale）— 附判定依据
-### 2.3 主要渠道缺口（表格：渠道 | 现状 | 严重程度）— 渠道现状只能基于站内链接 / 外部链接 / sitemap，不可凭空说"无 KOL 合作"
+### 2.3 渠道现状概览（表格：渠道 | 首页/sitemap 是否展示 | 备注）
+**强制规则（防 absence-on-homepage 谬误）**：每一格"现状"必须严格写"首页未展示" / "首页展示了 X" / "sitemap 包含" / "未抓取范围"，绝不写"未启动"、"无活动"、"用户未做"。
+- KOL / 合作伙伴：合作关系一般不在首页公开 → 标记"未抓取范围"。
+- Product Hunt：可能发布过但未在首页放 badge → 标记"首页未展示"。
+- 社区（Reddit/Discord/Slack）：通常不公开运营痕迹 → 标记"未抓取范围"。
+- SEO：基于 sitemap 可判断（有数据）。
+- 付费投放、Sales pipeline：必须标"未抓取范围"，不可发表意见。
 
 ## 3. SEO/GEO 现状审计 — **以下规则必须严格遵守**
 - **robots.txt 分析**：**只引用 robots.txt 章节里实际出现的 directive**。如果 robots.txt 章节标注"未抓取"，写"robots.txt 未抓到，无法分析"，不得编造 Disallow/Allow 内容。
@@ -422,19 +460,32 @@ async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
 - 差异化建议（基于首页传达的差异化点）
 
 ## 5. 增长策略推荐（P0/P1/P2 优先级）
+
+**关键约束**：本节策略必须先根据 §1 推断的产品类型 + 增长阶段，对照系统提示中的"渠道-产品类型匹配矩阵 (H/I)"选渠道。**不要给企业级 API / Sales-led 产品推 PH / UGC 矩阵 / TikTok**。给 enterprise infra 推 PH 等于建议错误渠道。
+
+每条策略必须：(1) 基于本报告已写明的 finding；(2) 附预期影响（不写 N% 提升这种伪数字，写"预期改善 SEO 入口"这种定性表达 OR 注明"基准数据需用户提供 GA / GSC 才能量化"）；(3) 渠道类策略必须以 "**如尚未启动**" 起头。
+
 ### P0 — 本周必做（最高 ROI）
 ### P1 — 2 周内完成
 ### P2 — 30 天内完成
 
-每条策略必须：(1) 基于本报告已写明的 finding；(2) 附预期影响（不写 N% 提升这种伪数字，写"预期改善 SEO 入口"这种定性表达 OR 注明"基准数据需用户提供 GA / GSC 才能量化"）。
-
 ## 6. 渠道策略详解
-逐渠道分析，每个渠道必须先写"现状（基于抓取数据）"，再写"建议"。
+逐渠道分析。每个渠道必须先写"首页/sitemap 观察到的现状"，再写"建议"。**不发表"用户没做 X" 这类断言**（见反推论谬误 E）。如果该渠道与产品类型不匹配，直接写"**与该产品类型不匹配，跳过**"，不要硬凑建议。
 
-## 7. 风险与假设
-列出本诊断未能验证的关键假设（比如"未抓取后端 API 接口"、"未做反向链接分析"、"未抓取登录后页面"）。
+## 7. 本次审计的盲区（必填）
 
-## 8. 匹配的 Gingiris Playbook
+明确列出本次抓取**未能覆盖的维度**，告诉用户报告的边界：
+- 内部数据：GA / GSC / Mixpanel / Amplitude / 客户访谈 / churn 数据
+- 渠道运营：KOL 合作记录 / Product Hunt 历史 / Reddit/Discord 活动 / Newsletter 数量 / 已签 partnership
+- 销售/付费：sales pipeline / outbound 活动 / paid spend / CAC / LTV
+- 反向链接 / 关键词排名 / 流量来源（本次未调用 SEO 工具 API）
+- 登录后内部页面 / API endpoint
+**每个盲区后用一行写"建议用户在咨询时提供："以提示用户在续约 Pro 时如何提供这些数据获取更准确的诊断。**
+
+## 8. 风险与假设
+列出本诊断的关键推断 + 它们的依据。
+
+## 9. 匹配的 Gingiris Playbook
 表格：框架名 | 适用场景（基于本报告 finding） | 安装命令
 
 ---
@@ -511,6 +562,16 @@ npx skills add Gingiris-1031/<skill-name>
 - 不允许推荐"创建定价页"如果诊断报告已经记录 /pricing 抓到了。
 - 不允许引入诊断报告里没写的"当前问题"（比如不能凭空说"当前 Disallow /admin/ 是误配置"）。
 - 不允许编竞品定价或行业基准。
+
+🚨 渠道任务的额外约束（重要 — 防一刀切推荐）：
+- 凡是"启动 KOL 外联 / 启动 Product Hunt / 启动 Reddit 运营 / 启动 UGC 矩阵"这类任务，**先看诊断报告 §1 推断的产品类型 + §2 增长阶段**：
+  - Enterprise Infra / API / B2B SDK / Sales-led 产品（如 TinyFish, Browserless, Vanta） → **不要包含 PH Launch、UGC 矩阵、TikTok 任务**。改用：HN/Show HN、技术深度博客（Dev.to + 自有 blog）、Dev advocacy、GitHub examples/cookbook、LinkedIn outbound、客户案例/解决方案模板。
+  - Consumer / PLG / Prosumer → 可以包含 PH + UGC + 社区。
+  - OSS → 偏向 HN + Reddit + Awesome lists + GitHub。
+  - Mobile → ASO + Creator matrix。
+- 所有渠道类任务的"目的"段必须以 "**如尚未启动**" 起头（因为我们看不到用户的内部运营，不能假设"用户没做"）。
+- 如果某 Week 的任务全部不适用于该产品类型，直接写："本周聚焦 [适合该产品类型的活动]，跳过通用的 PH/KOL 周。"，不要硬塞。
+- KOL 类任务不要给"3 个月免费 Pro 计划"这种通用模板 — 改成 "**对应你产品的合理 incentive**（企业 SaaS 通常是免费 POC + 案例研究合作；个人开发者产品才适合免费订阅）"。
 """
 
     return await _call_llm_long(GINGIRIS_SKILLS_CONTEXT, user_prompt, max_tokens=8000)
