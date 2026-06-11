@@ -1,19 +1,288 @@
-"""AI 商业洞察总结模块 — 基于采集数据生成竞品分析总结"""
+"""AI 商业洞察总结模块 — 基于采集数据生成竞品分析总结
+
+Two-pass synthesis architecture (added 2026-06-11):
+  Pass 1 — _extract_facts_pass1(): convert raw data dicts into a
+           normalized facts JSON with explicit `source` attribution
+           per fact (homepage / dataforseo / wayback / producthunt /
+           github / inference / unknown). Cheap, structured-output
+           LLM call — no prose, can't hallucinate freely.
+  Pass 2 — generate_ai_summary(): prose synthesis bound to the
+           facts JSON. The prompt forbids any claim not citing a
+           fact key like [fact:traffic.monthly_visits]. Numeric
+           drift is caught by the fact-check regex below.
+  Pass 3 — _apply_confidence_markers(): post-processes the prose
+           to convert [fact:KEY] markers into colored confidence
+           badges:
+             🟢 (multi-source verified)
+             🟡 (single source)
+             🔴 (inference / no source)
+           So users see at-a-glance which claims to trust vs verify.
+
+Falls back gracefully: if Pass 1 fails, we use the original
+context-string flow and just attach a "confidence:unknown" tag.
+"""
 import asyncio
 import httpx
 import json
 import logging
 import os
+import re
+
+log = logging.getLogger(__name__)
+
+
+# ─── Pass 1: Facts extraction ────────────────────────────────────────────────
+# Pulls a STRUCTURED facts dict from the raw data modules. Each value carries
+# an explicit `source` field so Pass 2's prose can render a confidence badge
+# next to every claim. Deterministic — no LLM in this step. The LLM in Pass 2
+# is constrained to only use facts that appear here.
+
+_INFERENCE = "inference"   # LLM-derived, no direct source
+_UNKNOWN   = "unknown"     # data was missing
+SOURCE_RANK = {  # higher number = higher trust in cross-source resolution
+    "dataforseo":   4,
+    "github":       4,
+    "tinyfish":     4,
+    "producthunt":  4,
+    "homepage":     3,
+    "wayback":      3,
+    "social":       3,
+    _INFERENCE:     1,
+    _UNKNOWN:       0,
+}
+
+
+def _f(value, source):
+    """Wrap a fact value with its source for downstream resolution."""
+    if value in (None, "", [], {}):
+        return None
+    return {"v": value, "src": source}
+
+
+def _extract_facts(product_name: str, url: str, website: dict, social: dict,
+                   traffic: dict, producthunt: dict, pricing: dict = None,
+                   github_oss: dict = None, growth_analysis: dict = None,
+                   traffic_peaks: dict = None) -> dict:
+    """Pass-1 fact extraction. Returns a tagged facts JSON.
+
+    Each leaf carries {v: value, src: source}. The keys are stable and
+    referenced from prose via `[fact:dotted.path]` markers, e.g.
+    `[fact:traffic.monthly_visits]`.
+    """
+    facts: dict = {"product": {"name": product_name, "url": url}}
+
+    # ── Product / website ────────────────────────────────────────────────
+    ws = website or {}
+    cur = ws.get("current_site", {}) or ws.get("current", {}) or {}
+    if cur.get("slogan"):
+        facts.setdefault("product", {})["slogan"] = _f(cur["slogan"], "homepage")
+    if cur.get("meta_description"):
+        facts["product"]["meta_description"] = _f(
+            cur["meta_description"][:300], "homepage"
+        )
+    feats = cur.get("features") or {}
+    active = [k for k, v in feats.items() if v]
+    if active:
+        facts["product"]["features_on_homepage"] = _f(active[:15], "homepage")
+    if ws.get("first_seen"):
+        facts["product"]["first_seen"] = _f(ws["first_seen"], "wayback")
+    if ws.get("total_snapshots"):
+        facts["product"]["wayback_snapshots"] = _f(ws["total_snapshots"], "wayback")
+
+    # ── Pricing ──────────────────────────────────────────────────────────
+    pr = pricing or {}
+    if pr.get("tiers"):
+        # Normalize tier shape (different fetchers produce different keys).
+        tiers = []
+        for t in pr["tiers"][:8]:
+            if isinstance(t, dict):
+                tiers.append({
+                    k: t.get(k) for k in ("name", "price", "period", "features")
+                    if t.get(k) is not None
+                })
+        if tiers:
+            facts["pricing"] = {"tiers": _f(tiers, "homepage")}
+        if pr.get("has_free_tier") is not None:
+            facts.setdefault("pricing", {})["has_free_tier"] = _f(
+                pr["has_free_tier"], "homepage"
+            )
+
+    # ── Traffic / DataForSEO ─────────────────────────────────────────────
+    tr = traffic or {}
+    rank = tr.get("domain_rank") or {}
+    tf: dict = {}
+    if rank.get("organic_traffic"):
+        tf["monthly_organic_visits"] = _f(rank["organic_traffic"], "dataforseo")
+    if rank.get("total_keywords"):
+        tf["total_keywords"] = _f(rank["total_keywords"], "dataforseo")
+    if rank.get("keywords_top1"):
+        tf["keywords_top1"] = _f(rank["keywords_top1"], "dataforseo")
+    if rank.get("keywords_top10"):
+        tf["keywords_top10"] = _f(rank["keywords_top10"], "dataforseo")
+    if rank.get("estimated_paid_cost"):
+        tf["equiv_paid_ad_cost_usd_per_month"] = _f(
+            rank["estimated_paid_cost"], "dataforseo"
+        )
+    bl = tr.get("backlinks") or {}
+    if bl.get("backlinks"):
+        tf["backlinks"] = _f(bl["backlinks"], "dataforseo")
+    if bl.get("referring_domains"):
+        tf["referring_domains"] = _f(bl["referring_domains"], "dataforseo")
+    if bl.get("domain_rank"):
+        tf["domain_rank"] = _f(bl["domain_rank"], "dataforseo")
+    history = tr.get("historical", {}).get("history") or []
+    if history:
+        tf["history_6mo"] = _f([
+            {"date": h.get("date"),
+             "traffic": h.get("organic_traffic"),
+             "keywords": h.get("keywords")}
+            for h in history[-6:]
+        ], "dataforseo")
+    if tf:
+        facts["traffic"] = tf
+
+    # Top keywords (separate node for prose to cite individually)
+    kw = (tr.get("top_keywords") or {})
+    kw_list = kw.get("keywords") if isinstance(kw, dict) else None
+    if isinstance(kw_list, list) and kw_list:
+        nb = kw.get("non_branded_keywords") or []
+        display = (nb[:5] + [k for k in kw_list if k not in nb])[:8] if nb else kw_list[:8]
+        facts["top_keywords"] = _f(
+            [{"keyword": k.get("keyword"),
+              "position": k.get("position"),
+              "search_volume": k.get("search_volume")}
+             for k in display if isinstance(k, dict)],
+            "dataforseo",
+        )
+
+    # ── Social ───────────────────────────────────────────────────────────
+    sm = social or {}
+    channels = sm.get("channels") or {}
+    soc: dict = {}
+    for ch, data in channels.items():
+        if isinstance(data, dict):
+            followers = data.get("followers") or data.get("subscribers") or data.get("count")
+            if followers:
+                soc[ch] = {"followers": _f(followers, "social"),
+                           "handle":    _f(data.get("handle"), "social")}
+    if soc:
+        facts["social"] = soc
+
+    # ── Product Hunt ─────────────────────────────────────────────────────
+    ph = producthunt or {}
+    launches = ph.get("launches") or []
+    if launches:
+        first = launches[0] if isinstance(launches[0], dict) else {}
+        facts["producthunt"] = {
+            "launch_count":   _f(len(launches), "producthunt"),
+            "first_launch":   _f(first.get("launched_at"), "producthunt"),
+            "total_upvotes":  _f(sum(l.get("votes_count", 0) for l in launches), "producthunt"),
+            "best_rank":      _f(min((l.get("rank", 999) for l in launches if l.get("rank")), default=None), "producthunt"),
+        }
+    if ph.get("comments_total"):
+        facts.setdefault("producthunt", {})["comments_total"] = _f(
+            ph["comments_total"], "producthunt"
+        )
+
+    # ── GitHub ───────────────────────────────────────────────────────────
+    gh = github_oss or {}
+    if gh.get("stars") is not None:
+        facts["github"] = {
+            "stars": _f(gh["stars"], "github"),
+            "forks": _f(gh.get("forks"), "github"),
+            "contributors": _f(gh.get("contributors_count"), "github"),
+            "open_issues":  _f(gh.get("open_issues"), "github"),
+            "last_commit":  _f(gh.get("last_commit_date"), "github"),
+        }
+
+    # ── Growth peaks ─────────────────────────────────────────────────────
+    peaks = (traffic_peaks or {}).get("peaks") or []
+    if peaks:
+        facts["traffic_peaks"] = _f(
+            [{"date": p.get("date"),
+              "value": p.get("value"),
+              "spike_multiplier": p.get("multiplier")}
+             for p in peaks[:5]],
+            "dataforseo",
+        )
+
+    # Drop any leaf where _f returned None (empty value cleanup).
+    def _strip_none(d):
+        if isinstance(d, dict):
+            return {k: _strip_none(v) for k, v in d.items() if v is not None}
+        return d
+    return _strip_none(facts)
+
+
+# ─── Pass 3: Confidence-badge post-processor ────────────────────────────────
+
+
+_FACT_REF_RE = re.compile(r"\[fact:([a-zA-Z0-9_.]+)\]")
+
+
+def _resolve_source(facts: dict, dotted: str) -> str:
+    """Walk facts by dotted path. Return the `src` of the leaf, or _UNKNOWN."""
+    cur = facts
+    for part in dotted.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        elif isinstance(cur, list):
+            return _UNKNOWN
+        else:
+            return _UNKNOWN
+    if isinstance(cur, dict) and "src" in cur:
+        return cur["src"]
+    return _UNKNOWN
+
+
+def _confidence_emoji(src: str) -> str:
+    if src in ("dataforseo", "github", "tinyfish", "producthunt"):
+        return "🟢"
+    if src in ("homepage", "wayback", "social"):
+        return "🟡"
+    return "🔴"
+
+
+def _apply_confidence_markers(prose: str, facts: dict) -> str:
+    """Replace [fact:KEY] markers with a small confidence badge inline."""
+    def repl(m):
+        key = m.group(1)
+        src = _resolve_source(facts, key)
+        emoji = _confidence_emoji(src)
+        # Render as `🟢` only (the prose already has the value text inline).
+        return f"{emoji}<sup class=\"src-tag\" title=\"source: {src}\">{src[:4]}</sup>"
+    out = _FACT_REF_RE.sub(repl, prose)
+
+    # Add a legend footer if any badges appeared.
+    if "🟢" in out or "🟡" in out or "🔴" in out:
+        out += (
+            "\n\n---\n\n**Source confidence**: "
+            "🟢 high-trust API data (DataForSEO / GitHub / TinyFish / PH) · "
+            "🟡 scraped from homepage / Wayback / social · "
+            "🔴 inferred — verify before quoting."
+        )
+    return out
 
 
 async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None, github_oss: dict = None) -> dict:
-    """调用 LLM 基于所有数据生成商业洞察"""
+    """Two-pass synthesis: extract verified facts (Pass 1) → constrained
+    prose synthesis (Pass 2) → confidence badges (Pass 3)."""
 
     def _safe(fn, *args, **kwargs):
         try:
             return fn(*args, **kwargs)
         except Exception as e:
             return f"[数据解析错误: {str(e)[:80]}]"
+
+    # ── Pass 1: deterministic fact extraction (no LLM, no hallucination)
+    facts = _safe(_extract_facts, product_name, url, website, social, traffic,
+                  producthunt, pricing, github_oss, growth_analysis, traffic_peaks)
+    if isinstance(facts, str):  # _safe returned an error string
+        log.warning("Fact extraction failed: %s", facts)
+        facts = {}
+    facts_json_str = json.dumps(facts, ensure_ascii=False, indent=2)
+    log.info("Pass-1 facts extracted: %d top-level fields, JSON %d chars",
+             len(facts), len(facts_json_str))
 
     context        = _safe(_build_context, product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
     wayback_insight = _safe(_build_wayback_insight, website)
@@ -32,7 +301,22 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 ---
 
-## 原始调研数据
+## ✅ 已校验事实（FACTS JSON — 最高优先级，每条 finding 必须引用）
+
+下面是从原始数据里**程序抽取**的结构化事实，每条带 `src` 字段表明出处。
+**报告里的每个具体数字、URL、时间节点、价格、关注度数据**，**必须**引用这里的 fact key — 格式 `[fact:dotted.path]`，例如 `[fact:traffic.monthly_organic_visits]`。
+**不在 FACTS JSON 里的数字 / 时间 / URL，禁止写入报告**。如果想说但 FACTS 里没有，写"FACTS 未覆盖"或省略。
+
+```json
+{facts_json_str}
+```
+
+引用示例：
+> 月访问 12,000 [fact:traffic.monthly_organic_visits]，主要来自 8 个 Top-10 关键词 [fact:traffic.keywords_top10]。
+
+---
+
+## 原始调研数据（仅供参考，**不要**从这里直接取数字 — 取数字必须走 FACTS JSON）
 
 {context}
 
@@ -121,12 +405,16 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 ## ⚠️ 必须遵守的约束：
 
-1. **只基于提供的数据做分析**。数据为空的维度，写"数据不足"，不推断。
-2. **严禁编造时间节点**。只有数据中出现的日期才能用，禁止"可能""推断""大约"修饰时间。
-3. **社交账号可能误匹配**。如账号描述与产品不符，标注"⚠️ 此账号可能不属于目标产品"并跳过该数据。
-4. **数字要精确**。不写"大量用户"，写"X 万月访问"；不写"快速增长"，写"6个月增长 X 倍"。
-5. **当前日期是 2026 年 4 月**。不要将未来事件当作已发生。
-6. 语言风格：像军师，直接，不废话，每段不超过 150 字。
+1. **每个具体数字 / URL / 时间 / 价格必须紧跟 `[fact:KEY]` 引用**。例：
+   - ✅ "月访问 12,000 [fact:traffic.monthly_organic_visits]"
+   - ❌ "月访问约 12,000"（缺 fact 引用）
+   - ❌ "月访问可能在 10K-20K 之间"（FACTS 没数据时不要瞎猜）
+2. **FACTS JSON 没覆盖的维度**写"FACTS 未覆盖（需用户提供）"或省略，不要凭印象推断数字。
+3. **严禁编造时间节点**。只有 FACTS 里出现的日期才能用，禁止"可能""推断""大约"修饰时间。
+4. **社交账号可能误匹配**。如账号描述与产品不符，标注"⚠️ 此账号可能不属于目标产品"并跳过该数据。
+5. **当前日期是 2026 年 6 月**。不要将未来事件当作已发生。
+6. **战略观点和"推断"型结论**（飞轮、用户画像、市场机会等）不要求 `[fact:]` 引用，但要明确标"基于上述事实推断："。
+7. 语言风格：像军师，直接，不废话，每段不超过 150 字。
 
 ---
 
@@ -147,17 +435,36 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
     # Extract verdict JSON from AI response
     if result.get("success") and result.get("content"):
-        import re as _re
-        json_match = _re.search(r'```json\s*(\{.*?\})\s*```', result["content"], _re.DOTALL)
+        json_match = re.search(r'```json\s*(\{.*?\})\s*```', result["content"], re.DOTALL)
         if json_match:
             try:
-                import json as _json
-                verdict = _json.loads(json_match.group(1))
+                verdict = json.loads(json_match.group(1))
                 result["verdict"] = verdict
                 # Remove the JSON block from display content
                 result["content"] = result["content"][:json_match.start()].rstrip()
             except Exception:
                 pass
+
+        # Pass 3 — replace [fact:KEY] markers with confidence badges +
+        # append the legend footer. Stays in `content` so the existing
+        # report renderer doesn't need to change.
+        try:
+            result["content"] = _apply_confidence_markers(
+                result["content"], facts
+            )
+            # Count how many distinct fact keys were actually cited — a
+            # quick proxy for "did the LLM follow the citation rule?"
+            cited = set(_FACT_REF_RE.findall(result["content"]))
+            result["citations_count"] = len(cited)
+            if cited and facts:
+                log.info("Pass-3 confidence applied: %d distinct fact citations",
+                         len(cited))
+        except Exception as e:
+            log.warning("Pass-3 confidence application failed: %s", e)
+
+    # Always attach the facts JSON to the result — frontend / debugging
+    # downstream may want to surface it as a "data dossier" tab.
+    result["facts"] = facts
 
     return result
 

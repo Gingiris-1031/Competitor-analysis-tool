@@ -97,6 +97,27 @@
         @keyframes ws-spin { to { transform: rotate(360deg); } }
         .ws-thumb-loaded .ws-thumb-spinner { display: none !important; }
         .ws-thumb-container:hover { outline: 2px solid rgba(96,165,250,0.4); outline-offset: -2px; }
+
+        /* Source-confidence badges (two-pass AI summary, added 2026-06-11) */
+        sup.src-tag {
+            display: inline-block;
+            vertical-align: super;
+            line-height: 1;
+            font-size: 8.5px;
+            font-weight: 600;
+            margin-left: 2px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            color: var(--ink-muted);
+            font-family: "JetBrains Mono", monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            cursor: help;
+            user-select: none;
+        }
+        sup.src-tag:hover { color: var(--ink); background: rgba(255,255,255,0.08); }
     </style>
     <!-- Schema.org structured data for SEO + GEO (AI search engines) -->
     <script type="application/ld+json">
