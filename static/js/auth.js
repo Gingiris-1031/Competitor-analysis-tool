@@ -87,6 +87,23 @@
     }
   }
 
+  /**
+   * Format credit count for the nav pill. Keeps the pill narrow even for
+   * users with a manually-comped 6-figure balance:
+   *   42        → "42"
+   *   3,800     → "3,800"
+   *   42,000    → "42K"
+   *   999,880   → "999K"
+   *   1,200,000 → "1.2M"
+   */
+  function _formatCredits(n) {
+    n = Number(n) || 0;
+    if (n < 1000)        return String(n);
+    if (n < 10000)       return n.toLocaleString('en-US'); // 9,999
+    if (n < 1_000_000)   return Math.round(n / 1000) + 'K';
+    return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  }
+
   async function _fetchCredits() {
     const token = _session?.access_token;
     if (!token) return;
@@ -97,12 +114,29 @@
       if (!res.ok) return;
       const profile = await res.json();
       const el = document.getElementById('credits-display');
-      if (el) {
-        el.classList.remove('hidden');
-        el.textContent = `⚡ ${profile.credits_balance ?? 0} 积分`;
-        el.title = `套餐：${profile.plan_type}  已用：${profile.credits_used ?? 0}`;
-      }
-    } catch {}
+      if (!el) return;
+      el.classList.remove('hidden');
+      const bal = Number(profile.credits_balance) || 0;
+      const used = Number(profile.credits_used) || 0;
+      const quota = Number(profile.credits_monthly_quota) || 0;
+      const plan = profile.plan_type || 'free';
+
+      el.textContent = `⚡ ${_formatCredits(bal)} credits`;
+      // Tooltip carries the precise number AND the monthly-quota state so
+      // a Pro user who's used 113/30 doesn't panic — they can see the
+      // balance (real money) is still 999,880.
+      const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
+      el.title = (
+        `Balance: ${bal.toLocaleString('en-US')} credits\n` +
+        `Plan: ${planLabel}\n` +
+        (quota
+          ? `Monthly allotment: ${used}/${quota} used this period`
+          : `Used so far: ${used}`)
+      );
+    } catch (e) {
+      // Silently ignore — credit display is non-critical; UX shouldn't
+      // break if /api/me is slow.
+    }
   }
 
   // ── Modal ─────────────────────────────────────────────────────────────────

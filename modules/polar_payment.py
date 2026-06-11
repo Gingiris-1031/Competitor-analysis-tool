@@ -287,7 +287,17 @@ async def _find_user_by_email(email: str) -> str | None:
 
 
 async def _grant_credits(user_id: str, plan: str):
-    """Add credits to user based on plan."""
+    """Add credits to user based on plan.
+
+    IMPORTANT: subscription renewals and tier upgrades must NEVER
+    overwrite credits_balance with a lower number. Doing so destroys
+    manual grants (Iris comping a Pro tier to a bug reporter, for
+    example). We use:
+        new_balance = max(current_balance, plan_quota)
+    so a Pro user with 130 carried-over credits stays at 130 on next
+    renewal instead of being reset to 30. credits_used always resets
+    to 0 because the renewal starts a fresh accounting period.
+    """
     credits = PLAN_CREDITS.get(plan, 0)
     if not credits:
         return
@@ -296,36 +306,53 @@ async def _grant_credits(user_id: str, plan: str):
         sb = get_supabase()
         if not sb:
             return
-        # For single report: add 1 credit
-        # For subscription: set monthly quota
         if plan == "single_report":
             sb.rpc("add_credits", {"p_user_id": user_id, "p_amount": credits}).execute()
-        else:
-            sb.table("profiles").update({
-                "plan_type": plan,
-                "credits_monthly_quota": credits,
-                "credits_balance": credits,
-                "credits_used": 0,
-            }).eq("id", user_id).execute()
-        log.info("Granted %d credits to user %s (plan=%s)", credits, user_id, plan)
+            log.info("Granted %d single-report credits to %s", credits, user_id)
+            return
+
+        # Subscription path: max(current_balance, new_quota) — never down.
+        cur = sb.table("profiles").select(
+            "credits_balance"
+        ).eq("id", user_id).single().execute()
+        current = (cur.data or {}).get("credits_balance") or 0
+        new_balance = max(current, credits)
+        sb.table("profiles").update({
+            "plan_type":             plan,
+            "credits_monthly_quota": credits,
+            "credits_balance":       new_balance,
+            "credits_used":          0,
+        }).eq("id", user_id).execute()
+        log.info(
+            "Granted plan=%s to %s: quota=%d, balance %d→%d (preserved manual grants)",
+            plan, user_id, credits, current, new_balance,
+        )
     except Exception as e:
         log.error("Grant credits failed user=%s: %s", user_id, e)
 
 
 async def _update_user_plan(user_id: str, plan: str):
-    """Update user plan type and credits."""
+    """Update user plan type. Same balance-preservation rule as _grant_credits."""
     credits = PLAN_CREDITS.get(plan, 3)
     try:
         from .supabase_client import get_supabase
         sb = get_supabase()
         if not sb:
             return
+        cur = sb.table("profiles").select(
+            "credits_balance"
+        ).eq("id", user_id).single().execute()
+        current = (cur.data or {}).get("credits_balance") or 0
+        new_balance = max(current, credits)
         sb.table("profiles").update({
-            "plan_type": plan,
+            "plan_type":             plan,
             "credits_monthly_quota": credits,
-            "credits_balance": credits,
-            "credits_used": 0,
+            "credits_balance":       new_balance,
+            "credits_used":          0,
         }).eq("id", user_id).execute()
-        log.info("Updated plan for user %s: %s (%d credits)", user_id, plan, credits)
+        log.info(
+            "Updated plan for %s: %s, quota=%d, balance %d→%d",
+            user_id, plan, credits, current, new_balance,
+        )
     except Exception as e:
         log.error("Update plan failed user=%s: %s", user_id, e)
