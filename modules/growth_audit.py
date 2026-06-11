@@ -1418,24 +1418,25 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
         f"{h} 📚 匹配的 Gingiris Skills（由产品类型自动匹配）",
         "",
         f"基于程序判定的产品类型 **{hints.get('product_type', '未知')}**，"
-        f"为你匹配以下来自 [Gingiris-1031 官方仓库](https://github.com/Gingiris-1031) "
-        f"的真实 skills。每个 skill 都已经在线上验证过；下方"
-        f"安装命令直接可执行。",
+        f"为你匹配以下来自 [Hugging Face @Gingiris](https://huggingface.co/Gingiris) "
+        f"的真实 skill datasets（43 个发布中）。每个 skill 都已经在线上验证过；"
+        f"下方安装命令可直接执行。",
         "",
-        "| Skill | 适用场景 | 安装 |",
+        "| Skill | 适用场景 | HuggingFace |",
         "| --- | --- | --- |",
     ]
     for slug in skills:
         info = GINGIRIS_SKILL_REGISTRY[slug]
         lines.append(
             f"| **{info['title']}** | {info['best_for']} | "
-            f"`git clone https://github.com/Gingiris-1031/{slug} ~/.claude/skills/{slug}` |"
+            f"[`Gingiris/{slug}`](https://huggingface.co/datasets/Gingiris/{slug}) |"
         )
     lines.extend([
         "",
         f"{sub_h} 📦 详细安装指南",
         "",
         "**Gingiris Skills 是什么**：每个 skill 是一份 SKILL.md，包含完整方法论、触发关键词、操作步骤。"
+        "发布在 [Hugging Face](https://huggingface.co/Gingiris) 作为 dataset。"
         "可在 Claude Code、Cursor、Gemini CLI、Aider 等支持 skill 加载的 AI agent IDE 里使用。",
         "",
         "**三种安装方式**（任选其一）：",
@@ -1451,26 +1452,27 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
             "",
             f"**适用产品**：{info['best_for']}",
             "",
-            "**方法 A — Claude Code（推荐，自动挂入 skill 池）**",
+            "**方法 A — Claude Code（推荐，从 HF 克隆到 skill 池）**",
             "",
             "```bash",
             "mkdir -p ~/.claude/skills",
-            f"git clone https://github.com/Gingiris-1031/{slug} \\",
+            f"git clone https://huggingface.co/datasets/Gingiris/{slug} \\",
             f"  ~/.claude/skills/{slug}",
             "# 重启 Claude Code 即生效",
             "```",
             "",
-            "**方法 B — Cursor / Gemini CLI / 其他 IDE（作为 project rule）**",
+            "**方法 B — HuggingFace CLI（任何 IDE 通用）**",
             "",
             "```bash",
-            "mkdir -p ./.cursor/rules    # 或 ./.gemini/instructions/",
-            f"curl -L https://raw.githubusercontent.com/Gingiris-1031/{slug}/main/SKILL.md \\",
-            f"  -o ./.cursor/rules/{slug}.md",
+            f"# 需先安装：pip install -U huggingface_hub",
+            f"huggingface-cli download Gingiris/{slug} \\",
+            f"  --repo-type dataset \\",
+            f"  --local-dir ./.cursor/rules/{slug}",
             "```",
             "",
             "**方法 C — 浏览器在线阅读（不安装）**",
             "",
-            f"- 源码：https://github.com/Gingiris-1031/{slug}",
+            f"- HF 主页：https://huggingface.co/datasets/Gingiris/{slug}",
             f"- 在线版：https://gingiris.tools/skills  →  搜 `{slug}`",
             "",
             "**触发方式**：装好后，在 AI agent 里描述对应场景（例如 \"我们要做 Product Hunt launch\" "
