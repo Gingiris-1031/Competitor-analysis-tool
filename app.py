@@ -827,12 +827,29 @@ async def get_growth_audit_share(job_id: str):
         from modules.supabase_client import get_supabase
         sb = get_supabase()
         if sb:
+            # NOTE: the `reports` table uses `id` (not `job_id`) as PK —
+            # save_report_to_db writes the audit's job_id into the `id`
+            # column. The earlier query targeted a column that doesn't
+            # exist, so the share endpoint silently 404'd for every
+            # audit completed before the in-memory cache went away.
             result = sb.table("reports").select(
-                "job_id,product_name,url,report,created_at"
-            ).eq("job_id", job_id).execute()
+                "id,product_name,url,report,created_at,is_public,status"
+            ).eq("id", job_id).limit(1).execute()
             rows = result.data or []
             if rows:
                 row = rows[0]
+                # Still-processing audits shouldn't render as 404s
+                if row.get("status") and row["status"] != "completed":
+                    return JSONResponse(
+                        {"error": "Audit is still processing — try again in a moment."},
+                        status_code=202,
+                    )
+                # Respect explicit opt-out (default for audits is is_public=true)
+                if row.get("is_public") is False:
+                    return JSONResponse(
+                        {"error": "This audit is private."},
+                        status_code=403,
+                    )
                 report_payload = row.get("report") or {}
                 if isinstance(report_payload, str):
                     try:
