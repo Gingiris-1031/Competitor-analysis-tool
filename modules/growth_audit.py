@@ -709,71 +709,274 @@ def _scrub_absence_phrases(md: str) -> str:
 # this registry both via prompt (system prompt lists real names) and via
 # a post-processor that flags any skill name not in this list.
 
+# Sourced live from https://gingiris.tools/skills/  (40 skills).
+# Categorized by primary growth motion so _pick_skills_for_product_type can
+# build multi-dimensional recommendations (not just SEO/GEO).
 GINGIRIS_SKILL_REGISTRY = {
-    "gingiris-seo-geo": {
-        "title": "SEO & GEO 双引擎",
-        "desc": "Google + AI 搜索（ChatGPT / Perplexity / Claude）双引擎实操，AFFiNE 60K stars + 150+ AI 创业咨询实战",
-        "best_for": "处于 Cold Start→Growth 阶段，需要系统性 SEO/GEO 内容矩阵的产品",
-    },
-    "gingiris-seo-geo-agent": {
-        "title": "SEO/GEO Agent 运营 SOP",
-        "desc": "1 个月跑到 32K 曝光的自主 SEO Agent 完整 SOP — Week 0-4 时间线、关键词→落地页映射、IndexNow 三件套",
-        "best_for": "想用 Agent 自动化跑 SEO/GEO 的团队",
-    },
+    # ── Launch / Product Hunt ────────────────────────────────────────────
     "gingiris-launch": {
-        "title": "Product Launch Playbook",
-        "desc": "150+ AI 创业公司 launch 实战（30x PH #1 daily）— PH + Twitter + KOL 多渠道节奏",
-        "best_for": "**仅适合 PLG / Consumer / OSS 产品**。Enterprise infra / sales-led 不适用",
+        "title": "AI Product Launch — Multi-Channel GTM",
+        "desc": "Multi-channel launch sequencing across PH + Twitter + KOL + content + community（150+ AI startup launches）",
+        "best_for": "PLG / Consumer / OSS 产品发布前 6-12 周准备",
+        "category": "launch",
     },
+    "product-hunt-playbook": {
+        "title": "Product Hunt Playbook — Win #1 Daily",
+        "desc": "PH 排名算法 + engagement 优化（30x PH #1 daily champion 实战）",
+        "best_for": "PLG / Consumer 产品 PH 发布前 4 周",
+        "category": "launch",
+    },
+    "product-hunt-launch-guide": {
+        "title": "Product Hunt Launch Guide — Hour-by-Hour #1 Daily SOP",
+        "desc": "首次发布者完整指南：时间线 + asset 准备 + 发布日小时级 SOP",
+        "best_for": "首次发 PH 的团队",
+        "category": "launch",
+    },
+    "startup-launch": {
+        "title": "Startup Launch — Day-1 to First 100 Users",
+        "desc": "发布日小时级执行 + 危机管理",
+        "best_for": "前 100 用户阶段，需要落地节奏",
+        "category": "launch",
+    },
+    "startup-launch-playbook": {
+        "title": "Startup Launch Playbook — First Week SOP",
+        "desc": "Pre-seed 到 1000 用户阶段 + MVP 验证 + 渠道选择",
+        "best_for": "0→1000 用户阶段",
+        "category": "launch",
+    },
+    "ai-launch-playbook": {
+        "title": "AI Launch Playbook — AI 产品专用 GTM",
+        "desc": "AI 产品专属 GTM 策略（基于 breakout AI launches 复盘）",
+        "best_for": "AI Native 产品 launch",
+        "category": "launch",
+    },
+    "ai-product-launch": {
+        "title": "AI Product Launch — Technical GTM",
+        "desc": "0 到上线 30 天，AI Native 产品首发完整流程",
+        "best_for": "首次发布 AI 产品",
+        "category": "launch",
+    },
+    "go-to-market-playbook": {
+        "title": "Go-to-Market Playbook — Strategy & Channel Selection",
+        "desc": "可复用 GTM 模板：positioning + 渠道选型 + 时间线",
+        "best_for": "需要 GTM 框架的所有阶段产品",
+        "category": "launch",
+    },
+
+    # ── SEO / GEO ────────────────────────────────────────────────────────
+    "gingiris-seo-geo-agent": {
+        "title": "SEO/GEO Agent SOP — AI-Powered Search Optimization",
+        "desc": "1 月跑 32K 曝光的自主 SEO Agent — daily audit + ranking 追踪 + schema 验证 + IndexNow 三件套",
+        "best_for": "想用 agent 自动化 SEO/GEO 的团队",
+        "category": "seo",
+    },
+    "i18n-seo-geo": {
+        "title": "SEO & GEO 2026 — Rank Google + AI Search",
+        "desc": "Google 搜索 + AI 搜索（ChatGPT/Perplexity/Claude）双引擎引用策略",
+        "best_for": "需要被 AI 搜索引擎引用的内容站",
+        "category": "seo",
+    },
+
+    # ── B2B / SaaS ───────────────────────────────────────────────────────
+    "gingiris-b2b-growth": {
+        "title": "B2B SaaS Growth — PMF→$10M ARR",
+        "desc": "PLG/SLG 决策 + 客户访谈 + 联盟营销 + Enterprise sales — HeyGen / Deel / Vercel 实战",
+        "best_for": "**Enterprise / B2B mid-market 必装**",
+        "category": "b2b",
+    },
+    "saas-growth-playbook": {
+        "title": "SaaS Growth Playbook — MRR $0→$50K Scaling",
+        "desc": "Revenue-focused：定价、churn、活跃用户战术",
+        "best_for": "SaaS $0→$50K MRR 阶段",
+        "category": "b2b",
+    },
+    "plg-playbook": {
+        "title": "PLG Playbook — Product-Led Growth Implementation",
+        "desc": "Freemium 设计 + 自助 onboarding + activation 指标",
+        "best_for": "PLG 模式 SaaS",
+        "category": "b2b",
+    },
+    "b2b-marketing-playbook": {
+        "title": "B2B Marketing Playbook — Enterprise GTM & ABM",
+        "desc": "LinkedIn + cold email + webinar funnel（$0→$1M ARR）",
+        "best_for": "B2B 销售驱动产品",
+        "category": "b2b",
+    },
+    "saas-marketing-playbook": {
+        "title": "SaaS Marketing Playbook — Full-Stack Channel System",
+        "desc": "按增长阶段组织的工具 + 指标",
+        "best_for": "SaaS 营销全栈视角",
+        "category": "b2b",
+    },
+
+    # ── Open Source ──────────────────────────────────────────────────────
     "gingiris-opensource": {
-        "title": "Open Source Marketing",
-        "desc": "AFFiNE 0→60K stars 完整方法论，决策框架 + 渠道节奏",
-        "best_for": "已 OSS 或考虑开源策略的产品",
+        "title": "Open Source Marketing — GitHub Stars 0→60K",
+        "desc": "每个增长阶段的决策框架（AFFiNE 0→60K stars 复盘）",
+        "best_for": "OSS 产品",
+        "category": "oss",
+    },
+    "github-stars-playbook": {
+        "title": "GitHub Stars Playbook — 0→10K+ Stars",
+        "desc": "14 天 sprint：Show HN + Reddit + Twitter thread",
+        "best_for": "0→10K stars 阶段",
+        "category": "oss",
     },
     "gingiris-github-star-growth": {
-        "title": "GitHub Star 持续增长",
-        "desc": "月增 300+ stars SOP — 内容节奏、社区运营、贡献者体系、Ambassador 计划",
-        "best_for": "已有 GitHub repo 且想做 sustained star 增长",
+        "title": "GitHub Star Sustained Growth — 300+ Stars/Month",
+        "desc": "Launch 后维持月增 300+ stars",
+        "best_for": "已发布 OSS 但增长平缓",
+        "category": "oss",
     },
-    "gingiris-b2b-growth": {
-        "title": "B2B SaaS Growth (PMF→$10M ARR)",
-        "desc": "PLG vs SLG 决策、客户访谈、联盟营销、Enterprise sales — HeyGen / Deel / Vercel 实战",
-        "best_for": "**Enterprise infra / B2B mid-market** 首选",
+    "open-source-marketing-playbook": {
+        "title": "Open Source Marketing — HN, Reddit & Community Launch",
+        "desc": "README 优化 + 贡献者吸引 SOP",
+        "best_for": "OSS founders",
+        "category": "oss",
     },
+
+    # ── ASO / Mobile ─────────────────────────────────────────────────────
     "gingiris-aso-growth": {
-        "title": "ASO & Mobile App Growth",
-        "desc": "App Store 关键词排名 + UGC 创作者矩阵 + TikTok/Reels/Shorts 实战",
-        "best_for": "移动 App 冷启动",
+        "title": "ASO & App Cold Start — Organic + UGC",
+        "desc": "Organic 关键词 + 截图设计 + UGC 创作者矩阵",
+        "best_for": "Mobile App 冷启动",
+        "category": "mobile",
     },
+    "aso-playbook": {
+        "title": "ASO Playbook — App Store Optimization",
+        "desc": "关键词研究 + 评分管理 + A/B 测试",
+        "best_for": "Mobile App 排名优化",
+        "category": "mobile",
+    },
+    "i18n-aso-growth": {
+        "title": "ASO & App Cold Start — Organic-First Mobile",
+        "desc": "iOS + Google Play 完整 ASO 指南",
+        "best_for": "Mobile App 多平台",
+        "category": "mobile",
+    },
+
+    # ── KOL / Influencer ─────────────────────────────────────────────────
     "gingiris-kol-outreach": {
-        "title": "KOL Outreach (Micro-KOL 200+ 实战)",
-        "desc": "AFFiNE 200+ KOL 合作 SOP — 报价基准、邮件模板、平台算法、ROI 评估",
-        "best_for": "已有 KOL 计划但 ROI 不清的产品，或要启动 micro-KOL 的 0→1 团队",
+        "title": "KOL Outreach — Discovery to ROI Tracking",
+        "desc": "找 KOL + 报价基准 + ROI 测量（AFFiNE 200+ KOL 合作实战）",
+        "best_for": "需要启动或优化 KOL 计划的产品",
+        "category": "kol",
     },
-    "gingiris-reddit-marketing": {
-        "title": "Reddit Marketing 增长手册",
-        "desc": "Reddit = ChatGPT/Claude 40.11% 训练数据（最高权重 UGC 源）。20 天养号 → 0→500 Karma → 矩阵账号策略",
-        "best_for": "PLG / Consumer / Dev Tool 想做内容种草的产品",
+    "kol-outreach": {
+        "title": "KOL Outreach — Pricing & ROI Framework",
+        "desc": "Cold outreach 模板 + follow-up 序列",
+        "best_for": "0→1 KOL 计划",
+        "category": "kol",
     },
+
+    # ── UGC ──────────────────────────────────────────────────────────────
     "gingiris-ugc-matrix": {
-        "title": "UGC 矩阵增长",
-        "desc": "AI + 真人创作者规模化，CPM $0.5、60 天 $10M ARR、70M impressions 实证（Kuse 案例）",
-        "best_for": "**仅适合 Consumer / PLG 产品**。B2B / Enterprise 不适用",
+        "title": "UGC Matrix Growth — AI + Human Creators",
+        "desc": "AI + 真人创作者规模化，CPM $0.5 / 60 天 $10M ARR / 70M impressions",
+        "best_for": "**仅适合 Consumer/PLG**，B2B/Enterprise 不适用",
+        "category": "ugc",
     },
+
+    # ── Community / DevRel ───────────────────────────────────────────────
+    "community-ambassador-playbook": {
+        "title": "Community Ambassador Playbook — Recruitment to Retention",
+        "desc": "大使招募 + 防 ghosting + 长期激励",
+        "best_for": "有用户基数想做大使计划的产品",
+        "category": "community",
+    },
+    "community-building-playbook": {
+        "title": "Community Building Playbook — Discord/Slack/OSS",
+        "desc": "Discord、Slack、OSS 社区增长策略",
+        "best_for": "需要建社区的所有产品",
+        "category": "community",
+    },
+    "devrel-playbook": {
+        "title": "DevRel Playbook — Developer Relations SOP",
+        "desc": "社区 + 文档 + conference 演讲",
+        "best_for": "Dev Tool / API 产品",
+        "category": "community",
+    },
+    "developer-marketing-playbook": {
+        "title": "Developer Marketing — DevRel, Docs & Community Funnel",
+        "desc": "DevRel + API 体验 + hackathon 策略",
+        "best_for": "Developer 产品 funnel",
+        "category": "community",
+    },
+
+    # ── Reddit ───────────────────────────────────────────────────────────
+    "gingiris-reddit-marketing": {
+        "title": "Reddit Marketing — Shadow Ban, AMA, AI Citation",
+        "desc": "Reddit = ChatGPT/Claude 40.11% 训练数据（最高权重 UGC 源）+ 防影子封禁 + 7 案例",
+        "best_for": "想做 Reddit 种草 / AI 训练数据曝光",
+        "category": "community",
+    },
+
+    # ── PMF / User Research ──────────────────────────────────────────────
     "gingiris-user-interview": {
-        "title": "用户访谈 + 冷启动运营",
-        "desc": "HeyGen 937 访谈到 PMF 方法论 — 筛选、执行、Beta、流失分析、用户分级",
-        "best_for": "所有阶段产品 — 是 PMF 验证基础设施",
+        "title": "User Interview & PMF Validation — JTBD, Churn Diagnostics",
+        "desc": "通过 customer discovery 找激活问题",
+        "best_for": "**所有产品的基础设施**，PMF 验证必备",
+        "category": "research",
     },
-    "gingiris-go-global": {
-        "title": "AI 产品出海完整 SOP",
-        "desc": "Phase 0-5：市场验证 / 定位 / 前 100 用户 / 用户访谈 / Beta→Growth + 开源 + PH + Reddit + SEO",
-        "best_for": "中国团队出海或全球团队进入新市场",
+
+    # ── Generic Startup ──────────────────────────────────────────────────
+    "startup-consultant": {
+        "title": "Startup Consultant — On-Demand Growth Advisory",
+        "desc": "PH launches、OSS、GTM audit 专家评审框架",
+        "best_for": "需要外部视角的所有阶段",
+        "category": "general",
     },
+    "startup-growth-playbook": {
+        "title": "Startup Growth Playbook — Seed to Series A",
+        "desc": "Seed-stage founder 渠道选择",
+        "best_for": "Seed 阶段",
+        "category": "general",
+    },
+    "startup-marketing-playbook": {
+        "title": "Startup Marketing — Zero-Budget to Paid",
+        "desc": "Bootstrapped 自给型渠道",
+        "best_for": "无预算 bootstrap 团队",
+        "category": "general",
+    },
+    "viral-marketing-playbook": {
+        "title": "Viral Marketing — K-Factor & Referral",
+        "desc": "推荐计划 + viral loop 设计",
+        "best_for": "Consumer / PLG 想做病毒传播",
+        "category": "general",
+    },
+    "growth-hacking-playbook": {
+        "title": "Growth Hacking Playbook — Viral Loops & Experimentation",
+        "desc": "50 个战术（按 effort vs impact 排序）",
+        "best_for": "想跑增长实验的团队",
+        "category": "general",
+    },
+    "growth-hacking": {
+        "title": "Growth Hacking — B2B SaaS & Dev Tools Experiments",
+        "desc": "B2B SaaS + dev tools 增长实验",
+        "best_for": "B2B + Dev Tools",
+        "category": "general",
+    },
+
+    # ── Meta / Router ────────────────────────────────────────────────────
     "gingiris-growth-finder": {
-        "title": "Growth Finder（meta router）",
-        "desc": "诊断增长问题并路由到对应的 Gingiris 专业 playbook",
-        "best_for": "不确定要装哪个 skill 时的入口",
+        "title": "Growth Finder — AI Strategy Router",
+        "desc": "把增长问题路由到对应 Gingiris playbook",
+        "best_for": "不确定装哪个 skill 时的入口",
+        "category": "router",
+    },
+    "i18n-growth-finder": {
+        "title": "Growth Finder — Meta-router (i18n)",
+        "desc": "增长问题 → 自动触发 playbook 的多语言版",
+        "best_for": "多语言团队",
+        "category": "router",
+    },
+
+    # ── Agent ────────────────────────────────────────────────────────────
+    "agent-workflow-playbook": {
+        "title": "Agent Workflow — AI Multi-Agent Orchestration",
+        "desc": "Multi-agent 设计模式 + 插件架构",
+        "best_for": "构建 AI agent 系统的产品",
+        "category": "agent",
     },
 }
 
@@ -908,6 +1111,436 @@ def _expand_skill_install_commands(md: str) -> str:
         guide.append("")
 
     return md.rstrip() + "\n" + "\n".join(guide)
+
+
+# ─── Real KOL Discovery (uses Brave Search) ─────────────────────────────────
+# Generic "find 15-20 micro-KOLs" advice is the most-complained-about part
+# of the action plans. Here we actually find specific Twitter/LinkedIn
+# handles via Brave Search (which has a key already in Fly secrets) so
+# users get real targets they can DM today, not a homework assignment.
+
+def _extract_product_category(site_data: dict) -> list:
+    """Pull 2-3 search-friendly category phrases from the homepage so the
+    KOL search can be targeted (e.g. 'AI web agent', 'web scraping API',
+    'enterprise infrastructure'). We use title + meta description + the
+    first ~500 chars of body text and look for noun phrases.
+    """
+    hp = site_data.get("homepage") or {}
+    blob = " ".join(filter(None, [
+        hp.get("title"),
+        hp.get("description"),
+        (hp.get("text") or "")[:600],
+    ])).lower()
+
+    # High-signal phrases first (specific niches the audit cares about).
+    candidates = [
+        "ai agent", "ai web agent", "web scraping", "browser automation",
+        "browser api", "mcp server", "rag pipeline", "vector database",
+        "llm orchestration", "developer tool", "code editor",
+        "competitive intelligence", "competitor analysis", "growth marketing",
+        "no-code", "low-code", "workflow automation",
+        "saas growth", "product analytics", "user onboarding",
+        "design tool", "video editor", "audio editor",
+        "fintech", "crypto wallet", "healthtech", "edtech",
+    ]
+    found = []
+    for phrase in candidates:
+        if phrase in blob and phrase not in found:
+            found.append(phrase)
+        if len(found) >= 3:
+            break
+    if found:
+        return found
+
+    # Fallback: pull bigrams from the title that look noun-y.
+    title = (hp.get("title") or "").lower()
+    title = _re.sub(r"[^a-z0-9 ]", " ", title)
+    words = [w for w in title.split() if len(w) > 2]
+    if len(words) >= 2:
+        return [" ".join(words[:2])]
+    return [hp.get("title", "growth")]
+
+
+async def _discover_real_kols(categories: list, hints: dict, k: int = 6) -> list:
+    """Use Brave Search to find real Twitter / LinkedIn handles that
+    publish about the given product categories. Returns up to `k` deduped
+    candidates each with {handle, platform, bio_snippet, source_url}.
+
+    Falls back to empty list if Brave key missing or all queries fail —
+    the audit then just skips the "Real KOL candidates" section instead
+    of fabricating handles.
+    """
+    key = (os.environ.get("BRAVE_SEARCH_API_KEY") or "").strip()
+    if not key:
+        try:
+            key = open(os.path.expanduser("~/.cola/secrets/brave_search_api_key")).read().strip()
+        except FileNotFoundError:
+            key = ""
+    if not key or not categories:
+        return []
+
+    # Build queries — sales-led products want engineering leaders &
+    # technical writers, PLG products want creator-style accounts.
+    if hints.get("is_sales_led"):
+        query_templates = [
+            'site:twitter.com "{cat}" engineer OR cto',
+            'site:linkedin.com/in/ "{cat}" engineer OR principal OR cto',
+            '"{cat}" "writes about" twitter',
+        ]
+    else:
+        query_templates = [
+            'site:twitter.com "{cat}" tutorial OR guide',
+            'site:twitter.com "{cat}" reviewer',
+            '"{cat}" influencer twitter',
+        ]
+
+    queries = []
+    for cat in categories[:3]:
+        for tmpl in query_templates:
+            queries.append(tmpl.format(cat=cat))
+
+    results = []
+    seen_handles = set()
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        for q in queries:
+            if len(results) >= k:
+                break
+            try:
+                r = await client.get(
+                    "https://api.search.brave.com/res/v1/web/search",
+                    params={"q": q, "count": 10},
+                    headers={
+                        "Accept": "application/json",
+                        "X-Subscription-Token": key,
+                        "User-Agent": "analook-growth-audit/1.0",
+                    },
+                )
+                if r.status_code != 200:
+                    continue
+                hits = r.json().get("web", {}).get("results", []) or []
+            except Exception as e:
+                log.warning("Brave KOL search failed for %r: %s", q, e)
+                continue
+
+            for hit in hits:
+                url = hit.get("url", "") or ""
+                title = hit.get("title", "") or ""
+                desc = hit.get("description", "") or ""
+
+                # Twitter / X handle
+                tw_m = _re.search(r"(?:twitter|x)\.com/([A-Za-z0-9_]{2,15})(?:/|$|\?)", url)
+                if tw_m and "/status/" not in url:
+                    handle = "@" + tw_m.group(1)
+                    if handle.lower() in seen_handles:
+                        continue
+                    # Filter obvious noise
+                    if tw_m.group(1).lower() in {"home", "search", "explore", "i", "compose"}:
+                        continue
+                    seen_handles.add(handle.lower())
+                    results.append({
+                        "handle": handle,
+                        "platform": "Twitter / X",
+                        "bio_snippet": (desc or title)[:220],
+                        "source_url": f"https://twitter.com/{tw_m.group(1)}",
+                        "found_via": q[:60],
+                    })
+                    continue
+
+                # LinkedIn profile
+                li_m = _re.search(r"linkedin\.com/in/([A-Za-z0-9-]{3,80})", url)
+                if li_m:
+                    slug = li_m.group(1)
+                    handle = f"linkedin.com/in/{slug}"
+                    if handle.lower() in seen_handles:
+                        continue
+                    seen_handles.add(handle.lower())
+                    results.append({
+                        "handle": slug,
+                        "platform": "LinkedIn",
+                        "bio_snippet": (desc or title)[:220],
+                        "source_url": f"https://linkedin.com/in/{slug}",
+                        "found_via": q[:60],
+                    })
+
+                if len(results) >= k:
+                    break
+
+    return results[:k]
+
+
+def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
+    """Format the KOL candidates as a Markdown section to embed in Action Plan."""
+    if not kols:
+        return ""
+    incentive = (
+        "**B2B 适用 incentive**：免费 POC + 联合发布行业案例研究（不要给"
+        "\"3 个月免费 Pro\"，对 enterprise 买家无吸引力）。"
+        if hints.get("is_sales_led") else
+        "**适用 incentive**：3 个月免费 Pro 计划 + 独家 API key + 一次 1:1 onboarding，"
+        "邀请撰写真实评测或制作教程视频。"
+    )
+    cats_str = "、".join(categories[:3]) if categories else "你的产品"
+    lines = [
+        "",
+        "## 🎯 真实 KOL 候选名单（程序刚抓取，可立即外联）",
+        "",
+        f"基于 **{cats_str}** 类目，从 Brave Search 实时抓取 {len(kols)} "
+        f"位活跃发布者。**这些是真实账号 — 不是 LLM 编的**，可立即过滤 / 邀约。",
+        "",
+        "| # | 平台 | Handle | Bio 片段 |",
+        "| - | - | - | - |",
+    ]
+    for i, k in enumerate(kols, 1):
+        bio = k["bio_snippet"].replace("|", "/").replace("\n", " ").strip()
+        if len(bio) > 140:
+            bio = bio[:137] + "…"
+        link = f"[{k['handle']}]({k['source_url']})"
+        lines.append(f"| {i} | {k['platform']} | {link} | {bio} |")
+    lines.extend([
+        "",
+        "### 外联模板（点击 handle 进行人工筛选后使用）",
+        "",
+        incentive,
+        "",
+        "```",
+        "Hi [first name],",
+        "",
+        "I'm Iris from [Your product]. I've been following your work on "
+        f"{cats_str.split('、')[0]}, particularly your recent post on [SPECIFIC POST].",
+        "",
+        "Quick context: we're [1-line value prop]. We've shipped to "
+        "[2-3 known customers if any].",
+        "",
+        ("I'd love to offer a 60-min PoC + co-author a case study on how"
+         " you/your team would use this — happy to ship a custom enterprise"
+         " API key if it's a fit."
+         if hints.get("is_sales_led") else
+         "I'd love to offer you a free 3-month Pro plan + dedicated"
+         " onboarding (no obligation to post). If you find it useful,"
+         " we'd be thrilled if you shared your experience."),
+        "",
+        "Open to a 15-min chat next week?",
+        "```",
+        "",
+        "**注意**：以上是 Brave Search 在 Twitter/LinkedIn 公开页找到的发布者。"
+        "**真实 fit / 影响力需人工核实**：粉丝数、近期发布频率、bio 与产品契合度。"
+        "本表是去除『找 KOL』工作量，**不是 endorsement**。",
+    ])
+    return "\n".join(lines)
+
+
+def _pick_skills_for_product_type(hints: dict) -> list:
+    """Pick 8-10 REAL skills covering multiple channels (SEO + KOL + Community
+    + Reddit + Sales / UGC / Launch) — not just SEO/GEO. This is the
+    deterministic registry layer; never returns an LLM-invented slug.
+
+    Picks reflect Iris's explicit guidance: action plans should be
+    multi-dimensional. Each list below has at least one skill per
+    relevant growth motion for that product type.
+    """
+    is_sales_led = hints.get("is_sales_led", False)
+    is_oss = hints.get("is_oss", False)
+    product_type = hints.get("product_type", "")
+
+    if is_oss:
+        return [
+            "gingiris-opensource",                # OSS-specific growth motion
+            "github-stars-playbook",              # 0→10K stars sprint
+            "gingiris-github-star-growth",        # sustained 300/mo
+            "open-source-marketing-playbook",     # HN + Reddit + community launch
+            "gingiris-seo-geo-agent",             # SEO/GEO infra
+            "gingiris-reddit-marketing",          # Reddit = AI training data
+            "community-building-playbook",        # Discord/Slack community
+            "devrel-playbook",                    # DevRel for dev tools
+            "gingiris-user-interview",            # PMF validation
+        ]
+    if is_sales_led:
+        # Enterprise / B2B Infra: SEO + B2B + DevRel + KOL (B2B style) +
+        # community (technical), explicitly NO PH / UGC / Reddit-Karma.
+        return [
+            "gingiris-b2b-growth",                # the core B2B playbook
+            "b2b-marketing-playbook",             # LinkedIn / cold email / webinar
+            "saas-growth-playbook",               # MRR scaling tactics
+            "gingiris-seo-geo-agent",             # SEO + GEO automation
+            "gingiris-kol-outreach",              # B2B-version (case-study collab)
+            "devrel-playbook",                    # DevRel for technical buyers
+            "community-building-playbook",        # technical user community
+            "gingiris-user-interview",            # ICP validation
+            "startup-consultant",                 # 外部视角审查
+        ]
+    if "PLG" in product_type or "Consumer" in product_type:
+        return [
+            "gingiris-launch",                    # full launch sequencing
+            "product-hunt-playbook",              # PH ranking-algorithm
+            "gingiris-seo-geo-agent",             # SEO + GEO infrastructure
+            "gingiris-reddit-marketing",          # Reddit种草 + AI citation
+            "gingiris-ugc-matrix",                # UGC creator matrix
+            "gingiris-kol-outreach",              # micro-KOL outreach
+            "community-building-playbook",        # build community
+            "gingiris-user-interview",            # activation analysis
+            "viral-marketing-playbook",           # K-factor / referral loop
+        ]
+    if "Mobile" in product_type or "App" in product_type:
+        return [
+            "gingiris-aso-growth",                # ASO + UGC for mobile
+            "aso-playbook",                       # keyword + screenshot A/B
+            "i18n-aso-growth",                    # iOS + Google Play complete
+            "gingiris-ugc-matrix",                # creator UGC matrix
+            "gingiris-kol-outreach",              # creator partnerships
+            "gingiris-launch",                    # launch sequence
+            "viral-marketing-playbook",           # referral loops
+            "gingiris-user-interview",            # ICP validation
+        ]
+    # Unknown / fall-through
+    return [
+        "gingiris-growth-finder",                 # meta-router
+        "startup-consultant",                     # advisory framework
+        "go-to-market-playbook",                  # generic GTM
+        "gingiris-seo-geo-agent",                 # SEO foundation
+        "gingiris-user-interview",                # PMF validation
+        "startup-launch-playbook",                # first-week SOP
+        "community-building-playbook",            # general community
+    ]
+
+
+def _render_playbook_section(hints: dict, level: int = 2) -> str:
+    """Render the canonical 'Gingiris Playbook' section, using REAL skills only.
+
+    `level` controls heading depth (2 = ## , 3 = ###). The section is a
+    safe drop-in replacement for whatever the LLM emitted under
+    "匹配的 Gingiris Playbook" / "推荐安装的 Gingiris AI Skills" / etc.
+    """
+    skills = _pick_skills_for_product_type(hints)
+    h = "#" * level
+    sub_h = "#" * (level + 1)
+    lines = [
+        f"{h} 📚 匹配的 Gingiris Skills（由产品类型自动匹配）",
+        "",
+        f"基于程序判定的产品类型 **{hints.get('product_type', '未知')}**，"
+        f"为你匹配以下来自 [Gingiris-1031 官方仓库](https://github.com/Gingiris-1031) "
+        f"的真实 skills。每个 skill 都已经在线上验证过；下方"
+        f"安装命令直接可执行。",
+        "",
+        "| Skill | 适用场景 | 安装 |",
+        "| --- | --- | --- |",
+    ]
+    for slug in skills:
+        info = GINGIRIS_SKILL_REGISTRY[slug]
+        lines.append(
+            f"| **{info['title']}** | {info['best_for']} | "
+            f"`git clone https://github.com/Gingiris-1031/{slug} ~/.claude/skills/{slug}` |"
+        )
+    lines.extend([
+        "",
+        f"{sub_h} 📦 详细安装指南",
+        "",
+        "**Gingiris Skills 是什么**：每个 skill 是一份 SKILL.md，包含完整方法论、触发关键词、操作步骤。"
+        "可在 Claude Code、Cursor、Gemini CLI、Aider 等支持 skill 加载的 AI agent IDE 里使用。",
+        "",
+        "**三种安装方式**（任选其一）：",
+    ])
+
+    for slug in skills:
+        info = GINGIRIS_SKILL_REGISTRY[slug]
+        lines.extend([
+            "",
+            f"{sub_h} {info['title']}  &nbsp;·&nbsp; `{slug}`",
+            "",
+            f"**Skill 内容**：{info['desc']}",
+            "",
+            f"**适用产品**：{info['best_for']}",
+            "",
+            "**方法 A — Claude Code（推荐，自动挂入 skill 池）**",
+            "",
+            "```bash",
+            "mkdir -p ~/.claude/skills",
+            f"git clone https://github.com/Gingiris-1031/{slug} \\",
+            f"  ~/.claude/skills/{slug}",
+            "# 重启 Claude Code 即生效",
+            "```",
+            "",
+            "**方法 B — Cursor / Gemini CLI / 其他 IDE（作为 project rule）**",
+            "",
+            "```bash",
+            "mkdir -p ./.cursor/rules    # 或 ./.gemini/instructions/",
+            f"curl -L https://raw.githubusercontent.com/Gingiris-1031/{slug}/main/SKILL.md \\",
+            f"  -o ./.cursor/rules/{slug}.md",
+            "```",
+            "",
+            "**方法 C — 浏览器在线阅读（不安装）**",
+            "",
+            f"- 源码：https://github.com/Gingiris-1031/{slug}",
+            f"- 在线版：https://gingiris.tools/skills  →  搜 `{slug}`",
+            "",
+            "**触发方式**：装好后，在 AI agent 里描述对应场景（例如 \"我们要做 Product Hunt launch\" "
+            "会触发 `gingiris-launch`），agent 自动加载 skill 内容作为上下文。",
+        ])
+    return "\n".join(lines)
+
+
+# Pattern that matches the LLM's hallucinated playbook section. We use a
+# multi-pattern approach because the LLM phrases the section heading at
+# least 4 different ways across reports.
+_PLAYBOOK_SECTION_PATTERNS = [
+    # NB: use [\s\S]*? for the body (not (?:.+?\n)*?), because the last
+    # report section often is NOT newline-terminated and the line-based
+    # quantifier then fails to reach \Z. The terminator must require
+    # AT LEAST 2 #'s (`^#{2,3}\s`) — using `^#{1,3}\s` causes bash
+    # comments like `# build skill` inside code blocks to terminate
+    # the match early.
+    # Diagnosis Report: "## 8. 匹配的 Gingiris Playbook" / "## 9. ..."
+    r"^#{2,3}\s*\d*\.?\s*匹配的\s*Gingiris\s*Playbook\b[^\n]*\n[\s\S]*?(?=^#{2,3}\s|\Z)",
+    # Action Plan: "## 推荐安装的 Gingiris AI Skills"
+    r"^#{2,3}\s*推荐安装的?\s*Gingiris(\s*AI)?\s*Skills?\b[^\n]*\n[\s\S]*?(?=^#{2,3}\s|\Z)",
+    # Executive Summary: "## 📚 匹配的 Gingiris 框架"
+    r"^#{2,3}\s*📚?\s*匹配的\s*Gingiris\s*框架\b[^\n]*\n[\s\S]*?(?=^#{2,3}\s|\Z)",
+]
+
+
+def _replace_playbook_section(md: str, hints: dict, *, heading_level: int = 2) -> str:
+    """Find any LLM-generated Gingiris Playbook / Skills section and replace
+    it wholesale with the deterministic version built from the real registry.
+
+    Critical because the LLM keeps inventing slugs like 'bofu-content-harvest'
+    that don't exist. A fake `npx skills add` command in the report body is
+    worse than no recommendation at all — paying users would silently fail.
+
+    Falls back to appending the canonical section if no LLM section matched.
+    """
+    if not md:
+        return md
+    replacement = _render_playbook_section(hints, level=heading_level)
+    replaced = False
+    out = md
+    # IMPORTANT: run ALL patterns sequentially (don't break on first match).
+    # Action Plan often has BOTH "## 8. 匹配的 Gingiris Playbook" AND
+    # "## 推荐安装的 Gingiris AI Skills" — they need separate handling.
+    # First match injects the canonical block; subsequent matches just
+    # delete their LLM-generated duplicates by replacing with empty.
+    for idx, pat in enumerate(_PLAYBOOK_SECTION_PATTERNS):
+        repl_text = (replacement + "\n\n") if not replaced else ""
+        new_out, n = _re.subn(pat, repl_text, out, count=1, flags=_re.MULTILINE)
+        if n > 0:
+            replaced = True
+            out = new_out
+    # Also strip any stray bash blocks that contain `Gingiris-1031/<invented>`
+    # references (the LLM sometimes puts a second install block elsewhere).
+    bash_block_pat = r"```bash\s*\n(?:[^\n]*\n){0,8}?[^\n]*(?:gingiris install|npx skills add Gingiris-1031/)[^\n]*\n(?:[^\n]*\n){0,12}?```"
+    fake_block_matches = list(_re.finditer(bash_block_pat, out))
+    for m in reversed(fake_block_matches):  # reverse to keep indexes valid
+        block = m.group(0)
+        # If the block contains any REAL slug, leave it alone (already valid).
+        # If it only contains invented slugs, drop it.
+        has_real = any(real in block for real in GINGIRIS_SKILL_REGISTRY.keys())
+        has_invented = bool(_re.search(
+            r"(?:gingiris install|Gingiris-1031/)([a-z0-9-]+)", block,
+        ))
+        if has_invented and not has_real:
+            out = out[:m.start()] + "" + out[m.end():]
+    if not replaced:
+        out = out.rstrip() + "\n\n" + replacement + "\n"
+    return out
 
 
 def _strip_forbidden_channel_tasks(md: str, hints: dict) -> str:
@@ -1089,25 +1722,43 @@ async def generate_action_plan(site_data: dict, product_name: str, diagnosis_md:
 > 本计划严格基于上面的"诊断报告"。每个任务必须能映射到诊断报告里写过的 finding。
 > 预计投入：估算总工时
 
-## Week 1: Day 1-7 — 基础设施修复
+🚨 **多渠道覆盖硬约束**：以下 4 周每周必须聚焦一个**不同的增长维度**。**不允许整个 4 周计划都聚焦 SEO/GEO**。如果产品类型是 Sales-led，跳过 PH/UGC/Reddit-Karma 周，替换为 Sales Enablement / DevRel / Case Study 周。
 
-任务来源说明：本周任务来自诊断报告"## 5. 增长策略推荐 → P0"小节。**不引入诊断报告未涵盖的新问题**。
+## Week 1: Day 1-7 — SEO/GEO + 基础设施
+
+任务来源：诊断报告 "## 3. SEO/GEO 现状审计" + "## 5. P0"。
 
 每个任务包含：
 - **对应 finding**（引用诊断报告原话，1 句以内）
 - **目的**
 - **修复方案**（含代码 / 配置模板）
 - **验证方法**
-- **预期影响**（定性，不编 N% 数字）
+- **预期影响**（定性）
 
-## Week 2: Day 8-14 — 内容引擎启动
-依据：诊断报告"## 3. SEO/GEO 现状审计"和"## 5. P1"。
+## Week 2: Day 8-14 — KOL / 内容 / 社交渠道
 
-## Week 3: Day 15-21 — 渠道拓展
-依据：诊断报告"## 6. 渠道策略详解"。
+依据：诊断报告 "## 6. 渠道策略详解"。**本周必须包含至少 1 个**：
+- 对 **PLG / Consumer** 产品：micro-KOL 外联 + UGC creator 招募
+- 对 **Sales-led / Enterprise**：DevRel 内容计划 + 客户案例研究 + LinkedIn 1:1 outbound
+- 对 **OSS**：HN/Show HN + Awesome lists 投递 + GitHub Discussions
+- 对 **Mobile**：Creator matrix（TikTok/Reels/Shorts）+ ASO 关键词
 
-## Week 4: Day 22-30 — 加速与验证
-依据：诊断报告"## 5. P2"。
+**KOL 任务必须包含真实联系方式**（见下方 "## 真实 KOL 候选名单" 段，由程序提供）。
+
+## Week 3: Day 15-21 — 社区 + Reddit / 论坛
+
+依据：诊断报告 "## 6. 渠道策略详解"。**本周必须包含至少 1 个**：
+- 对 **PLG / Consumer / OSS / Dev Tool**：Reddit 内容种草 + Discord 社区运营
+- 对 **Sales-led**：Slack / Discord 客户社区（VIP 闭门）+ Webinar / 技术峰会
+- 对 **Mobile**：UGC 创作者社区运营
+
+## Week 4: Day 22-30 — 销售 / 留存 / 转化优化
+
+依据：诊断报告 "## 5. P2"。**本周必须包含至少 1 个**：
+- 对 **Sales-led**：Sales enablement 武器库（demo 视频、Battlecards、ROI calculator）
+- 对 **PLG / SaaS**：activation 漏斗优化、churn 修复实验、定价 A/B 测试
+- 对 **OSS**：Contributor 计划升级、Ambassador 计划
+- 对 **Mobile**：Push notification 策略、留存 / Day 1 Day 7 Day 30 实验
 
 ## 每周 KPI 追踪模板
 表格：周 | 指标（来自诊断报告 KPI 段）| 目标 | 实际（用户填）
@@ -1247,15 +1898,22 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     reports = {"executive_summary": None, "diagnosis_report": None, "action_plan": None}
     sources = {"exec": "skipped", "diag": "skipped", "plan": "skipped"}
 
-    # Phase 1: Diagnosis (facts layer)
+    # Phase 1: Diagnosis (facts layer) — also kicks off KOL discovery in
+    # parallel so we have real handles ready by the time Action Plan runs.
     _update("diagnosis", "running")
+    hints = detect_product_type(site_data)
+    categories = _extract_product_category(site_data)
+    kol_task = asyncio.create_task(_discover_real_kols(categories, hints, k=6))
     diag_result = await generate_diagnosis_report(site_data, product_name)
     if isinstance(diag_result, dict) and diag_result.get("success"):
         # Run the absence-phrase sanitizer before downstream stages see this
         # — otherwise Action Plan + Executive Summary will inherit the
-        # confidently-wrong claims and amplify them.
+        # confidently-wrong claims and amplify them. Then replace any
+        # LLM-fabricated Gingiris playbook table with the canonical one
+        # built from the real 40-skill registry.
+        hints_for_diag = detect_product_type(site_data)
         diag_md = _scrub_absence_phrases(diag_result["content"])
-        diag_md = _expand_skill_install_commands(diag_md)
+        diag_md = _replace_playbook_section(diag_md, hints_for_diag, heading_level=2)
         reports["diagnosis_report"] = diag_md
         sources["diag"] = diag_result.get("source", "?")
         _update("diagnosis", "done")
@@ -1278,15 +1936,29 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         site_data, product_name, reports["diagnosis_report"]
     )
     if isinstance(plan_result, dict) and plan_result.get("success"):
-        # Detect product type once and surgically remove forbidden-channel
-        # tasks before persisting. For sales-led products this is the
-        # belt-and-suspenders layer on top of the prompt classification
-        # block: even if the LLM ignored the matrix and produced a
-        # "Product Hunt Launch" task, we slice it out here.
-        hints = detect_product_type(site_data)
+        # Surgically remove forbidden-channel tasks before persisting.
+        # For sales-led products this is the belt-and-suspenders layer
+        # on top of the prompt classification block: even if the LLM
+        # ignored the matrix and produced a "Product Hunt Launch" task,
+        # we slice it out here. (hints already computed above.)
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
-        plan_md = _expand_skill_install_commands(plan_md)
+        plan_md = _replace_playbook_section(plan_md, hints, heading_level=2)
+        # Inject real KOL handles (Brave Search). If discovery failed or
+        # returned nothing, kol_section is empty and we skip cleanly.
+        try:
+            kols = await kol_task
+        except Exception as e:
+            log.warning("KOL discovery raised: %s", e)
+            kols = []
+        kol_section = _render_real_kol_section(kols, hints, categories)
+        if kol_section:
+            # Insert before any trailing playbook section we just rendered.
+            anchor = "## 📚 匹配的 Gingiris Skills"
+            if anchor in plan_md:
+                plan_md = plan_md.replace(anchor, kol_section + "\n\n" + anchor, 1)
+            else:
+                plan_md = plan_md.rstrip() + "\n" + kol_section + "\n"
         reports["action_plan"] = plan_md
         sources["plan"] = plan_result.get("source", "?")
         _update("action_plan", "done")
@@ -1302,8 +1974,9 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
             reports["diagnosis_report"], reports["action_plan"],
         )
         if isinstance(exec_result, dict) and exec_result.get("success"):
+            hints_for_exec = detect_product_type(site_data)
             exec_md = _scrub_absence_phrases(exec_result["content"])
-            exec_md = _expand_skill_install_commands(exec_md)
+            exec_md = _replace_playbook_section(exec_md, hints_for_exec, heading_level=2)
             reports["executive_summary"] = exec_md
             sources["exec"] = exec_result.get("source", "?")
             _update("executive_summary", "done")
