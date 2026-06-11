@@ -82,11 +82,15 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         except Exception:
             brave_hints = {}
 
-    # Merge: Brave Search takes priority over website hints
+    # Merge: the site's OWN declared social links are ground truth and take
+    # priority — Brave only fills platforms the site didn't declare. (Reversed
+    # from the old Brave-first order, which let a fuzzy guess like @testingcatalog
+    # override the site's published @tiny_fish.) Downstream per-platform handlers
+    # still validate the hint, so a junk site link falls back gracefully.
     website_hints = website_social_links or {}
     hints = {}
     for platform in set(list(brave_hints.keys()) + list(website_hints.keys())):
-        hints[platform] = brave_hints.get(platform) or website_hints.get(platform) or {}
+        hints[platform] = website_hints.get(platform) or brave_hints.get(platform) or {}
 
     # Extract hint handles
     twitter_hint   = hints.get("twitter", {}).get("handle")
@@ -753,9 +757,20 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 except Exception:
                     pass
 
-        # Pick best candidate by followers count (most followers = likely official)
+        # Pick best candidate. The site-declared handle (handle_hint) is ground
+        # truth — if it validated, prefer it even when another brand variant has
+        # more followers. Otherwise fall back to most-followed (likely official).
         if candidates:
-            best = max(candidates, key=lambda p: p.get("followers", 0) or 0)
+            best = None
+            if handle_hint:
+                _hint_norm = handle_hint.lstrip("@").lower().replace("_", "")
+                best = next(
+                    (c for c in candidates
+                     if (c.get("userName") or "").lower().replace("_", "") == _hint_norm),
+                    None,
+                )
+            if best is None:
+                best = max(candidates, key=lambda p: p.get("followers", 0) or 0)
             screen_name = best.get("userName", "")
             result["detected"] = True
             result["handle"] = f"@{screen_name}"
