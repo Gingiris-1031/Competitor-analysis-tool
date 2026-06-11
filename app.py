@@ -194,7 +194,7 @@ async def health_check():
     from modules.supabase_client import get_supabase, supabase_required
 
     keys = {
-        "TEAMOROUTER_API_KEY": bool(os.environ.get("TEAMOROUTER_API_KEY", "").strip()),
+        "OPENROUTER_API_KEY":  bool(os.environ.get("OPENROUTER_API_KEY", "").strip()),
         "DEEPSEEK_API_KEY": bool(os.environ.get("DEEPSEEK_API_KEY", "").strip()),
         "TWITTERAPI_IO_KEY": bool(os.environ.get("TWITTERAPI_IO_KEY", "").strip()),
         "SERPAPI_KEY": bool(os.environ.get("SERPAPI_KEY", "").strip()),
