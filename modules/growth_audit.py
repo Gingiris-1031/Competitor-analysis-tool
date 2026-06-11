@@ -287,6 +287,196 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
 # ─── Report Generation ──────────────────────────────────────────────────────
 
 
+# ─── Product-type detection ─────────────────────────────────────────────────
+# Determines whether a product is Sales-led (Enterprise / B2B Infra / API)
+# vs PLG/Consumer/OSS. Critical because the channel mix differs sharply and
+# the LLM cannot reliably do this classification on its own — it pattern-
+# matched TinyFish as "AI/Dev Tool" and recommended Product Hunt for an
+# enterprise infra product whose buyers are CTOs and procurement teams,
+# not PH lurkers.
+#
+# Signals (we want HIGH PRECISION — false positives push wrong recs):
+#   Strong:
+#     - /pricing has an "Enterprise" / "Custom" / "Contact us" tier
+#     - Mentions of SOC 2 / ISO 27001 / HIPAA / GDPR compliance
+#     - Pricing >= $500/mo on any tier
+#     - "Contact sales" / "Talk to sales" / "Book a demo" CTAs prominent
+#   Medium:
+#     - Customer logos from Fortune 500 / unicorns
+#     - "Enterprise" appears in nav or pricing
+#     - "for teams of 100+" / "for engineering teams" language
+#     - Has dedicated /enterprise/ pages
+#   Weak (one alone doesn't classify):
+#     - API-first product (Swagger/OpenAPI docs)
+#     - "Self-hosted" / "On-premise" options
+#
+# Threshold: 1 strong signal OR 3 medium signals → sales-led.
+
+_FORTUNE500_NAMES = {
+    "doordash", "grubhub", "uber", "lyft", "airbnb", "stripe", "shopify",
+    "netflix", "spotify", "datadog", "snowflake", "databricks", "twilio",
+    "atlassian", "intuit", "adobe", "salesforce", "oracle", "ibm", "intel",
+    "amd", "nvidia", "microsoft", "google", "amazon", "meta", "facebook",
+    "linkedin", "samsung", "sony", "disney", "walmart", "target", "costco",
+    "fedex", "ups", "boeing", "lockheed", "morgan", "goldman", "chase",
+    "wells fargo", "citi", "bank of america", "visa", "mastercard",
+    "deloitte", "accenture", "pwc", "kpmg", "ey", "mckinsey", "bcg",
+    "bain", "the zebra", "classpass", "expedia", "booking",
+}
+
+
+def detect_product_type(site_data: dict) -> dict:
+    """Return product-type hints to inject into LLM context.
+
+    Returns a dict with:
+      - is_sales_led: bool (Enterprise/B2B Infra → no PH/UGC)
+      - signals_strong: list[str]  (one alone classifies)
+      - signals_medium: list[str]  (need 3+ to classify)
+      - product_type: str  (best guess: "Enterprise Infra" / "PLG SaaS" /
+                            "OSS Dev Tool" / "Consumer App" / "Unknown")
+      - recommended_channels: list[str]   (positive list)
+      - forbidden_channels: list[str]     (explicit no-go list)
+    """
+    homepage = (site_data.get("homepage") or {})
+    pricing = (site_data.get("pricing_page") or {})
+    sitemap = site_data.get("sitemap") or ""
+
+    homepage_text = ((homepage.get("text") or "") + " " +
+                     (homepage.get("description") or "") + " " +
+                     (homepage.get("title") or "")).lower()
+    pricing_text = (pricing.get("text") or "").lower() if isinstance(pricing, dict) else ""
+    sitemap_lower = sitemap.lower() if isinstance(sitemap, str) else ""
+
+    strong = []
+    medium = []
+
+    # ── Strong signals ───────────────────────────────────────────────────
+    if _re.search(r"\benterprise\b.{0,60}(plan|tier|pricing|custom|contact)", pricing_text):
+        strong.append("/pricing 含 Enterprise tier (custom/contact)")
+    if _re.search(r"contact (sales|us|our team).{0,40}(pricing|enterprise|quote|custom)", pricing_text):
+        strong.append("/pricing 引导 Contact Sales 而非自助购买")
+    # Pricing >= $500/mo on any tier
+    big_prices = _re.findall(r"\$\s*([0-9][0-9,]{2,5})\s*(?:/|\s*per\s*)?(?:mo|month)", pricing_text)
+    for raw in big_prices:
+        try:
+            amount = int(raw.replace(",", ""))
+            if amount >= 500:
+                strong.append(f"定价含 ≥ $500/mo 档 (${amount}/mo)")
+                break
+        except ValueError:
+            continue
+    for kw in ["soc 2", "soc2", "iso 27001", "iso27001", "hipaa compliant",
+              "gdpr compliant", "fedramp"]:
+        if kw in homepage_text or kw in pricing_text:
+            strong.append(f"合规标签: {kw.upper()}")
+            break
+
+    # ── Medium signals ───────────────────────────────────────────────────
+    if "/enterprise" in sitemap_lower:
+        medium.append("sitemap 含 /enterprise/* 路径")
+    if "book a demo" in homepage_text or "talk to sales" in homepage_text:
+        medium.append("首页含 'Book a demo' / 'Talk to sales' CTA")
+    if _re.search(r"for (engineering )?teams of \d+", homepage_text):
+        medium.append("首页含 'for teams of N+' 语言")
+    # Fortune 500 customer mentions
+    f500_hits = sorted({n for n in _FORTUNE500_NAMES if n in homepage_text})
+    if f500_hits:
+        medium.append(f"首页含知名企业客户: {', '.join(f500_hits[:5])}")
+    if _re.search(r"\benterprise\b", homepage_text):
+        medium.append("首页提及 'Enterprise'")
+    if "api key" in homepage_text and "production" in homepage_text:
+        medium.append("强调 API + production scale")
+
+    # ── OSS signal (overrides to OSS path, not sales-led) ────────────────
+    is_oss = False
+    if homepage.get("links"):
+        gh_links = [l for l in homepage["links"] if "github.com" in l.lower()]
+        if any(_re.search(r"github\.com/[^/]+/[^/]+/?\s*$", l) for l in gh_links):
+            is_oss = "github 链接指向 repo（非仅 cookbook）" in str(medium) or False
+    if "open source" in homepage_text and "star" in homepage_text:
+        is_oss = True
+
+    # ── Classification ──────────────────────────────────────────────────
+    is_sales_led = (len(strong) >= 1) or (len(medium) >= 3)
+
+    if is_oss and not is_sales_led:
+        product_type = "OSS Dev Tool"
+        recommended = ["GitHub Stars 体系", "Show HN", "Reddit (r/programming, r/opensource)",
+                       "Awesome lists", "Dev.to + 自建 blog", "Discord 社区"]
+        forbidden = ["UGC 矩阵", "TikTok / Reels", "Paid social"]
+    elif is_sales_led:
+        product_type = "Enterprise Infra / B2B Sales-led"
+        recommended = ["HN / Show HN", "技术深度博客 (Dev.to + 自建 blog)",
+                       "Dev advocacy + 客户案例", "GitHub examples / cookbook",
+                       "LinkedIn 内容 + 1:1 outbound", "Webinar / 技术峰会",
+                       "Account-based marketing (ABM)", "Sales 友好的解决方案模板"]
+        forbidden = [
+            "Product Hunt Launch（带个人开发者非企业买家）",
+            "UGC 矩阵（不适合 B2B infra 买家心智）",
+            "TikTok / Reels / Shorts 创作者运营",
+            "Reddit Karma 养号 + 种草（开发者 sub 可去，但不是冷启动主力）",
+            "Micro-KOL 提供 '3 个月免费 Pro' 模板（B2B 应改为免费 POC + 案例研究合作）",
+        ]
+    elif "pricing" in pricing_text and "$" in pricing_text:
+        # Has self-serve pricing but no enterprise signals → PLG
+        product_type = "PLG / Self-serve SaaS"
+        recommended = ["Product Hunt", "UGC 矩阵 / Creator", "X/Twitter 内容",
+                       "SEO/Content 长尾", "社区 (Discord/Slack)",
+                       "Free tier 漏斗优化"]
+        forbidden = ["纯 outbound (CAC 过高)"]
+    else:
+        product_type = "Unknown / 需用户确认"
+        recommended = ["按 ICP 反推（建议续费咨询）"]
+        forbidden = []
+
+    return {
+        "is_sales_led": is_sales_led,
+        "is_oss": is_oss,
+        "signals_strong": strong,
+        "signals_medium": medium,
+        "product_type": product_type,
+        "recommended_channels": recommended,
+        "forbidden_channels": forbidden,
+    }
+
+
+def _format_product_type_block(hints: dict) -> str:
+    """Format hints as a high-prominence top-of-context block for the LLM."""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("🚨 程序判定的产品类型（**最高优先级，覆盖你对产品的任何模式匹配**）")
+    lines.append("=" * 70)
+    lines.append(f"产品类型: **{hints['product_type']}**")
+    if hints["is_sales_led"]:
+        lines.append("销售模式: **Sales-led / Enterprise**")
+        lines.append("**绝对禁止推荐的渠道**（违反 = 报告无效）:")
+        for f in hints["forbidden_channels"]:
+            lines.append(f"  ❌ {f}")
+        lines.append("应聚焦的渠道:")
+        for r in hints["recommended_channels"]:
+            lines.append(f"  ✅ {r}")
+    else:
+        lines.append("销售模式: 非 Sales-led（可考虑 PLG / OSS / Consumer 路径）")
+        if hints["recommended_channels"]:
+            lines.append("建议聚焦:")
+            for r in hints["recommended_channels"]:
+                lines.append(f"  ✅ {r}")
+        if hints["forbidden_channels"]:
+            lines.append("不建议聚焦:")
+            for f in hints["forbidden_channels"]:
+                lines.append(f"  ❌ {f}")
+    if hints["signals_strong"]:
+        lines.append("\n判定依据（Strong signals — 单一即可分类）:")
+        for s in hints["signals_strong"]:
+            lines.append(f"  • {s}")
+    if hints["signals_medium"]:
+        lines.append("\n判定依据（Medium signals）:")
+        for s in hints["signals_medium"]:
+            lines.append(f"  • {s}")
+    lines.append("=" * 70)
+    return "\n".join(lines)
+
+
 def _parse_sitemap_structured(sitemap_text: str, domain: str) -> str:
     """把 sitemap XML 解析成按 path-prefix 分组的结构化摘要。
 
@@ -343,6 +533,14 @@ def _build_site_context(site_data: dict) -> str:
     url = site_data.get("url", "")
     domain = site_data.get("domain", "")
 
+    # Run product-type detection FIRST and put it at the very top of the
+    # context. The LLM is far more likely to follow constraints that
+    # appear before the noisy site content. This block carries the only
+    # binding classification — the LLM's own pattern matching elsewhere
+    # is explicitly subordinated to it.
+    hints = detect_product_type(site_data)
+    parts.append(_format_product_type_block(hints))
+    parts.append("")
     parts.append(f"## 目标产品网站：{url}（域名：{domain}）\n")
     parts.append(f"抓取时间：刚刚（实时 fetch）\n")
 
@@ -490,6 +688,66 @@ def _scrub_absence_phrases(md: str) -> str:
     if forbidden_hits:
         log.warning("Sanitizer detected hard-forbidden phrases: %s", forbidden_hits)
     return out
+
+
+def _strip_forbidden_channel_tasks(md: str, hints: dict) -> str:
+    """For sales-led products, surgically remove Action Plan tasks that
+    recommend forbidden channels (Product Hunt, UGC matrix, TikTok, Reddit
+    Karma farming). Removes the entire task block (heading + body) and
+    inserts a callout explaining the substitution.
+
+    Strategy: split on '### 任务' / '### Task' headings, drop any block
+    whose heading matches one of the forbidden channel patterns, append a
+    one-paragraph note at the end of the action plan listing what was
+    removed and why.
+    """
+    if not md or not hints.get("is_sales_led"):
+        return md
+
+    forbidden_keywords = [
+        ("Product Hunt", "Product Hunt Launch（企业基础设施买家不在 PH 池中）"),
+        ("PH Launch", "Product Hunt Launch（企业基础设施买家不在 PH 池中）"),
+        ("UGC", "UGC 矩阵（B2B 买家心智不在 UGC 内容里）"),
+        ("TikTok", "TikTok / Reels（不是企业 buyer journey 的入口）"),
+        ("Reddit\\s*账号养成", "Reddit Karma 养号（开发者 sub 可用，但非冷启动主力）"),
+        ("Reddit\\s*种草", "Reddit 主动种草（仅作为辅助渠道，不应进入 Week 1-2 P0）"),
+    ]
+
+    # Split the doc on task-heading boundaries (### 任务 / ### Task / ### 4.1 etc.)
+    sections = _re.split(r"(?=^### (?:任务|Task)\b)", md, flags=_re.MULTILINE)
+    if len(sections) <= 1:
+        return md
+
+    removed = []
+    kept = []
+    for sec in sections:
+        # Check the heading line for any forbidden keyword
+        heading_line = sec.split("\n", 1)[0]
+        match_label = None
+        for kw_pattern, replacement_label in forbidden_keywords:
+            if _re.search(kw_pattern, heading_line, _re.IGNORECASE):
+                match_label = replacement_label
+                break
+        if match_label:
+            removed.append(heading_line.strip())
+        else:
+            kept.append(sec)
+
+    if not removed:
+        return md
+
+    result = "".join(kept).rstrip()
+    callout = (
+        "\n\n---\n\n"
+        "## ⚙️ 程序判定调整说明\n\n"
+        f"本次行动计划检测到产品为 **{hints['product_type']}** "
+        f"（Sales-led / Enterprise），以下任务已自动移除（与该产品类型不匹配）：\n\n"
+        + "\n".join(f"- ~~{h}~~" for h in removed)
+        + "\n\n**推荐替换路径**：聚焦 "
+        + "、".join(hints.get("recommended_channels", [])[:4])
+        + "。详情见诊断报告 §6 渠道策略详解。\n"
+    )
+    return result + callout
 
 
 async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
@@ -798,7 +1056,15 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         site_data, product_name, reports["diagnosis_report"]
     )
     if isinstance(plan_result, dict) and plan_result.get("success"):
-        reports["action_plan"] = _scrub_absence_phrases(plan_result["content"])
+        # Detect product type once and surgically remove forbidden-channel
+        # tasks before persisting. For sales-led products this is the
+        # belt-and-suspenders layer on top of the prompt classification
+        # block: even if the LLM ignored the matrix and produced a
+        # "Product Hunt Launch" task, we slice it out here.
+        hints = detect_product_type(site_data)
+        plan_md = _scrub_absence_phrases(plan_result["content"])
+        plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
+        reports["action_plan"] = plan_md
         sources["plan"] = plan_result.get("source", "?")
         _update("action_plan", "done")
     else:
