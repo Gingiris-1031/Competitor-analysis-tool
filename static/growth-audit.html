@@ -129,6 +129,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- html2pdf bundle (jsPDF + html2canvas), used for "Download PDF" -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
     <style>
         :root {
             --cream-bg: #0D0D0F;
@@ -373,14 +375,54 @@
 
         <!-- Results Section (hidden) -->
         <section id="results-section" class="hidden py-8 fade-in">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
                 <div>
                     <h2 class="font-serif text-3xl text-[color:var(--ink)]" id="result-title"></h2>
                     <p class="text-sm text-[color:var(--ink-muted)] font-mono" id="result-url"></p>
                 </div>
-                <button onclick="location.reload()" class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-4 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors">
-                    ↻ New Audit
-                </button>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button id="dl-md-btn" onclick="downloadMarkdown()"
+                        title="Download all 3 reports as Markdown"
+                        class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3.5 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors inline-flex items-center gap-1.5">
+                        <span aria-hidden="true">⬇</span>
+                        Markdown
+                    </button>
+                    <button id="dl-pdf-btn" onclick="downloadPDF()"
+                        title="Download all 3 reports as a PDF"
+                        class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3.5 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors inline-flex items-center gap-1.5">
+                        <span aria-hidden="true">⬇</span>
+                        PDF
+                    </button>
+                    <div class="relative inline-block">
+                        <button id="share-btn" onclick="toggleShareMenu(event)"
+                            class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3.5 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors inline-flex items-center gap-1.5">
+                            <span aria-hidden="true">↗</span>
+                            Share
+                            <span aria-hidden="true" class="opacity-60 text-[9px]">▼</span>
+                        </button>
+                        <div id="share-menu"
+                            class="hidden absolute right-0 top-10 w-52 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl shadow-2xl z-50 py-1 text-left">
+                            <button onclick="shareTo('twitter')" class="w-full text-left px-4 py-2.5 text-sm text-[color:var(--ink-muted)] hover:bg-[color:var(--cream-elev)] hover:text-[color:var(--ink)] transition-colors flex items-center gap-2.5">
+                                <span class="w-4 inline-flex justify-center font-semibold">𝕏</span> Share on X / Twitter
+                            </button>
+                            <button onclick="shareTo('linkedin')" class="w-full text-left px-4 py-2.5 text-sm text-[color:var(--ink-muted)] hover:bg-[color:var(--cream-elev)] hover:text-[color:var(--ink)] transition-colors flex items-center gap-2.5">
+                                <span class="w-4 inline-flex justify-center font-semibold text-[#0a66c2]">in</span> Share on LinkedIn
+                            </button>
+                            <button onclick="shareTo('reddit')" class="w-full text-left px-4 py-2.5 text-sm text-[color:var(--ink-muted)] hover:bg-[color:var(--cream-elev)] hover:text-[color:var(--ink)] transition-colors flex items-center gap-2.5">
+                                <span class="w-4 inline-flex justify-center text-[#ff4500]">▲</span> Post to Reddit
+                            </button>
+                            <div class="border-t border-[color:var(--warm-border)] my-1"></div>
+                            <button onclick="shareTo('copy')" class="w-full text-left px-4 py-2.5 text-sm text-[color:var(--ink-muted)] hover:bg-[color:var(--cream-elev)] hover:text-[color:var(--ink)] transition-colors flex items-center gap-2.5">
+                                <span class="w-4 inline-flex justify-center">⎘</span> Copy share link
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="location.reload()"
+                        class="text-xs bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] px-3.5 py-2 rounded-full text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] hover:border-[color:var(--warm-border-strong)] transition-colors inline-flex items-center gap-1.5">
+                        <span aria-hidden="true">↻</span>
+                        New Audit
+                    </button>
+                </div>
             </div>
 
             <!-- Tabs -->
@@ -697,6 +739,196 @@
         else if (tab === 'plan') content = reports.action_plan || '*Report generation failed. Please try again.*';
 
         container.innerHTML = marked.parse(content);
+    }
+
+    /* ── Export & Share helpers ────────────────────────────────────────── */
+
+    function slugify(s) {
+        return (s || 'audit').toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60) || 'audit';
+    }
+
+    function buildFullMarkdown() {
+        const title = document.getElementById('result-title').textContent || 'Growth Audit';
+        const url = document.getElementById('result-url').textContent || '';
+        const date = new Date().toISOString().slice(0, 10);
+        return [
+            `# Growth Audit — ${title}`,
+            ``,
+            `**Product URL:** ${url}`,
+            `**Audit date:** ${date}`,
+            `**Generated by:** [Analook Growth Audit](https://www.analook.com/growth-audit.html) · Gingiris Growth Framework`,
+            ``,
+            `---`,
+            ``,
+            `## 📋 Executive Summary`,
+            ``,
+            reports.executive_summary || '*Report unavailable.*',
+            ``,
+            `---`,
+            ``,
+            `## 🔬 Diagnosis Report`,
+            ``,
+            reports.diagnosis_report || '*Report unavailable.*',
+            ``,
+            `---`,
+            ``,
+            `## 🎯 30-Day Action Plan`,
+            ``,
+            reports.action_plan || '*Report unavailable.*',
+            ``,
+            `---`,
+            ``,
+            `_Run your own audit at https://www.analook.com/growth-audit.html_`,
+        ].join('\n');
+    }
+
+    function downloadMarkdown() {
+        const md = buildFullMarkdown();
+        const title = document.getElementById('result-title').textContent || 'audit';
+        const date = new Date().toISOString().slice(0, 10);
+        const filename = `analook-growth-audit-${slugify(title)}-${date}.md`;
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+        showToast({ kind: 'success', title: 'Markdown downloaded', message: `${filename}` });
+    }
+
+    function downloadPDF() {
+        if (typeof html2pdf === 'undefined') {
+            showToast({ kind: 'error', title: 'PDF library still loading', message: 'Try again in 2 seconds.' });
+            return;
+        }
+        const title = document.getElementById('result-title').textContent || 'Growth Audit';
+        const url = document.getElementById('result-url').textContent || '';
+        const date = new Date().toISOString().slice(0, 10);
+
+        // Render all 3 reports concatenated in a light-themed container
+        // (PDF readers expect light bg; our brand maps cleanly to cream).
+        const sections = [
+            { emoji: '📋', label: 'Executive Summary', md: reports.executive_summary },
+            { emoji: '🔬', label: 'Diagnosis Report',  md: reports.diagnosis_report },
+            { emoji: '🎯', label: '30-Day Action Plan', md: reports.action_plan },
+        ];
+        const sectionsHtml = sections.map(s => `
+            <section style="margin-top:32px;page-break-inside:avoid">
+                <h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:24px;font-weight:400;font-style:italic;color:#1f1b16;margin:0 0 12px 0;border-bottom:1px solid #e8dfca;padding-bottom:8px">
+                    ${s.emoji} ${s.label}
+                </h2>
+                <div class="pdf-md">${marked.parse(s.md || '*Report unavailable.*')}</div>
+            </section>
+        `).join('');
+
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:fixed;left:-99999px;top:0;width:780px';
+        wrapper.innerHTML = `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2b2522;background:#fffdf6;padding:40px 44px;width:780px;box-sizing:border-box">
+                <style>
+                    .pdf-md { font-size:13.5px; line-height:1.7; color:#2b2522; }
+                    .pdf-md h1 { font-family:'Instrument Serif',Georgia,serif; font-size:22px; font-weight:400; margin:18px 0 8px; color:#1f1b16; }
+                    .pdf-md h2 { font-size:17px; font-weight:600; margin:16px 0 6px; color:#1f1b16; }
+                    .pdf-md h3 { font-size:14px; font-weight:600; margin:12px 0 4px; color:#3d3424; }
+                    .pdf-md p { margin:6px 0; }
+                    .pdf-md ul, .pdf-md ol { margin:6px 0 6px 22px; }
+                    .pdf-md li { margin:3px 0; }
+                    .pdf-md strong { color:#1f1b16; }
+                    .pdf-md code { background:#f5ead4; padding:1px 5px; border-radius:3px; font-size:12px; font-family:"JetBrains Mono",monospace; color:#7a4706; }
+                    .pdf-md pre { background:#f5ead4; padding:10px 12px; border-radius:6px; overflow-x:hidden; font-size:11.5px; }
+                    .pdf-md pre code { background:transparent; padding:0; color:#3d3424; }
+                    .pdf-md blockquote { border-left:3px solid #FB923C; padding-left:12px; margin:8px 0; color:#6b5f4f; font-style:italic; }
+                    .pdf-md table { width:100%; border-collapse:collapse; margin:8px 0; font-size:12px; }
+                    .pdf-md th, .pdf-md td { border:1px solid #e8dfca; padding:6px 8px; text-align:left; }
+                    .pdf-md th { background:#f5ead4; font-weight:600; color:#1f1b16; }
+                    .pdf-md a { color:#b8612d; text-decoration:underline; }
+                </style>
+                <div style="border-bottom:3px solid #FB923C;padding-bottom:16px;margin-bottom:8px">
+                    <h1 style="font-family:'Instrument Serif',Georgia,serif;font-size:32px;font-weight:400;font-style:italic;margin:0 0 6px 0;color:#1f1b16">${title}</h1>
+                    <p style="margin:0;color:#6b5f4f;font-size:12px;font-family:monospace">${url || ''}</p>
+                    <p style="margin:6px 0 0 0;color:#8a7a5a;font-size:11px">Growth Audit · ${date} · Powered by Analook (Gingiris Growth Framework)</p>
+                </div>
+                ${sectionsHtml}
+                <div style="margin-top:36px;padding-top:14px;border-top:1px solid #e8dfca;text-align:center;font-size:10px;color:#8a7a5a">
+                    Generated at <span style="color:#b8612d">analook.com/growth-audit</span> · Run your own at https://www.analook.com/growth-audit.html
+                </div>
+            </div>
+        `;
+        document.body.appendChild(wrapper);
+
+        const btn = document.getElementById('dl-pdf-btn');
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> rendering…';
+
+        const filename = `analook-growth-audit-${slugify(title)}-${date}.pdf`;
+        html2pdf().from(wrapper.firstElementChild).set({
+            margin: [8, 0, 10, 0],
+            filename,
+            image: { type: 'jpeg', quality: 0.97 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#fffdf6', logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'avoid-all'] },
+        }).save().then(() => {
+            wrapper.remove();
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+            showToast({ kind: 'success', title: 'PDF downloaded', message: filename });
+        }).catch(e => {
+            wrapper.remove();
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+            showToast({ kind: 'error', title: 'PDF generation failed', message: e?.message || 'Use Markdown as fallback.' });
+        });
+    }
+
+    function toggleShareMenu(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('share-menu').classList.toggle('hidden');
+    }
+
+    // Click outside to close share menu
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('share-menu');
+        const btn = document.getElementById('share-btn');
+        if (!menu || !btn) return;
+        if (!menu.contains(e.target) && !btn.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+
+    function shareTo(platform) {
+        const productName = document.getElementById('result-title').textContent || 'my product';
+        const text = `Just got a free 5-min growth audit on ${productName} from Analook 🫚\n\nThree reports: Executive Summary, full Diagnosis, and a 30-day Action Plan. Built on the Gingiris Growth Framework by @gingiris (ex-COO of AFFiNE, 60K stars).`;
+        const shareUrl = 'https://www.analook.com/growth-audit.html?utm_source=' + platform + '&utm_medium=share&utm_campaign=audit_share';
+
+        if (platform === 'copy') {
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showToast({ kind: 'success', title: 'Link copied', message: 'Paste it anywhere.' });
+            }).catch(() => {
+                showToast({ kind: 'error', title: 'Copy failed', message: 'Select the URL manually.' });
+            });
+            document.getElementById('share-menu').classList.add('hidden');
+            return;
+        }
+
+        let target = '';
+        if (platform === 'twitter') {
+            target = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+        } else if (platform === 'linkedin') {
+            target = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+        } else if (platform === 'reddit') {
+            const title = `I got a free 5-minute AI growth audit for ${productName} — full diagnosis + 30-day action plan`;
+            target = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(title)}`;
+        }
+        if (target) {
+            window.open(target, '_blank', 'noopener,noreferrer,width=600,height=620');
+            document.getElementById('share-menu').classList.add('hidden');
+        }
     }
 
     // Handle URL params (e.g. from gingiris.tools CTA)
