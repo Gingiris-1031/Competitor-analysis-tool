@@ -56,6 +56,11 @@
     async logout() {
       await sb.auth.signOut();
     },
+
+    /** Force-refresh the nav credits pill. Used after a Polar webhook
+     *  redirect or after a manual grant — keeps the formatting logic
+     *  in one place (here) so callers can't drift back to "⚡ N 积分". */
+    refreshCredits() { return _fetchCredits(); },
   };
 
   // ── UI 更新 ───────────────────────────────────────────────────────────────
