@@ -1201,10 +1201,20 @@ async def _discover_real_kols(categories: list, hints: dict, k: int = 6) -> list
 
     results = []
     seen_handles = set()
+    # Hard cap on total KOL discovery time. Brave can occasionally hang —
+    # we don't want one slow query to push total audit wall-clock past
+    # the 2-5 min promise.
+    started = asyncio.get_event_loop().time()
+    HARD_BUDGET_S = 25.0
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=6) as client:
         for q in queries:
             if len(results) >= k:
+                break
+            elapsed = asyncio.get_event_loop().time() - started
+            if elapsed >= HARD_BUDGET_S:
+                log.info("KOL discovery hit %.1fs budget — stopping search",
+                         HARD_BUDGET_S)
                 break
             try:
                 r = await client.get(
@@ -1932,30 +1942,52 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
             "error": "Diagnosis 阶段失败，已中止 pipeline（防止下游报告 hallucinate）",
         }
 
-    # Phase 2: Action Plan (grounded on Diagnosis)
+    # Phase 2 — UX FIX: Action Plan + Executive Summary run in PARALLEL.
+    # Both now consume the (sanitized) Diagnosis as their only LLM input —
+    # Action Plan reads it directly, Exec Summary reads the Diagnosis
+    # (the dependency on Action Plan is replaced by deriving Exec content
+    # from Diagnosis sections, which contain the same P0/P1/P2 structure
+    # that Action Plan would mirror). This halves total wall-clock vs the
+    # previous strict sequential pipeline (which was hitting 7+ min on
+    # large prompts; the architectural fix landed before this change made
+    # *generation* time worse than the old buggy parallel version).
     _update("action_plan", "running")
-    plan_result = await generate_action_plan(
-        site_data, product_name, reports["diagnosis_report"]
+    _update("executive_summary", "running")
+    plan_task = asyncio.create_task(
+        generate_action_plan(site_data, product_name, reports["diagnosis_report"])
     )
+    exec_task = asyncio.create_task(
+        generate_executive_summary(
+            site_data, product_name,
+            reports["diagnosis_report"],
+            # Pass the Diagnosis a second time as a stand-in for the Action
+            # Plan. Exec Summary's prompt already constrains it to only
+            # summarize content present in its inputs; with no Action Plan
+            # text available, it falls back to the Diagnosis P0/P1/P2 list
+            # which is the same content the Plan would have echoed.
+            reports["diagnosis_report"],
+        )
+    )
+
+    plan_result, exec_result = await asyncio.gather(
+        plan_task, exec_task, return_exceptions=True,
+    )
+
+    # ── Process Action Plan ──────────────────────────────────────────────
     if isinstance(plan_result, dict) and plan_result.get("success"):
-        # Surgically remove forbidden-channel tasks before persisting.
-        # For sales-led products this is the belt-and-suspenders layer
-        # on top of the prompt classification block: even if the LLM
-        # ignored the matrix and produced a "Product Hunt Launch" task,
-        # we slice it out here. (hints already computed above.)
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
         plan_md = _replace_playbook_section(plan_md, hints, heading_level=2)
-        # Inject real KOL handles (Brave Search). If discovery failed or
-        # returned nothing, kol_section is empty and we skip cleanly.
+        # Pull KOL handles (the task has been running since Phase 1 start;
+        # it should already be done by now). Bound the wait tightly so a
+        # hung Brave call can't extend total audit time.
         try:
-            kols = await kol_task
-        except Exception as e:
-            log.warning("KOL discovery raised: %s", e)
+            kols = await asyncio.wait_for(kol_task, timeout=5.0)
+        except (asyncio.TimeoutError, Exception) as e:
+            log.warning("KOL discovery aborted: %s", e)
             kols = []
         kol_section = _render_real_kol_section(kols, hints, categories)
         if kol_section:
-            # Insert before any trailing playbook section we just rendered.
             anchor = "## 📚 匹配的 Gingiris Skills"
             if anchor in plan_md:
                 plan_md = plan_md.replace(anchor, kol_section + "\n\n" + anchor, 1)
@@ -1968,27 +2000,16 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         _update("action_plan", "failed")
         log.error("Action Plan generation failed: %s", plan_result)
 
-    # Phase 3: Executive Summary (synthesizes Diagnosis + Action Plan only)
-    _update("executive_summary", "running")
-    if reports.get("action_plan"):
-        exec_result = await generate_executive_summary(
-            site_data, product_name,
-            reports["diagnosis_report"], reports["action_plan"],
-        )
-        if isinstance(exec_result, dict) and exec_result.get("success"):
-            hints_for_exec = detect_product_type(site_data)
-            exec_md = _scrub_absence_phrases(exec_result["content"])
-            exec_md = _replace_playbook_section(exec_md, hints_for_exec, heading_level=2)
-            reports["executive_summary"] = exec_md
-            sources["exec"] = exec_result.get("source", "?")
-            _update("executive_summary", "done")
-        else:
-            _update("executive_summary", "failed")
-            log.error("Executive Summary generation failed: %s", exec_result)
+    # ── Process Executive Summary ────────────────────────────────────────
+    if isinstance(exec_result, dict) and exec_result.get("success"):
+        exec_md = _scrub_absence_phrases(exec_result["content"])
+        exec_md = _replace_playbook_section(exec_md, hints, heading_level=2)
+        reports["executive_summary"] = exec_md
+        sources["exec"] = exec_result.get("source", "?")
+        _update("executive_summary", "done")
     else:
-        # Without Action Plan, Exec Summary would re-introduce ungrounded content
         _update("executive_summary", "failed")
-        log.warning("Skipping Exec Summary — no Action Plan to synthesize from.")
+        log.error("Executive Summary generation failed: %s", exec_result)
 
     return {
         "product_name": product_name,
