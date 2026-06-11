@@ -1026,6 +1026,31 @@ async def autopilot_dashboard(sub_id: str, request: Request):
     }
 
 
+@app.post("/api/admin/autopilot/tick")
+async def autopilot_tick(request: Request):
+    """Cron entry point — runs the autopilot worker for due subscriptions.
+
+    Authed with a static bearer token (env AUTOPILOT_TICK_TOKEN). NOT a
+    user-facing endpoint. The GitHub Action workflow calls this hourly.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    try:
+        limit = int(request.query_params.get("limit") or 10)
+    except ValueError:
+        limit = 10
+    limit = max(1, min(limit, 50))
+
+    from modules.autopilot_worker import tick_due
+    result = await tick_due(limit=limit)
+    return result
+
+
 async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
     """Background task to run the full growth audit."""
     try:
