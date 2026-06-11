@@ -1,0 +1,38 @@
+name: Autopilot Tick
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max subscriptions to process this tick"
+        required: false
+        default: "10"
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Hit autopilot tick endpoint
+        env:
+          TICK_TOKEN: ${{ secrets.AUTOPILOT_TICK_TOKEN }}
+        run: |
+          LIMIT="${{ github.event.inputs.limit || '10' }}"
+          if [ -z "$TICK_TOKEN" ]; then
+            echo "::error::AUTOPILOT_TICK_TOKEN secret not set"
+            exit 1
+          fi
+          echo "Ticking with limit=$LIMIT…"
+          HTTP_CODE=$(curl -sS -o /tmp/tick.json -w '%{http_code}' \
+            --max-time 1200 \
+            -X POST "https://www.analook.com/api/admin/autopilot/tick?limit=$LIMIT" \
+            -H "X-Autopilot-Tick-Token: $TICK_TOKEN" \
+            -H "Content-Type: application/json")
+          echo "HTTP $HTTP_CODE"
+          cat /tmp/tick.json | head -c 4000
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Tick endpoint returned $HTTP_CODE"
+            exit 1
+          fi
