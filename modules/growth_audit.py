@@ -125,7 +125,19 @@ I. **判断产品类型的优先信号**：首页 hero 价值主张 → 客户�
    - 月费 > $500 OR 客户是 enterprise/Fortune 500 → 偏 sales-led，不推 PH/UGC
    - 月费 < $100 OR 个人/团队 用户为主 → 偏 PLG，PH/UGC 有意义
    - 完全开源、强调 GitHub stars → OSS 路径
+
+%SKILL_REGISTRY%
 """
+
+
+def _get_system_prompt() -> str:
+    """Returns the system prompt with the real Gingiris skill registry
+    inlined. We do this lazily because _build_skill_registry_prompt is
+    defined later in the file (after GINGIRIS_SKILL_REGISTRY itself).
+    """
+    return GINGIRIS_SKILLS_CONTEXT.replace(
+        "%SKILL_REGISTRY%", _build_skill_registry_prompt()
+    )
 
 # ─── TinyFish Fetch ─────────────────────────────────────────────────────────
 
@@ -690,6 +702,214 @@ def _scrub_absence_phrases(md: str) -> str:
     return out
 
 
+# ─── Real Gingiris Skill Registry ───────────────────────────────────────────
+# Maps the canonical Gingiris skill slugs to their descriptions and links.
+# The LLM used to invent skill names like "bofu-content-harvest" or
+# "enterprise-sales-enablement" — those don't exist. We constrain it to
+# this registry both via prompt (system prompt lists real names) and via
+# a post-processor that flags any skill name not in this list.
+
+GINGIRIS_SKILL_REGISTRY = {
+    "gingiris-seo-geo": {
+        "title": "SEO & GEO 双引擎",
+        "desc": "Google + AI 搜索（ChatGPT / Perplexity / Claude）双引擎实操，AFFiNE 60K stars + 150+ AI 创业咨询实战",
+        "best_for": "处于 Cold Start→Growth 阶段，需要系统性 SEO/GEO 内容矩阵的产品",
+    },
+    "gingiris-seo-geo-agent": {
+        "title": "SEO/GEO Agent 运营 SOP",
+        "desc": "1 个月跑到 32K 曝光的自主 SEO Agent 完整 SOP — Week 0-4 时间线、关键词→落地页映射、IndexNow 三件套",
+        "best_for": "想用 Agent 自动化跑 SEO/GEO 的团队",
+    },
+    "gingiris-launch": {
+        "title": "Product Launch Playbook",
+        "desc": "150+ AI 创业公司 launch 实战（30x PH #1 daily）— PH + Twitter + KOL 多渠道节奏",
+        "best_for": "**仅适合 PLG / Consumer / OSS 产品**。Enterprise infra / sales-led 不适用",
+    },
+    "gingiris-opensource": {
+        "title": "Open Source Marketing",
+        "desc": "AFFiNE 0→60K stars 完整方法论，决策框架 + 渠道节奏",
+        "best_for": "已 OSS 或考虑开源策略的产品",
+    },
+    "gingiris-github-star-growth": {
+        "title": "GitHub Star 持续增长",
+        "desc": "月增 300+ stars SOP — 内容节奏、社区运营、贡献者体系、Ambassador 计划",
+        "best_for": "已有 GitHub repo 且想做 sustained star 增长",
+    },
+    "gingiris-b2b-growth": {
+        "title": "B2B SaaS Growth (PMF→$10M ARR)",
+        "desc": "PLG vs SLG 决策、客户访谈、联盟营销、Enterprise sales — HeyGen / Deel / Vercel 实战",
+        "best_for": "**Enterprise infra / B2B mid-market** 首选",
+    },
+    "gingiris-aso-growth": {
+        "title": "ASO & Mobile App Growth",
+        "desc": "App Store 关键词排名 + UGC 创作者矩阵 + TikTok/Reels/Shorts 实战",
+        "best_for": "移动 App 冷启动",
+    },
+    "gingiris-kol-outreach": {
+        "title": "KOL Outreach (Micro-KOL 200+ 实战)",
+        "desc": "AFFiNE 200+ KOL 合作 SOP — 报价基准、邮件模板、平台算法、ROI 评估",
+        "best_for": "已有 KOL 计划但 ROI 不清的产品，或要启动 micro-KOL 的 0→1 团队",
+    },
+    "gingiris-reddit-marketing": {
+        "title": "Reddit Marketing 增长手册",
+        "desc": "Reddit = ChatGPT/Claude 40.11% 训练数据（最高权重 UGC 源）。20 天养号 → 0→500 Karma → 矩阵账号策略",
+        "best_for": "PLG / Consumer / Dev Tool 想做内容种草的产品",
+    },
+    "gingiris-ugc-matrix": {
+        "title": "UGC 矩阵增长",
+        "desc": "AI + 真人创作者规模化，CPM $0.5、60 天 $10M ARR、70M impressions 实证（Kuse 案例）",
+        "best_for": "**仅适合 Consumer / PLG 产品**。B2B / Enterprise 不适用",
+    },
+    "gingiris-user-interview": {
+        "title": "用户访谈 + 冷启动运营",
+        "desc": "HeyGen 937 访谈到 PMF 方法论 — 筛选、执行、Beta、流失分析、用户分级",
+        "best_for": "所有阶段产品 — 是 PMF 验证基础设施",
+    },
+    "gingiris-go-global": {
+        "title": "AI 产品出海完整 SOP",
+        "desc": "Phase 0-5：市场验证 / 定位 / 前 100 用户 / 用户访谈 / Beta→Growth + 开源 + PH + Reddit + SEO",
+        "best_for": "中国团队出海或全球团队进入新市场",
+    },
+    "gingiris-growth-finder": {
+        "title": "Growth Finder（meta router）",
+        "desc": "诊断增长问题并路由到对应的 Gingiris 专业 playbook",
+        "best_for": "不确定要装哪个 skill 时的入口",
+    },
+}
+
+
+def _build_skill_registry_prompt() -> str:
+    """Render the registry as a constraint block injected into the system prompt."""
+    lines = [
+        "",
+        "## 📦 真实可用的 Gingiris Skills（**强制使用此列表，不允许发明新 skill 名**）",
+        "",
+        "下面是 Gingiris-1031 官方仓库下所有可用的 skill。引用 skill 时必须使用 **canonical slug**（左列）。",
+        "如果某个 finding 没有匹配的 skill，写 \"（暂无官方 skill 直接覆盖，建议自定义）\"，**不要发明 slug**。",
+        "",
+        "| Canonical Slug | 适用场景 |",
+        "|---|---|",
+    ]
+    for slug, meta in GINGIRIS_SKILL_REGISTRY.items():
+        lines.append(f"| `{slug}` | {meta['best_for']} |")
+    lines.append("")
+    lines.append("**Sales-led / Enterprise Infra 类产品的核心 skills**：")
+    lines.append("- `gingiris-b2b-growth`、`gingiris-seo-geo`、`gingiris-seo-geo-agent`、`gingiris-kol-outreach`（B2B 版）、`gingiris-user-interview`")
+    lines.append("")
+    lines.append("**PLG / Consumer 类产品的核心 skills**：")
+    lines.append("- `gingiris-launch`、`gingiris-seo-geo`、`gingiris-reddit-marketing`、`gingiris-ugc-matrix`、`gingiris-kol-outreach`")
+    lines.append("")
+    lines.append("**OSS 类产品的核心 skills**：")
+    lines.append("- `gingiris-opensource`、`gingiris-github-star-growth`、`gingiris-seo-geo`、`gingiris-reddit-marketing`")
+    return "\n".join(lines)
+
+
+def _expand_skill_install_commands(md: str) -> str:
+    """Replace short install commands in the report with a detailed install
+    guide appended at the bottom of the document.
+
+    Detects multiple patterns the LLM tends to use:
+      - `gingiris install <slug>`
+      - `/install <slug>`
+      - `npx skills add Gingiris-1031/<slug>`
+
+    For each found slug, validates against the registry. Real ones get a
+    full 3-method install block. Invented ones get flagged with a notice
+    suggesting the closest real skill from the registry.
+    """
+    if not md:
+        return md
+
+    patterns = [
+        r"`gingiris install ([a-z0-9-]+)`",
+        r"`/install ([a-z0-9-]+)`",
+        r"`npx skills add Gingiris-1031/([a-z0-9-]+)`",
+        # bare mentions inside code blocks
+        r"gingiris install ([a-z0-9-]+)",
+        r"npx skills add Gingiris-1031/([a-z0-9-]+)",
+    ]
+    found_slugs = []
+    seen = set()
+    for pat in patterns:
+        for m in _re.finditer(pat, md):
+            slug = m.group(1)
+            if slug not in seen:
+                seen.add(slug)
+                found_slugs.append(slug)
+    if not found_slugs:
+        return md
+
+    # Build guide
+    guide = [
+        "",
+        "---",
+        "",
+        "## 📦 如何安装 Gingiris Skills（详细指南）",
+        "",
+        "**关于 Gingiris Skills**：每个 skill 是一份结构化 SKILL.md，"
+        "包含完整方法论、触发关键词、操作步骤。可在 Claude Code、Cursor、"
+        "Gemini CLI、Aider 等支持 skill 加载的 AI agent IDE 中使用。",
+        "",
+        "**三种安装方式**（任选其一）：",
+        "",
+    ]
+
+    real_skills = []
+    invented_skills = []
+    for slug in found_slugs:
+        if slug in GINGIRIS_SKILL_REGISTRY:
+            real_skills.append(slug)
+        else:
+            invented_skills.append(slug)
+
+    for slug in real_skills:
+        info = GINGIRIS_SKILL_REGISTRY[slug]
+        guide.extend([
+            f"### {info['title']}  &nbsp;·&nbsp; `{slug}`",
+            "",
+            f"**Skill 内容**：{info['desc']}",
+            f"**适用产品**：{info['best_for']}",
+            "",
+            "**方法 A — Claude Code**（推荐，直接挂入 skill 池）",
+            "```bash",
+            "# 把 skill 仓库克隆到 ~/.claude/skills/ 下，重启 Claude Code 即生效",
+            "mkdir -p ~/.claude/skills",
+            f"git clone https://github.com/Gingiris-1031/{slug} \\",
+            f"  ~/.claude/skills/{slug}",
+            "```",
+            "",
+            "**方法 B — Cursor / Gemini CLI / 其他 IDE**（作为 project rule 加载）",
+            "```bash",
+            "# 把 SKILL.md 拉到项目的 rules 目录",
+            f"mkdir -p ./.cursor/rules    # 或 ./.gemini/instructions/",
+            f"curl -L https://raw.githubusercontent.com/Gingiris-1031/{slug}/main/SKILL.md \\",
+            f"  -o ./.cursor/rules/{slug}.md",
+            "```",
+            "",
+            "**方法 C — 浏览器在线阅读**（不安装，直接看）",
+            f"- 浏览：https://github.com/Gingiris-1031/{slug}/blob/main/SKILL.md",
+            f"- 目录：https://gingiris.tools/skills/  →  搜 `{slug}`",
+            "",
+            "**触发方式**：装好后，在对话里描述对应场景（例如 \"我们要做 Product Hunt launch\" 会触发 `gingiris-launch`），AI agent 会自动加载 skill 内容作为上下文。",
+            "",
+        ])
+
+    if invented_skills:
+        guide.extend([
+            "",
+            "### ⚠️ 报告中提到的以下 skill 名**不在 Gingiris 官方目录中**",
+            "",
+            "可能是 LLM 推断时生成的名字。请到 [gingiris.tools/skills](https://gingiris.tools/skills) "
+            "查找最接近的官方 skill：",
+            "",
+        ])
+        for slug in invented_skills:
+            guide.append(f"- `{slug}` — 建议查 gingiris.tools/skills 寻找匹配项")
+        guide.append("")
+
+    return md.rstrip() + "\n" + "\n".join(guide)
+
+
 def _strip_forbidden_channel_tasks(md: str, hints: dict) -> str:
     """For sales-led products, surgically remove Action Plan tasks that
     recommend forbidden channels (Product Hunt, UGC matrix, TikTok, Reddit
@@ -838,7 +1058,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
 请记住反幻觉硬约束 A-D，每条 finding 后用 `（依据：xxx）` 标注来源。
 """
 
-    return await _call_llm_long(GINGIRIS_SKILLS_CONTEXT, user_prompt, max_tokens=8000)
+    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
 
 
 async def generate_action_plan(site_data: dict, product_name: str, diagnosis_md: str) -> dict:
@@ -919,7 +1139,7 @@ npx skills add Gingiris-1031/<skill-name>
 - KOL 类任务不要给"3 个月免费 Pro 计划"这种通用模板 — 改成 "**对应你产品的合理 incentive**（企业 SaaS 通常是免费 POC + 案例研究合作；个人开发者产品才适合免费订阅）"。
 """
 
-    return await _call_llm_long(GINGIRIS_SKILLS_CONTEXT, user_prompt, max_tokens=8000)
+    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
 
 
 async def generate_executive_summary(site_data: dict, product_name: str,
@@ -986,7 +1206,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 - 不允许编新数字 / 新竞品 / 新案例。
 """
 
-    return await _call_llm_long(GINGIRIS_SKILLS_CONTEXT, user_prompt, max_tokens=4000)
+    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=4000)
 
 
 # ─── Main Orchestrator ──────────────────────────────────────────────────────
@@ -1034,7 +1254,9 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         # Run the absence-phrase sanitizer before downstream stages see this
         # — otherwise Action Plan + Executive Summary will inherit the
         # confidently-wrong claims and amplify them.
-        reports["diagnosis_report"] = _scrub_absence_phrases(diag_result["content"])
+        diag_md = _scrub_absence_phrases(diag_result["content"])
+        diag_md = _expand_skill_install_commands(diag_md)
+        reports["diagnosis_report"] = diag_md
         sources["diag"] = diag_result.get("source", "?")
         _update("diagnosis", "done")
     else:
@@ -1064,6 +1286,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         hints = detect_product_type(site_data)
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
+        plan_md = _expand_skill_install_commands(plan_md)
         reports["action_plan"] = plan_md
         sources["plan"] = plan_result.get("source", "?")
         _update("action_plan", "done")
@@ -1079,7 +1302,9 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
             reports["diagnosis_report"], reports["action_plan"],
         )
         if isinstance(exec_result, dict) and exec_result.get("success"):
-            reports["executive_summary"] = _scrub_absence_phrases(exec_result["content"])
+            exec_md = _scrub_absence_phrases(exec_result["content"])
+            exec_md = _expand_skill_install_commands(exec_md)
+            reports["executive_summary"] = exec_md
             sources["exec"] = exec_result.get("source", "?")
             _update("executive_summary", "done")
         else:
