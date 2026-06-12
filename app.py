@@ -1029,6 +1029,99 @@ async def autopilot_dashboard(sub_id: str, request: Request):
     }
 
 
+@app.post("/api/audit/qa")
+async def audit_qa(request: Request):
+    """Q&A endpoint for the share-audit page. Asks DeepSeek a question
+    grounded in the audit's three reports + site_data_summary.
+
+    Auth: optional. Anonymous viewers (no JWT) get a smaller rate-limit.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body."}, status_code=400)
+
+    job_id   = (body.get("job_id") or "").strip()
+    question = (body.get("question") or "").strip()
+    history  = body.get("history") or []
+    if not job_id or not question:
+        return JSONResponse({"error": "job_id and question are required."}, status_code=400)
+
+    # Identity — JWT preferred, fallback to a visitor cookie/header.
+    user = await _extract_user(request)
+    user_id = user["id"] if user else None
+    plan    = None
+    if user_id:
+        try:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                rs = sb.table("profiles").select("plan_type").eq("id", user_id).execute()
+                plan = (rs.data or [{}])[0].get("plan_type")
+        except Exception:
+            pass
+
+    # Visitor ID for anon rate limiting. We accept a client-supplied id
+    # (a hash kept in localStorage); falls back to IP + UA.
+    visitor_id = (body.get("visitor_id") or "").strip()
+    if not visitor_id:
+        ip = (request.headers.get("x-forwarded-for") or request.client.host or "").split(",")[0].strip()
+        ua = (request.headers.get("user-agent") or "")[:120]
+        import hashlib as _hl
+        visitor_id = _hl.sha1((ip + "::" + ua).encode("utf-8")).hexdigest()[:24]
+
+    from modules.audit_qa import answer_question
+    result = await answer_question(
+        job_id=job_id,
+        question=question,
+        history=history,
+        user_id=user_id,
+        visitor_id=visitor_id,
+        plan=plan,
+        jobs_dict=_growth_audit_jobs,
+    )
+
+    if result.get("status") == "rate_limited":
+        return JSONResponse(result, status_code=429)
+    if result.get("status") == "not_found":
+        return JSONResponse(result, status_code=404)
+    if result.get("status") in ("llm_error", "empty"):
+        return JSONResponse(result, status_code=503 if result.get("status") == "llm_error" else 400)
+    return result
+
+
+@app.get("/api/audit/qa/{job_id}")
+async def audit_qa_history(job_id: str, request: Request):
+    """Return the most recent Q&A exchanges for an audit so the slide-in
+    panel can re-hydrate when a user reloads the share page."""
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if not sb:
+            return {"history": []}
+        # Identity gate — we return only the caller's own exchanges. For
+        # anonymous viewers, this means filtering by their visitor_id which
+        # the client passes back. Logged-in users get their own user_id.
+        user = await _extract_user(request)
+        user_id = user["id"] if user else None
+        visitor_id = (request.query_params.get("visitor_id") or "").strip()
+
+        q = sb.table("audit_qa").select(
+            "question,answer,cited_section,created_at,refused"
+        ).eq("audit_job_id", job_id).order("created_at", desc=False).limit(20)
+        if user_id:
+            q = q.eq("user_id", user_id)
+        elif visitor_id:
+            q = q.eq("visitor_id", visitor_id).is_("user_id", "null")
+        else:
+            return {"history": []}
+        rs = q.execute()
+        return {"history": rs.data or []}
+    except Exception as e:
+        log.warning("audit_qa_history failed: %s", e)
+        return {"history": []}
+
+
 @app.get("/api/admin/api-balances")
 async def admin_api_balances(request: Request):
     """Return live balance / health for every third-party API the app uses.

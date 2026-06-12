@@ -153,6 +153,135 @@
     .report-card { padding:24px 22px; }
     .tab { padding:11px 14px; font-size:13px; }
   }
+
+  /* ── Q&A widget ─────────────────────────────────────────────── */
+  .qa-bubble {
+    position:fixed; right:24px; bottom:24px; z-index:9000;
+    width:56px; height:56px; border-radius:50%;
+    background:#FB923C; color:#0A0A0A;
+    box-shadow:0 6px 28px rgba(251,146,60,0.45), 0 2px 8px rgba(0,0,0,0.4);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:transform .15s ease, box-shadow .15s;
+    border:none; font-size:24px;
+  }
+  .qa-bubble:hover { transform:scale(1.06); }
+  .qa-bubble .qa-pulse {
+    position:absolute; inset:-2px; border-radius:50%;
+    border:2px solid #FB923C; opacity:0;
+    animation:qa-pulse 2.4s infinite;
+  }
+  @keyframes qa-pulse {
+    0% { opacity:.7; transform:scale(1); }
+    100% { opacity:0; transform:scale(1.4); }
+  }
+  .qa-panel {
+    position:fixed; right:0; top:0; bottom:0; z-index:9100;
+    width:min(420px, 100vw);
+    background:#0F0F10; border-left:1px solid var(--border);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .26s cubic-bezier(.32,.72,.27,1);
+    box-shadow:-8px 0 32px rgba(0,0,0,0.4);
+  }
+  .qa-panel.open { transform:translateX(0); }
+  .qa-panel header {
+    padding:18px 20px;
+    border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px;
+  }
+  .qa-panel header h3 {
+    margin:0; font-family:"Instrument Serif",Georgia,serif;
+    font-size:22px; font-style:italic; font-weight:400; color:var(--ink);
+  }
+  .qa-panel header .qa-close {
+    background:none; border:none; color:var(--ink-muted);
+    font-size:24px; cursor:pointer; padding:4px 10px; line-height:1;
+    border-radius:6px;
+  }
+  .qa-panel header .qa-close:hover { background:rgba(255,255,255,0.05); color:var(--ink); }
+  .qa-panel .qa-sub {
+    font-size:12px; color:var(--ink-faint); padding:0 20px 12px;
+    line-height:1.5;
+  }
+  .qa-panel .qa-thread {
+    flex:1; overflow-y:auto; padding:16px 20px 20px;
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .qa-msg {
+    display:flex; flex-direction:column; gap:6px;
+    animation:qa-fade .26s ease;
+  }
+  @keyframes qa-fade {
+    from { opacity:0; transform:translateY(4px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .qa-msg .qa-role {
+    font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--ink-faint); font-family:"JetBrains Mono",Menlo,monospace;
+  }
+  .qa-msg .qa-bubble-box {
+    padding:11px 14px; border-radius:11px; font-size:14px; line-height:1.6;
+    background:#1A1A1C; color:var(--ink); border:1px solid var(--border);
+    white-space:pre-wrap; word-wrap:break-word;
+  }
+  .qa-msg.user .qa-bubble-box {
+    background:rgba(251,146,60,0.10); color:#F5E6D6;
+    border-color:rgba(251,146,60,0.25); align-self:flex-end;
+    max-width:88%;
+  }
+  .qa-msg.assistant .qa-bubble-box { max-width:100%; }
+  .qa-cite {
+    font-size:10px; color:#FB923C; letter-spacing:0.05em;
+    text-transform:uppercase; padding-top:4px; font-family:"JetBrains Mono",Menlo,monospace;
+  }
+  .qa-empty {
+    text-align:center; padding:30px 16px; color:var(--ink-faint);
+    font-size:13px; line-height:1.7;
+  }
+  .qa-empty strong { color:var(--ink-muted); font-weight:500; }
+  .qa-suggestions { display:flex; flex-direction:column; gap:7px; margin-top:14px; }
+  .qa-suggestion {
+    text-align:left; background:#1A1A1C; border:1px solid var(--border);
+    color:var(--ink-muted); padding:9px 13px; border-radius:8px;
+    font-size:12px; cursor:pointer; transition:all .12s;
+  }
+  .qa-suggestion:hover { color:var(--ink); border-color:rgba(251,146,60,0.35); }
+  .qa-input-row {
+    border-top:1px solid var(--border); padding:14px 18px 18px;
+    display:flex; gap:8px; align-items:flex-end;
+  }
+  .qa-input-row textarea {
+    flex:1; background:#161617; color:var(--ink);
+    border:1px solid var(--border); border-radius:9px;
+    padding:10px 12px; font:inherit; font-size:14px;
+    resize:none; outline:none; min-height:38px; max-height:140px;
+    line-height:1.5;
+  }
+  .qa-input-row textarea:focus { border-color:rgba(251,146,60,0.4); }
+  .qa-input-row .qa-send {
+    background:#F5F1EB; color:#0A0A0A;
+    border:none; border-radius:9px; padding:10px 16px;
+    font-weight:600; font-size:13px; cursor:pointer;
+    transition:opacity .12s;
+  }
+  .qa-input-row .qa-send:disabled { opacity:0.4; cursor:not-allowed; }
+  .qa-meta {
+    font-size:10px; color:var(--ink-faint); padding:0 20px 10px;
+    font-family:"JetBrains Mono",Menlo,monospace;
+  }
+  .qa-typing {
+    display:inline-flex; gap:4px; padding:6px 0;
+  }
+  .qa-typing span {
+    width:6px; height:6px; border-radius:50%; background:var(--ink-faint);
+    animation:qa-dot 1.2s infinite ease-in-out;
+  }
+  .qa-typing span:nth-child(2) { animation-delay:.18s; }
+  .qa-typing span:nth-child(3) { animation-delay:.36s; }
+  @keyframes qa-dot {
+    0%,80%,100% { opacity:.3; transform:scale(.8); }
+    40% { opacity:1; transform:scale(1); }
+  }
 </style>
 </head>
 <body>
@@ -201,6 +330,36 @@
         <a href="https://www.analook.com/growth-audit.html?utm_source=share_audit&utm_medium=cta_card&utm_campaign=audit_share" class="cta-run">Start audit →</a>
       </div>
     </div>
+
+    <!-- Q&A floating bubble + slide panel -->
+    <button id="qa-bubble" class="qa-bubble" aria-label="Ask a question about this audit" title="Ask about this audit" style="display:none">
+      <span class="qa-pulse"></span>
+      💬
+    </button>
+    <aside id="qa-panel" class="qa-panel" aria-hidden="true">
+      <header>
+        <h3>Ask about this audit</h3>
+        <button class="qa-close" id="qa-close" aria-label="Close">×</button>
+      </header>
+      <div class="qa-sub">Powered by DeepSeek. Grounded in the 3 reports above — never makes up numbers.</div>
+      <div id="qa-meta" class="qa-meta"></div>
+      <div id="qa-thread" class="qa-thread">
+        <div class="qa-empty" id="qa-empty">
+          <strong>What would you like to know?</strong><br>
+          Ask anything about the findings, the action plan, or the data behind the report.
+          <div class="qa-suggestions" id="qa-suggestions">
+            <button class="qa-suggestion" data-q="What's the single most important thing I should fix this week?">What's the single most important thing I should fix this week?</button>
+            <button class="qa-suggestion" data-q="How did you arrive at the traffic estimate?">How did you arrive at the traffic estimate?</button>
+            <button class="qa-suggestion" data-q="Which competitor is the biggest threat and why?">Which competitor is the biggest threat and why?</button>
+            <button class="qa-suggestion" data-q="What would change in the plan if I had $500/month instead of $0?">What would change if I had $500/month instead of $0?</button>
+          </div>
+        </div>
+      </div>
+      <div class="qa-input-row">
+        <textarea id="qa-input" rows="1" placeholder="Ask a question…" maxlength="1000"></textarea>
+        <button class="qa-send" id="qa-send">Send</button>
+      </div>
+    </aside>
 
     <div class="footer">
       <a href="https://www.analook.com">Analook</a>
@@ -276,7 +435,172 @@
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
     renderTab('exec');
+
+    // ─── Q&A widget — reveal once the report has rendered ────────────
+    initQaWidget(jobId);
 })();
+
+// =======================  Q&A widget  ====================================
+function initQaWidget(jobId) {
+    const bubble = document.getElementById('qa-bubble');
+    const panel  = document.getElementById('qa-panel');
+    const closeBtn = document.getElementById('qa-close');
+    const thread = document.getElementById('qa-thread');
+    const empty  = document.getElementById('qa-empty');
+    const input  = document.getElementById('qa-input');
+    const send   = document.getElementById('qa-send');
+    const meta   = document.getElementById('qa-meta');
+    if (!bubble || !panel) return;
+
+    bubble.style.display = 'flex';
+
+    // Stable visitor id for anon rate-limiting (matches what /api/audit/qa expects).
+    let visitorId = '';
+    try {
+        visitorId = localStorage.getItem('analook_visitor_id') || '';
+        if (!visitorId) {
+            visitorId = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+                (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+            localStorage.setItem('analook_visitor_id', visitorId);
+        }
+    } catch (e) { visitorId = 'v-' + Math.random().toString(36).slice(2, 12); }
+
+    const history = [];
+
+    function open() {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        setTimeout(() => input.focus(), 280);
+        loadHistory();
+    }
+    function close() {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+    }
+    bubble.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && panel.classList.contains('open')) close();
+    });
+
+    // Suggestion buttons
+    document.querySelectorAll('.qa-suggestion').forEach(b => {
+        b.addEventListener('click', () => {
+            input.value = b.dataset.q || b.textContent;
+            input.dispatchEvent(new Event('input'));
+            ask();
+        });
+    });
+
+    // Auto-grow textarea
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+    });
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
+    });
+    send.addEventListener('click', ask);
+
+    async function loadHistory() {
+        try {
+            const r = await fetch(`/api/audit/qa/${encodeURIComponent(jobId)}?visitor_id=${encodeURIComponent(visitorId)}`);
+            if (!r.ok) return;
+            const j = await r.json();
+            (j.history || []).forEach(turn => {
+                history.push({role:'user', content:turn.question});
+                history.push({role:'assistant', content:turn.answer});
+                appendMsg('user', turn.question);
+                appendMsg('assistant', turn.answer, turn.cited_section);
+            });
+            if ((j.history || []).length) {
+                empty.style.display = 'none';
+                thread.scrollTop = thread.scrollHeight;
+            }
+        } catch (e) { /* fail silent */ }
+    }
+
+    function appendMsg(role, content, cite) {
+        const wrap = document.createElement('div');
+        wrap.className = 'qa-msg ' + role;
+        const roleEl = document.createElement('div');
+        roleEl.className = 'qa-role';
+        roleEl.textContent = role === 'user' ? 'You' : 'Iris (audit AI)';
+        const box = document.createElement('div');
+        box.className = 'qa-bubble-box';
+        box.textContent = content;
+        wrap.appendChild(roleEl);
+        wrap.appendChild(box);
+        if (cite && role === 'assistant') {
+            const cm = document.createElement('div');
+            cm.className = 'qa-cite';
+            const label = {exec:'Executive Summary', diag:'Diagnosis Report', plan:'30-Day Action Plan', mixed:'Multiple sections'}[cite] || cite;
+            cm.textContent = '✦ Source: ' + label;
+            wrap.appendChild(cm);
+        }
+        thread.appendChild(wrap);
+        thread.scrollTop = thread.scrollHeight;
+        return wrap;
+    }
+
+    function setTyping(on) {
+        let t = document.getElementById('qa-typing-msg');
+        if (on) {
+            if (t) return;
+            const w = appendMsg('assistant', '');
+            w.id = 'qa-typing-msg';
+            const box = w.querySelector('.qa-bubble-box');
+            box.innerHTML = '<span class="qa-typing"><span></span><span></span><span></span></span>';
+        } else if (t) { t.remove(); }
+    }
+
+    async function ask() {
+        const q = input.value.trim();
+        if (!q) return;
+        empty.style.display = 'none';
+        input.value = '';
+        input.style.height = 'auto';
+        appendMsg('user', q);
+        history.push({role:'user', content:q});
+        send.disabled = true;
+        setTyping(true);
+
+        try {
+            const r = await fetch('/api/audit/qa', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    job_id:jobId, question:q,
+                    history:history.slice(-12),
+                    visitor_id:visitorId,
+                }),
+            });
+            const data = await r.json();
+            setTyping(false);
+
+            if (!r.ok) {
+                appendMsg('assistant',
+                    data.error || 'Something went wrong. Try again in a moment.',
+                    null);
+                if (r.status === 429) {
+                    meta.textContent = `Rate limit reached: ${data.used}/${data.limit} this hour.`;
+                }
+                return;
+            }
+            appendMsg('assistant', data.answer || '', data.cited_section);
+            history.push({role:'assistant', content:data.answer || ''});
+            if (data.used && data.limit) {
+                meta.textContent = `${data.used}/${data.limit} questions this hour · answer in ${data.latency_ms || '?'}ms`;
+            }
+        } catch (e) {
+            setTyping(false);
+            appendMsg('assistant', 'Network error. Try again.', null);
+        } finally {
+            send.disabled = false;
+            input.focus();
+        }
+    }
+}
 </script>
 </body>
 </html>
