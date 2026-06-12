@@ -812,7 +812,10 @@ async def get_growth_audit_status(job_id: str):
         "progress": job.get("progress"),
     }
 
-    if job["status"] == "completed" and job.get("reports"):
+    # Return whatever reports exist so far (not only when completed) so the
+    # frontend can progressively render Diagnosis the moment it's ready, then
+    # Exec/Plan as they stream in — instead of waiting for the full pipeline.
+    if job.get("reports"):
         response["reports"] = job["reports"]
         response["site_data_summary"] = job.get("site_data_summary")
 

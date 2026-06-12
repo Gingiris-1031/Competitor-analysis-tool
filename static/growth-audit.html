@@ -472,6 +472,9 @@
     <script>
     let currentJobId = null;
     let reports = {};
+    let currentTab = 'exec';      // which report tab is showing
+    let resultsShown = false;     // have we revealed the results section yet
+    let auditComplete = false;    // has the whole pipeline finished
 
     /**
      * Branded toast notification — replaces blocking native alert().
@@ -686,15 +689,33 @@
                 updateStep('step-plan', data.progress.action_plan);
             }
 
+            // Progressive reveal: the moment any report has streamed in, show
+            // the results section and render it — don't wait for the full run.
+            if (data.reports && Object.values(data.reports).some(Boolean)) {
+                reports = data.reports;
+                if (!resultsShown) {
+                    resultsShown = true;
+                    stopProgressEngine();
+                    showResultsProgressive(data.product_name, data.url);
+                } else {
+                    renderCurrentTab();   // fill in newly-arrived reports
+                }
+            }
+
             if (data.status === 'completed') {
-                // Snap the bar to 100% briefly so the eye registers completion
-                // before we swap to the results section.
-                document.getElementById('progress-fill').style.width = '100%';
-                document.getElementById('progress-percent').textContent = '100%';
-                document.getElementById('progress-eta').textContent = '✓ Audit ready — opening reports';
-                stopProgressEngine();
-                reports = data.reports || {};
-                setTimeout(() => showResults(data.product_name, data.url), 450);
+                auditComplete = true;
+                reports = data.reports || reports;
+                if (!resultsShown) {
+                    // Finished before any partial was caught — reveal now.
+                    document.getElementById('progress-fill').style.width = '100%';
+                    document.getElementById('progress-percent').textContent = '100%';
+                    document.getElementById('progress-eta').textContent = '✓ Audit ready — opening reports';
+                    stopProgressEngine();
+                    resultsShown = true;
+                    setTimeout(() => showResultsProgressive(data.product_name, data.url), 450);
+                } else {
+                    renderCurrentTab();   // refresh active tab with final content
+                }
                 return;
             }
 
@@ -724,7 +745,10 @@
         switchTab('exec');
     }
 
+    const TAB_KEY = { exec: 'executive_summary', diag: 'diagnosis_report', plan: 'action_plan' };
+
     function switchTab(tab) {
+        currentTab = tab;
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('tab-active');
             btn.classList.add('text-[color:var(--ink-muted)]');
@@ -732,14 +756,39 @@
         const active = document.querySelector(`[data-tab="${tab}"]`);
         active.classList.add('tab-active');
         active.classList.remove('text-[color:var(--ink-muted)]');
+        renderCurrentTab();
+    }
 
+    // Render whichever tab is active, accounting for reports that haven't
+    // streamed in yet (progressive reveal): show a "generating" placeholder
+    // while the pipeline is still running, only show failure once it's done.
+    function renderCurrentTab() {
         const container = document.getElementById('report-container');
-        let content = '';
-        if (tab === 'exec') content = reports.executive_summary || '*Report generation failed. Please try again.*';
-        else if (tab === 'diag') content = reports.diagnosis_report || '*Report generation failed. Please try again.*';
-        else if (tab === 'plan') content = reports.action_plan || '*Report generation failed. Please try again.*';
+        const md = reports[TAB_KEY[currentTab]];
+        if (md) {
+            container.innerHTML = marked.parse(md);
+        } else if (!auditComplete) {
+            container.innerHTML =
+                '<div class="text-center py-16 text-[color:var(--ink-muted)] fade-in">' +
+                '<div class="text-3xl mb-3 animate-pulse">⏳</div>' +
+                '<p class="font-medium">这部分报告正在生成中…</p>' +
+                '<p class="text-sm mt-1 opacity-70">已就绪的部分可先查看,其余会自动出现</p></div>';
+        } else {
+            container.innerHTML = marked.parse('*Report generation failed. Please try again.*');
+        }
+    }
 
-        container.innerHTML = marked.parse(content);
+    // Reveal the results section as soon as the first report is ready, landing
+    // on the first available tab (Diagnosis usually streams in first).
+    function showResultsProgressive(productName, url) {
+        document.getElementById('progress-section').classList.add('hidden');
+        document.getElementById('results-section').classList.remove('hidden');
+        document.getElementById('result-title').textContent = productName || '';
+        document.getElementById('result-url').textContent = url || '';
+        const firstReady = reports.executive_summary ? 'exec'
+                         : reports.diagnosis_report ? 'diag'
+                         : reports.action_plan ? 'plan' : 'diag';
+        switchTab(firstReady);
     }
 
     /* ── Export & Share helpers ────────────────────────────────────────── */

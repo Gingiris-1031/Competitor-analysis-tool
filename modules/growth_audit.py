@@ -1931,6 +1931,18 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         if jobs_dict and job_id and job_id in jobs_dict:
             jobs_dict[job_id]["progress"][stage] = status
 
+    def _emit(key: str, md: str):
+        """Stream a finished report into the job immediately so the frontend can
+        render it before the remaining stages complete (progressive reveal).
+        Diagnosis lands at ~50% of total wall-clock — showing it then, instead
+        of making the user stare at a progress bar until 100%, is the whole win."""
+        if jobs_dict and job_id and job_id in jobs_dict:
+            r = jobs_dict[job_id].get("reports")
+            if not isinstance(r, dict):
+                r = {}
+                jobs_dict[job_id]["reports"] = r
+            r[key] = md
+
     # Step 1: Fetch site data
     _update("fetch", "running")
     site_data = await fetch_site_with_tinyfish(url)
@@ -1967,6 +1979,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         diag_md = _replace_playbook_section(diag_md, hints_for_diag, heading_level=2)
         reports["diagnosis_report"] = diag_md
         sources["diag"] = diag_result.get("source", "?")
+        _emit("diagnosis_report", diag_md)  # stream it now — ~50% mark
         _update("diagnosis", "done")
     else:
         _update("diagnosis", "failed")
@@ -2008,11 +2021,30 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         )
     )
 
-    plan_result, exec_result = await asyncio.gather(
-        plan_task, exec_task, return_exceptions=True,
-    )
+    # Both tasks already run concurrently; awaiting Exec (4000 tok) first — it
+    # finishes before Plan (8000 tok) — lets us stream it out sooner without
+    # serializing the two. Reveal order ends up Diagnosis → Exec → Plan.
+    # ── Process Executive Summary (finishes first) ───────────────────────
+    try:
+        exec_result = await exec_task
+    except Exception as e:
+        exec_result = e
+    if isinstance(exec_result, dict) and exec_result.get("success"):
+        exec_md = _scrub_absence_phrases(exec_result["content"])
+        exec_md = _replace_playbook_section(exec_md, hints, heading_level=2)
+        reports["executive_summary"] = exec_md
+        sources["exec"] = exec_result.get("source", "?")
+        _emit("executive_summary", exec_md)
+        _update("executive_summary", "done")
+    else:
+        _update("executive_summary", "failed")
+        log.error("Executive Summary generation failed: %s", exec_result)
 
-    # ── Process Action Plan ──────────────────────────────────────────────
+    # ── Process Action Plan (longer — finishes last) ─────────────────────
+    try:
+        plan_result = await plan_task
+    except Exception as e:
+        plan_result = e
     if isinstance(plan_result, dict) and plan_result.get("success"):
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
@@ -2034,21 +2066,11 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
                 plan_md = plan_md.rstrip() + "\n" + kol_section + "\n"
         reports["action_plan"] = plan_md
         sources["plan"] = plan_result.get("source", "?")
+        _emit("action_plan", plan_md)
         _update("action_plan", "done")
     else:
         _update("action_plan", "failed")
         log.error("Action Plan generation failed: %s", plan_result)
-
-    # ── Process Executive Summary ────────────────────────────────────────
-    if isinstance(exec_result, dict) and exec_result.get("success"):
-        exec_md = _scrub_absence_phrases(exec_result["content"])
-        exec_md = _replace_playbook_section(exec_md, hints, heading_level=2)
-        reports["executive_summary"] = exec_md
-        sources["exec"] = exec_result.get("source", "?")
-        _update("executive_summary", "done")
-    else:
-        _update("executive_summary", "failed")
-        log.error("Executive Summary generation failed: %s", exec_result)
 
     return {
         "product_name": product_name,
