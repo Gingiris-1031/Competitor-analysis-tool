@@ -208,4 +208,23 @@
     <lastmod>2026-06-11</lastmod>
   </url>
 
+  <url>
+    <loc>https://www.analook.com/blog/how-to-track-competitor-pricing-changes.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+    <lastmod>2026-06-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.analook.com/blog/competitor-product-hunt-launches-tracking.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+    <lastmod>2026-06-11</lastmod>
+  </url>
+  <url>
+    <loc>https://www.analook.com/blog/competitor-research-for-yc-founders.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.85</priority>
+    <lastmod>2026-06-11</lastmod>
+  </url>
+
 </urlset>

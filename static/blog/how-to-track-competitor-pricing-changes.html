@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QJDYKDLLVY"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-QJDYKDLLVY');</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Track Competitor Pricing Changes in 2026 (5 Methods + Free Wayback Workflow)</title>
+    <meta name="description" content="A founder's guide to monitoring competitor pricing — from free Wayback Machine workflows to automated diff alerts. Real examples, decision tree, the 3 mistakes that miss the pricing signal.">
+    <meta name="keywords" content="track competitor pricing, competitor pricing changes, monitor competitor pricing, pricing intelligence, SaaS pricing tracker, competitor price monitoring">
+    <meta property="og:title" content="How to Track Competitor Pricing Changes in 2026 — 5 Methods Ranked">
+    <meta property="og:description" content="Free Wayback workflow → paid monitoring → multi-source aggregation. The 3 mistakes that miss the pricing signal.">
+    <meta property="og:url" content="https://www.analook.com/blog/how-to-track-competitor-pricing-changes.html">
+    <meta property="og:image" content="https://www.analook.com/assets/og/homepage.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="canonical" href="https://www.analook.com/blog/how-to-track-competitor-pricing-changes.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.key-stats{background:linear-gradient(180deg,rgba(251,146,60,0.06),rgba(251,146,60,0.01));border:1px solid rgba(251,146,60,0.3);border-radius:14px;padding:1.5rem;margin:2rem 0}
+</style>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "How to Track Competitor Pricing Changes in 2026 (5 Methods)",
+        "author": {"@type": "Person", "name": "Iris Wei", "url": "https://x.com/WeiYipei"},
+        "datePublished": "2026-06-11",
+        "dateModified": "2026-06-11",
+        "publisher": {"@type": "Organization", "name": "Analook", "url": "https://www.analook.com"},
+        "description": "A founder's guide to monitoring competitor pricing — from free Wayback workflows to automated diff alerts.",
+        "image": "https://www.analook.com/assets/og/homepage.png"
+    }
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+      {"@type":"Question","name":"How often do SaaS competitors change pricing?","acceptedAnswer":{"@type":"Answer","text":"Average B2B SaaS in 2026 ships a pricing-page change every 4-6 months — that's the entire page, not just numbers. Numeric price moves happen less often (roughly every 9-12 months), but plan restructures (renames, gating shifts, new tiers) happen far more frequently. If you're only tracking numeric deltas, you're missing roughly 70% of the actual pricing signal."}},
+      {"@type":"Question","name":"What's the cheapest way to monitor competitor pricing?","acceptedAnswer":{"@type":"Answer","text":"Wayback Machine snapshots are free and surprisingly complete for major SaaS pricing pages — most are snapshotted within a week of any change. Set a monthly calendar reminder to diff each competitor's pricing-page snapshot against your last review. Total time: under 30 minutes per quarter across 5 competitors."}},
+      {"@type":"Question","name":"Can I get automated alerts when a competitor changes pricing?","acceptedAnswer":{"@type":"Answer","text":"Yes — three options. Free: Distill.io or Visualping with a region-locked selector on the pricing page (free tier covers ~5 URLs). Mid: Wachete or Hexowatch at $9-15/mo for more URLs and webhook integrations. Multi-source: Analook's autopilot weekly digest catches pricing-page diffs alongside positioning, channel, and feature changes — useful when you don't want one alert per data type."}},
+      {"@type":"Question","name":"What's the difference between pricing-page tracking and full pricing intelligence?","acceptedAnswer":{"@type":"Answer","text":"Pricing-page tracking watches the public-facing page. Pricing intelligence covers public + private signals: sales-call notes, public reviews mentioning discounts, prospect quotes, and competitive deal-loss reasons. Pricing-page tracking is enough for most pre-Series-A founders. Above that, the missing 30% of pricing signal lives in non-public channels."}},
+      {"@type":"Question","name":"How quickly should I react when a competitor changes pricing?","acceptedAnswer":{"@type":"Answer","text":"Don't react in the first 30 days. Pricing moves often get rolled back within a quarter when the competitor sees CAC impact. Wait 60-90 days, observe whether positioning and CTAs shifted alongside the numbers (a real strategy change) or whether it's an isolated number tweak (often a test). Pricing-only reactions usually create margin damage without strategic gain."}}
+    ]}
+    </script>
+    <style>
+        .prose h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 1.875rem; font-weight: 400; font-style: italic; color: #f5f1eb; margin-top: 3rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
+        .prose h3 { font-size: 1.125rem; font-weight: 600; color: #d1d5db; margin-top: 2rem; margin-bottom: 0.5rem; }
+        .prose p { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; }
+        .prose ul, .prose ol { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; padding-left: 1.5rem; }
+        .prose li { margin-bottom: 0.5rem; }
+        .prose strong { color: #f5f1eb; font-weight: 600; }
+        .prose a { color: #FB923C; text-decoration: underline; text-underline-offset: 3px; }
+        .prose a:hover { color: #FDBA74; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .prose th { text-align: left; padding: 0.625rem 0.75rem; color: #FB923C; border-bottom: 1px solid rgba(255,255,255,0.15); font-weight: 600; }
+        .prose td { padding: 0.625rem 0.75rem; color: #d1d5db; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .prose blockquote { border-left: 3px solid #FB923C; padding-left: 1.25rem; margin: 1.5rem 0; color: #b8b8b3; font-style: italic; }
+        .prose code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: #FDBA74; }
+    </style>
+</head>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
+        <div class="max-w-3xl mx-auto px-6 flex items-center gap-3">
+            <a href="/" class="flex items-center gap-2"><span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span></a>
+            <span class="text-[color:var(--ink-faint)]">/</span>
+            <a href="/blog/" class="text-[color:var(--ink-muted)] text-sm hover:text-[color:var(--ink)]">Blog</a>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+        <article class="prose">
+            <p class="text-xs text-[color:var(--ink-faint)] mb-2 font-mono">June 11, 2026 · 10 min read · by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
+
+            <h1 class="font-serif text-4xl md:text-5xl leading-[0.95] tracking-tight text-white mb-5 mt-0">How to Track Competitor Pricing Changes <em class="italic font-normal" style="color:#FB923C">in 2026 (5 methods + free Wayback workflow)</em></h1>
+
+            <p class="text-lg text-[color:var(--ink-muted)] mb-8 leading-relaxed">In February 2026, a competitor I track raised their starter plan from $19 to $29 — a 53% jump. I caught it 11 days later, only because their founder mentioned the new tier on X. Their changelog said nothing, their email list got no announcement, and the Wayback snapshot didn't render the page correctly for two weeks. This post is the workflow I built so that doesn't happen again.</p>
+
+            <div class="key-stats">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] font-mono mb-3">Key Stats (Updated June 2026)</p>
+                <ul class="list-none p-0 m-0 space-y-1.5 text-sm">
+                    <li><strong style="color:#FB923C">SaaS pricing-page change rate</strong>: every 4-6 months on average</li>
+                    <li><strong style="color:#FB923C">Numeric price changes alone</strong>: only ~30% of total pricing signal — plan restructures are bigger</li>
+                    <li><strong style="color:#FB923C">Free method</strong>: Wayback Machine + monthly calendar review, ~30 min/quarter across 5 competitors</li>
+                    <li><strong style="color:#FB923C">Paid alerting</strong>: Distill.io / Visualping free tier (~5 URLs) → Wachete $9/mo → Analook autopilot $49/mo</li>
+                    <li><strong style="color:#FB923C">Reaction lag</strong>: wait 60-90 days before responding — many pricing moves get rolled back within a quarter</li>
+                </ul>
+            </div>
+
+            <h2>What "pricing change" actually means</h2>
+
+            <p>Most pricing trackers only catch numeric deltas — $19 → $29 — and miss everything else. But the actually-strategic moves are usually structural:</p>
+            <ul>
+                <li><strong>Plan renames</strong>: "Starter / Pro / Enterprise" → "Free / Team / Scale" tells you they're chasing self-serve adoption</li>
+                <li><strong>Gating shifts</strong>: a feature that used to be Pro-only moves to Free → they're optimizing for top-of-funnel</li>
+                <li><strong>New tiers</strong>: a $5 "Lite" plan appearing → they're losing deals to a cheaper substitute</li>
+                <li><strong>Annual prepay incentives</strong>: 20% off annual → they're stretching for runway</li>
+                <li><strong>Add-on unbundling</strong>: features splitting out as paid add-ons → they're squeezing margin per account</li>
+            </ul>
+            <p>If your tracker only watches the dollar amounts, you'll catch the 30% of signal that's easiest to see and miss the 70% that's actually strategic.</p>
+
+            <h2>Method 1 — Wayback Machine + calendar reminder (free, 30 min/quarter)</h2>
+
+            <p>The free workflow that handles roughly 80% of what a $49/mo tool does:</p>
+
+            <ol>
+                <li><strong>Bookmark each competitor's pricing page</strong> directly to <a href="https://web.archive.org" target="_blank" rel="noopener">web.archive.org</a> calendar view, e.g. <code>web.archive.org/web/2026/https://competitor.com/pricing</code></li>
+                <li><strong>Set a recurring calendar event</strong> the first Monday of each month, 30 min, titled "Pricing diff sweep"</li>
+                <li><strong>For each competitor</strong>: open today's snapshot in one tab, 90 days ago in another, eyeball the differences. Numbers, plan names, gating language, CTAs.</li>
+                <li><strong>Log changes in a single spreadsheet</strong>: competitor / date / change type / one-sentence interpretation. Don't react yet — log and let it sit.</li>
+            </ol>
+
+            <p>Wayback's reliability is the tradeoff — most major SaaS pricing pages are crawled within a week of changes, but if the page uses heavy JS rendering or is geo-gated, snapshots can render blank or with stale React state. When that happens, fall back to a manual visit (incognito + VPN to US-East if needed).</p>
+
+            <h2>Method 2 — Visualping / Distill.io alerts (free tier, automated)</h2>
+
+            <p>If 30 min/quarter is more discipline than you have, free tools push the alerts to your inbox:</p>
+
+            <table>
+                <thead><tr><th>Tool</th><th>Free tier</th><th>Best for</th></tr></thead>
+                <tbody>
+                <tr><td>Distill.io</td><td>25 monitors, 6h interval</td><td>Selector-based — target the <code>&lt;section class="pricing"&gt;</code> element only, ignores nav/footer noise</td></tr>
+                <tr><td>Visualping</td><td>5 pages, daily check</td><td>Visual diff — catches design changes that selectors miss</td></tr>
+                <tr><td>Wachete</td><td>5 pages, 24h interval</td><td>Region-locked checks if the competitor geo-tests pricing</td></tr>
+                </tbody>
+            </table>
+
+            <p>The trick that makes these work: <strong>use a CSS selector to target only the pricing section</strong>, not the whole page. Full-page monitoring fires on every header/nav/footer/timestamp change and you'll mute the alerts within a week. We have a full <a href="/alternatives/visualping.html">Visualping alternatives breakdown</a> if you outgrow the free tier.</p>
+
+            <h2>Method 3 — Multi-source autopilot ($49/mo, catches structural shifts)</h2>
+
+            <p>The honest version of why I built <a href="/">Analook's Autopilot</a>: I wanted one weekly digest that caught pricing changes <em>and</em> the surrounding context — positioning shifts on the homepage, new CTAs, social momentum spikes, Product Hunt re-launches. A pure pricing alert is missing the "why" you actually need to interpret the change.</p>
+
+            <p>The autopilot diffs the entire competitor surface weekly and flags pricing as one signal alongside ~6 others. When a competitor moves from $19 to $29 AND swaps their hero copy from "AI tools for solos" to "for AI-native teams", that's a strategy pivot, not a price experiment — and the difference matters a lot for how you respond.</p>
+
+            <h2>Method 4 — Sales-call notes + Reddit/G2 reviews (free, lagged)</h2>
+
+            <p>This catches the pricing signal you'll never see on a pricing page: actual transaction prices.</p>
+
+            <ul>
+                <li><strong>Sales-call notes</strong>: when a prospect mentions a competitor quote, log it. After ~10 instances you'll see the discount band.</li>
+                <li><strong>Reddit / G2 review mining</strong>: search <code>site:reddit.com "competitor name" pricing</code> and sort by Newest. Look for "they quoted me $X" mentions.</li>
+                <li><strong>LinkedIn employee posts</strong>: enterprise sales reps occasionally post deal sizes (especially around quarter close)</li>
+            </ul>
+
+            <p>This lags by weeks to months, but it surfaces the real transaction prices — not the "starting at $99/mo" public page anchor. For enterprise SaaS, this is where the actual pricing intelligence lives.</p>
+
+            <h2>Method 5 — Pricing intelligence platforms ($99-499/mo, enterprise)</h2>
+
+            <p>Crayon, Klue, Kompyte, and Competera occupy the enterprise tier. The differentiator from Methods 1-3: they bundle competitive pricing alerts into a full battlecard system for sales enablement, and they capture private signals (sales-team submissions, public review monitoring, custom intake forms).</p>
+
+            <p>You don't need these as a pre-Series-A founder. You probably need them when you have ≥3 AEs and competitive deals are a meaningful share of pipeline.</p>
+
+            <h2>The 3 mistakes that miss the actual signal</h2>
+
+            <ol>
+                <li><strong>Tracking only numeric changes.</strong> Plan renames and gating shifts are bigger strategic signals than dollar deltas — they tell you who the competitor is now targeting and why.</li>
+                <li><strong>Reacting in the first 30 days.</strong> A meaningful fraction of pricing changes get reverted within a quarter when the competitor sees CAC degrade. Mirroring their move locks in margin damage before you know whether they'll hold the line.</li>
+                <li><strong>Watching the pricing page in isolation.</strong> A pricing move with no other surface change (homepage, positioning, CTAs) is usually a test. A pricing move with a coordinated homepage rewrite is a strategy commitment. The reaction is different.</li>
+            </ol>
+
+            <h2>Decision tree: which method when</h2>
+
+            <table>
+                <thead><tr><th>Situation</th><th>Use this</th></tr></thead>
+                <tbody>
+                <tr><td>Pre-Series-A, &lt;5 competitors, discipline OK</td><td>Method 1 (Wayback + monthly calendar)</td></tr>
+                <tr><td>Want push alerts, can't trust your own discipline</td><td>Method 2 (Distill.io free tier with selector)</td></tr>
+                <tr><td>Want pricing + positioning + channel in one digest</td><td>Method 3 (Analook Autopilot)</td></tr>
+                <tr><td>Enterprise B2B, sales team, deals lost on price</td><td>Method 4 + Method 5</td></tr>
+                <tr><td>Just need to verify one competitor's pricing today</td><td>Manual visit in incognito + VPN to US-East</td></tr>
+                </tbody>
+            </table>
+
+            <h2>How to react when you catch a change</h2>
+
+            <p>Resist the impulse to mirror. The reaction framework I use:</p>
+
+            <ol>
+                <li><strong>Wait 60 days.</strong> Watch whether the change persists, gets refined, or rolls back.</li>
+                <li><strong>Check the surrounding signals.</strong> Did homepage hero copy change? New ICP language in OG tags? Founder X bio shift? Coordinated changes = strategy. Isolated price change = test.</li>
+                <li><strong>Check your own win/loss data.</strong> If you're losing deals against them on price right now, the signal is urgent. If not, it can wait one more cycle.</li>
+                <li><strong>If you decide to respond</strong>: change positioning before changing price. Most competitor "pricing problems" are actually positioning problems that pricing can't fix.</li>
+            </ol>
+
+            <div class="callout p-6 mt-12 mb-8">
+                <h3 class="text-sm font-semibold text-[color:var(--accent)] uppercase tracking-wide mb-3" style="margin-top:0">Autopilot pricing + positioning digest</h3>
+                <p class="text-[color:var(--ink-muted)] text-sm mb-4">Add up to 10 competitor URLs, get a weekly email summary of pricing changes alongside positioning, channel mix, and Product Hunt re-launches. $49/mo, cancel anytime, first audit free.</p>
+                <a href="/" class="inline-block btn-primary px-7 py-2.5 rounded-full text-sm font-medium transition-colors" style="text-decoration:none">Try Analook free →</a>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-[color:var(--border)]">
+                <h3 class="text-sm font-semibold mb-3" style="margin-top:0; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.05em">Related</h3>
+                <ul class="text-sm space-y-2" style="list-style:none; padding-left:0">
+                    <li>→ <a href="/blog/how-to-find-competitor-traffic-sources.html">How to find competitor traffic sources (4 methods)</a></li>
+                    <li>→ <a href="/blog/competitive-analysis-template-2026.html">The competitive analysis template I actually use</a></li>
+                    <li>→ <a href="/alternatives/visualping.html">7 best Visualping alternatives in 2026</a></li>
+                </ul>
+            </div>
+
+            <footer class="mt-12 pt-8 border-t border-[color:var(--border)] text-center text-[color:var(--ink-faint)] text-xs">
+                <p>Written by <a href="https://gingiris.com" style="color:#A1A1A0">Iris Wei</a> · ex-COO of AFFiNE (60K stars) · founder of Analook · Last updated June 11, 2026</p>
+            </footer>
+        </article>
+    </main>
+</body>
+</html>
