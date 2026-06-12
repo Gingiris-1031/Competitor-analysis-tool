@@ -1291,6 +1291,16 @@ async def _run_analysis(job_id: str):
     # own published handle is ground truth — Phase 1.8 uses it to correct fuzzy
     # mismatches (e.g. @testingcatalog → declared @tiny_fish for tinyfish.ai).
     _declared_tw = ((_ws_social_links.get("twitter") or {}).get("handle") or "").strip()
+    # Fallback: the live scrape sometimes returns no social_links at all (JS-rendered
+    # footer, anti-bot, timeout). The site's handle often still survives in the
+    # Wayback historical snapshots (deep_timeline) — harvest it from there. An
+    # archived self-declared handle is still ground truth, far better than a guess.
+    if not _declared_tw:
+        for _snap in (_website_res.get("deep_timeline") or []):
+            _snap_h = (((_snap or {}).get("social_links") or {}).get("twitter") or {}).get("handle")
+            if _snap_h and _snap_h.strip():
+                _declared_tw = _snap_h.strip()
+                break
     for _platform in ("twitter", "youtube", "instagram", "tiktok", "facebook"):
         _ch = _soc_channels.get(_platform, {})
         if _ch.get("detected") and _ch.get("handle") and _ws_social_links.get(_platform):
