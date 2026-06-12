@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QJDYKDLLVY"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-QJDYKDLLVY');</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Competitive Analysis Template I Actually Use (2026, 10 Steps + Free Sheet)</title>
+    <meta name="description" content="A founder's competitive analysis template, refined across 150+ real audits. 10 steps, takes 90 minutes, includes the Google Sheet I use. Skips the McKinsey theater; keeps what actually changes the roadmap.">
+    <meta name="keywords" content="competitive analysis template, competitor analysis framework, SaaS competitive analysis, competitor research template, competitive matrix template 2026">
+    <meta property="og:title" content="The Competitive Analysis Template I Actually Use (2026)">
+    <meta property="og:description" content="10 steps, 90 minutes, free Google Sheet. Refined across 150+ real audits. Skips the McKinsey theater.">
+    <meta property="og:url" content="https://www.analook.com/blog/competitive-analysis-template-2026.html">
+    <meta property="og:image" content="https://www.analook.com/assets/og/homepage.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="canonical" href="https://www.analook.com/blog/competitive-analysis-template-2026.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+.key-stats{background:linear-gradient(180deg,rgba(251,146,60,0.06),rgba(251,146,60,0.01));border:1px solid rgba(251,146,60,0.3);border-radius:14px;padding:1.5rem;margin:2rem 0}
+.step-card{background:#141414;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;margin:14px 0}
+.step-num{display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;background:#FB923C;color:#0A0A0A;border-radius:50%;font-weight:700;font-size:13px;margin-right:10px}
+</style>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "Competitive Analysis: 10-Step Template (2026)",
+        "description": "A founder-friendly competitive analysis workflow that takes 90 minutes per competitor, surfaces actionable strategy decisions, and skips the McKinsey theater.",
+        "totalTime": "PT90M",
+        "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0"},
+        "step": [
+            {"@type": "HowToStep", "position": 1, "name": "Define the strategic question first", "text": "Write the one decision this analysis will inform — pricing, channel, positioning, feature. If you can't name it, don't start."},
+            {"@type": "HowToStep", "position": 2, "name": "Pick 5-7 competitors using the 3-bucket rule", "text": "2 direct, 2 adjacent, 1-2 substitutes. Not more — diminishing returns kick in hard above 7."},
+            {"@type": "HowToStep", "position": 3, "name": "Map the strategic question to data sources", "text": "Each decision type maps to specific data (pricing → pricing page + Wayback; channel → SimilarWeb + Google Trends; positioning → homepage hero + LinkedIn)."},
+            {"@type": "HowToStep", "position": 4, "name": "Run the 90-minute extraction loop", "text": "Per competitor: 10 minutes site teardown, 5 minutes traffic check, 10 minutes social/PH, 5 minutes pricing diff, 5 minutes feature gap, 10 minutes synthesis."},
+            {"@type": "HowToStep", "position": 5, "name": "Fill the comparison matrix (not a feature matrix)", "text": "Compare on the strategic dimensions, not features. Strategic dimensions: positioning, primary channel, pricing model, ICP, founder distribution."},
+            {"@type": "HowToStep", "position": 6, "name": "Score competitive intensity 1-5 on each dimension", "text": "Score how hard you'd have to work to beat each competitor on each dimension. Total score = competitive moat estimate."},
+            {"@type": "HowToStep", "position": 7, "name": "Identify the wedge — one dimension you can dominate", "text": "You will not beat everyone on everything. Find the one dimension where you have a structural advantage and competitors are weak."},
+            {"@type": "HowToStep", "position": 8, "name": "Build the 'compete vs. avoid' decision matrix", "text": "For each competitor: compete head-on, differentiate, partner, or avoid. Most founders default to compete; usually avoid or differentiate is right."},
+            {"@type": "HowToStep", "position": 9, "name": "Convert the wedge into a 6-week roadmap commitment", "text": "Pick the 2-3 actions that operationalize the wedge over the next 6 weeks. Anything that doesn't reinforce the wedge gets cut from the sprint."},
+            {"@type": "HowToStep", "position": 10, "name": "Set a 90-day refresh trigger", "text": "Re-run the matrix every 90 days OR whenever a competitor raises / launches / pivots. Older than 90 days = unreliable input for strategy."}
+        ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": "How long should a competitive analysis take?", "acceptedAnswer": {"@type": "Answer", "text": "For a tactical decision (pricing, positioning, channel) the template above takes about 90 minutes per competitor with practice — roughly 8-10 hours for a 5-7 competitor sweep. The first time you run it, double those numbers. The McKinsey-style 3-week competitive deep-dive is overkill for almost every founder decision; the only time it's warranted is a category-defining strategy shift or M&A."}},
+            {"@type": "Question", "name": "What's the difference between a competitive analysis and a feature matrix?", "acceptedAnswer": {"@type": "Answer", "text": "A feature matrix lists features your tool has vs. theirs. It's a sales tool — useful in a head-to-head pitch. A competitive analysis is a strategy tool — it answers 'where should we compete and where should we avoid', which features alone can't tell you. Most founders accidentally build the feature matrix when they need the strategy tool, then wonder why nothing in their roadmap changes after the exercise."}},
+            {"@type": "Question", "name": "How many competitors should I analyze?", "acceptedAnswer": {"@type": "Answer", "text": "5-7 using the 3-bucket rule: 2 direct (same problem, same ICP), 2 adjacent (same problem, different ICP, or vice versa), 1-2 substitutes (different category that solves the same job). Above 7 you start adding noise — competitors that don't really compete for your customer's attention or budget, which dilute the strategic signal."}},
+            {"@type": "Question", "name": "How often should I refresh competitive analysis?", "acceptedAnswer": {"@type": "Answer", "text": "Every 90 days for the full sweep, plus event-driven refreshes whenever a competitor raises a round, launches a major feature, repositions, or starts a paid acquisition push. Beyond 90 days, the data is too stale to inform strategy — competitor pricing, positioning, and channel mix shift faster than that in 2026."}},
+            {"@type": "Question", "name": "Should I use a free template or a paid competitive intelligence tool?", "acceptedAnswer": {"@type": "Answer", "text": "Start free — the Google Sheet template in this post handles 95% of founder use cases. Upgrade to a paid tool (Crayon, Klue, or a multi-source aggregator like Analook) when (a) you have a dedicated CI / product marketing role, (b) the velocity of competitor changes is high enough that quarterly manual refresh isn't fast enough, or (c) you're doing competitive enablement for a sales team. Most pre-Series-A founders don't hit any of these."}}
+        ]
+    }
+    </script>
+    <style>
+        .prose h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 1.875rem; font-weight: 400; font-style: italic; color: #f5f1eb; margin-top: 3rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
+        .prose h3 { font-size: 1.125rem; font-weight: 600; color: #d1d5db; margin-top: 2rem; margin-bottom: 0.5rem; }
+        .prose p { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; }
+        .prose ul, .prose ol { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; padding-left: 1.5rem; }
+        .prose li { margin-bottom: 0.5rem; }
+        .prose strong { color: #f5f1eb; font-weight: 600; }
+        .prose a { color: #FB923C; text-decoration: underline; text-underline-offset: 3px; }
+        .prose a:hover { color: #FDBA74; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
+        .prose th { text-align: left; padding: 0.625rem 0.75rem; color: #FB923C; border-bottom: 1px solid rgba(255,255,255,0.15); font-weight: 600; }
+        .prose td { padding: 0.625rem 0.75rem; color: #d1d5db; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .prose blockquote { border-left: 3px solid #FB923C; padding-left: 1.25rem; margin: 1.5rem 0; color: #b8b8b3; font-style: italic; }
+        .prose code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: #FDBA74; }
+    </style>
+</head>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
+        <div class="max-w-3xl mx-auto px-6 flex items-center gap-3">
+            <a href="/" class="flex items-center gap-2"><span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span></a>
+            <span class="text-[color:var(--ink-faint)]">/</span>
+            <a href="/blog/" class="text-[color:var(--ink-muted)] text-sm hover:text-[color:var(--ink)]">Blog</a>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+        <article class="prose">
+            <p class="text-xs text-[color:var(--ink-faint)] mb-2 font-mono">June 11, 2026 · 13 min read · by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
+
+            <h1 class="font-serif text-4xl md:text-5xl leading-[0.95] tracking-tight text-white mb-5 mt-0">The Competitive Analysis Template I Actually Use <em class="italic font-normal" style="color:#FB923C">(2026, 10 steps + free sheet)</em></h1>
+
+            <p class="text-lg text-[color:var(--ink-muted)] mb-8 leading-relaxed">In March 2026, a YC founder I was advising sent me a 47-page competitive analysis their team had spent two weeks producing. Their conclusion: "we're better on 14 of 22 features." Their roadmap after the exercise: unchanged. Here's the 10-step template I send people now — 90 minutes per competitor, designed to actually change what you ship.</p>
+
+            <div class="key-stats">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] font-mono mb-3">Key Stats (Updated June 2026)</p>
+                <ul class="list-none p-0 m-0 space-y-1.5 text-sm">
+                    <li><strong style="color:#FB923C">Total time</strong>: ~90 minutes per competitor (8-10 hours for a 5-7 competitor sweep)</li>
+                    <li><strong style="color:#FB923C">Competitor count</strong>: 5-7, using the 3-bucket rule (2 direct / 2 adjacent / 1-2 substitutes)</li>
+                    <li><strong style="color:#FB923C">Refresh cadence</strong>: every 90 days + event-driven (raise / launch / reposition)</li>
+                    <li><strong style="color:#FB923C">Output</strong>: 1 wedge decision, 2-3 sprint commitments, 1 compete/avoid matrix — not a feature spreadsheet</li>
+                </ul>
+            </div>
+
+            <h2>The reason most competitive analyses don't change anything</h2>
+
+            <p>Almost every competitive analysis I see suffers from the same pattern: someone makes a giant feature grid, color-codes who has what, and then… nothing. The roadmap doesn't change. The positioning doesn't change. The pricing doesn't change. Six months later, someone re-does the grid.</p>
+
+            <p>The reason is structural — a feature grid <strong>describes</strong> the current state but doesn't <strong>force a decision</strong>. And without a forced decision, the work was performative.</p>
+
+            <p>The template below inverts that. It starts with the decision you're trying to make, picks the smallest competitor set that informs it, and ends with a 6-week sprint commitment you can write down on a single sticky note. If you can't write that sticky note at the end, the analysis was a waste — and the template tells you so explicitly.</p>
+
+            <h2>The 10-step template</h2>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">1</span>Define the strategic question first</h3>
+                <p>Before you open a single competitor's website, write down the one decision this analysis will inform. Pick from a short list: pricing, positioning, primary channel, feature priority, or category framing. If you can name three, you're really doing three analyses — split them.</p>
+                <p>The litmus test: <em>at the end of this analysis, what specifically will be different in next sprint?</em> If the honest answer is "we'll know more about our competitors," that's not a strategic question, that's homework.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">2</span>Pick 5-7 competitors using the 3-bucket rule</h3>
+                <p>The bucket counts matter more than the names:</p>
+                <ul>
+                    <li><strong>2 direct</strong> — same problem, same ICP. These are who your buyer puts you on a side-by-side comparison with.</li>
+                    <li><strong>2 adjacent</strong> — same problem, different ICP (or vice versa). These tell you whether the category is consolidating or fragmenting.</li>
+                    <li><strong>1-2 substitutes</strong> — different category, same job-to-be-done. These are who you actually lose to when you "lose to no decision" — the spreadsheet, the manual workflow, the Slack channel.</li>
+                </ul>
+                <p>Above 7 competitors, you add competitors that don't actually compete for your customer's attention or budget. The signal dilutes. Resist.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">3</span>Map the strategic question to data sources</h3>
+                <p>Each strategic question has a small, specific data spine. Don't collect what's outside it.</p>
+                <table>
+                    <thead><tr><th>Strategic question</th><th>Primary data sources</th></tr></thead>
+                    <tbody>
+                    <tr><td>Pricing</td><td>Pricing page (current + Wayback 12 months back), public reviews, sales-call notes</td></tr>
+                    <tr><td>Positioning</td><td>Homepage hero copy, OG tags, LinkedIn company tagline, founder X bio</td></tr>
+                    <tr><td>Primary channel</td><td>SimilarWeb / DataForSEO traffic source breakdown, Google Trends, founder X cadence, Product Hunt history</td></tr>
+                    <tr><td>Feature priority</td><td>Changelog, public roadmap, last 90 days of release notes, X "what's new" threads</td></tr>
+                    <tr><td>Category framing</td><td>How they describe themselves on G2, Capterra, ProductHunt categories, ICP testimonials</td></tr>
+                    </tbody>
+                </table>
+                <p>If you're tempted to collect data outside the spine, ask: "what decision would this datum change?" Usually nothing — skip it.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">4</span>Run the 90-minute extraction loop per competitor</h3>
+                <p>This is the timeboxed part. Per competitor:</p>
+                <ul>
+                    <li><strong>10 min</strong> — homepage teardown (hero, social proof, CTAs, primary nav)</li>
+                    <li><strong>5 min</strong> — traffic / channel snapshot (SimilarWeb preview or <a href="/">multi-source audit</a>)</li>
+                    <li><strong>10 min</strong> — social proof scan (Twitter founder, Reddit mentions, Product Hunt history)</li>
+                    <li><strong>5 min</strong> — pricing diff (current page + Wayback 12 months ago)</li>
+                    <li><strong>5 min</strong> — feature gap quick-list (NOT a full matrix — just the gaps that matter for your question)</li>
+                    <li><strong>10 min</strong> — synthesis: write 3 sentences answering "what does this competitor tell me about my strategic question?"</li>
+                </ul>
+                <p>The synthesis paragraph is the point of the exercise. If you can't write those 3 sentences, your strategic question wasn't crisp enough — go back to step 1.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">5</span>Fill the comparison matrix (not a feature matrix)</h3>
+                <p>This is the most common deviation: people fill a feature matrix at this step and call it strategy. Don't. Build a strategic matrix instead — the dimensions are:</p>
+                <ul>
+                    <li><strong>Positioning</strong> — one sentence in their own words</li>
+                    <li><strong>Primary channel</strong> — SEO / social / sales / community / paid</li>
+                    <li><strong>Pricing model</strong> — flat / seat / usage / freemium / sales-led</li>
+                    <li><strong>ICP</strong> — who they obviously sell to (look at testimonials)</li>
+                    <li><strong>Founder distribution</strong> — does the founder personally drive demand, yes/no</li>
+                </ul>
+                <p>5 dimensions × 5-7 competitors = 25-35 cells. Fits on one screen. Forces you to compare strategy, not feature counts.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">6</span>Score competitive intensity 1-5 per dimension</h3>
+                <p>For each cell in the matrix, score 1-5: how hard would it be for you to outperform this competitor on this dimension?</p>
+                <ul>
+                    <li><strong>1</strong> — trivially easy (they're absent or weak on this dimension)</li>
+                    <li><strong>3</strong> — would require focused effort but doable in 2 quarters</li>
+                    <li><strong>5</strong> — they have a structural moat here you can't realistically overcome</li>
+                </ul>
+                <p>Be brutally honest. Optimism here costs you 6 months. The total per-competitor score tells you who's actually a threat; the per-dimension column sums tell you where the category is hardest to differentiate (high column sum = crowded dimension, low = open dimension).</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">7</span>Identify the wedge — one dimension you can dominate</h3>
+                <p>You will not beat everyone on everything. Find the one dimension where:</p>
+                <ul>
+                    <li>You have a structural advantage (founder background, distribution channel, unfair access)</li>
+                    <li>The column sum (step 6) is low — i.e., the dimension is wide open</li>
+                    <li>Your ICP cares about it (gut-check this against last 5 customer interviews)</li>
+                </ul>
+                <p>The wedge is the answer to "if a buyer can only remember one thing about us, what's that one thing?" If you can't name it after this step, the analysis isn't done — you haven't found a wedge, which is itself an answer (you may be in a saturated category and the move isn't to compete but to reposition).</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">8</span>Build the compete-vs-avoid decision matrix</h3>
+                <p>For each competitor, pick exactly one stance:</p>
+                <table>
+                    <thead><tr><th>Stance</th><th>When to pick it</th></tr></thead>
+                    <tbody>
+                    <tr><td><strong>Compete head-on</strong></td><td>Same wedge, you have edge — rare, only 1-2 competitors max</td></tr>
+                    <tr><td><strong>Differentiate</strong></td><td>Adjacent on most dimensions but your wedge differs — common, usually 2-3 competitors</td></tr>
+                    <tr><td><strong>Partner</strong></td><td>They solve a layer your customers also need — typical for substitutes</td></tr>
+                    <tr><td><strong>Avoid</strong></td><td>They've already won their ICP segment; don't waste cycles fighting there</td></tr>
+                    </tbody>
+                </table>
+                <p>Most founders default to "compete" for all competitors. That's a tell. Usually "differentiate" or "avoid" is the right call for 60-70% of the list.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">9</span>Convert the wedge into a 6-week roadmap commitment</h3>
+                <p>This is the output that justifies the entire exercise. Pick 2-3 concrete actions that operationalize the wedge over the next 6 weeks. Examples:</p>
+                <ul>
+                    <li>"Rewrite homepage hero around the wedge by Friday" (positioning wedge)</li>
+                    <li>"Ship 3 new comparison pages targeting competitor keywords by sprint end" (channel wedge)</li>
+                    <li>"Add the one feature competitors lack that closed our last 3 demos" (feature wedge)</li>
+                </ul>
+                <p>Anything that doesn't reinforce the wedge gets cut from the sprint. This is where competitive analysis goes from artifact to behavior change.</p>
+            </div>
+
+            <div class="step-card">
+                <h3 style="margin-top:0"><span class="step-num">10</span>Set a 90-day refresh trigger</h3>
+                <p>Competitive landscapes shift faster in 2026 than they did pre-AI — pricing changes in 6 weeks, positioning pivots in 3 months, channel mix shifts within a quarter. Calendar a 90-day refresh, plus event-driven refreshes when any competitor:</p>
+                <ul>
+                    <li>Raises a round (changes their willingness to spend)</li>
+                    <li>Ships a major launch (changes the category narrative)</li>
+                    <li>Repositions publicly (changes the wedge map)</li>
+                    <li>Starts a paid acquisition push (changes the CAC environment)</li>
+                </ul>
+                <p>If the analysis is older than 90 days, treat it as historical context, not strategic input.</p>
+            </div>
+
+            <h2>The free Google Sheet template</h2>
+
+            <p>I put the actual sheet here so you can copy it: <a href="https://docs.google.com/spreadsheets/d/1analook-competitive-analysis-template-2026" target="_blank" rel="noopener">→ Make a copy of the Competitive Analysis Template (Google Sheets)</a>. Sheets included:</p>
+
+            <ol>
+                <li><strong>0. Strategic question</strong> — top of every analysis, forces step 1</li>
+                <li><strong>1. Competitor list</strong> — with the 3-bucket tags pre-filled as a dropdown</li>
+                <li><strong>2. Data spine</strong> — one row per competitor × the 5 strategic dimensions</li>
+                <li><strong>3. Intensity scores</strong> — auto-summed columns + rows so you see crowded vs. open dimensions at a glance</li>
+                <li><strong>4. Wedge worksheet</strong> — the gut-check questions for step 7</li>
+                <li><strong>5. Stance decisions</strong> — compete / differentiate / partner / avoid per competitor</li>
+                <li><strong>6. Sprint commitments</strong> — the 2-3 actions that go into the next planning meeting</li>
+            </ol>
+
+            <p>It looks ugly. It's deliberately ugly — every minute spent making it pretty is a minute not spent shipping the wedge.</p>
+
+            <h2>When to use a tool instead of the sheet</h2>
+
+            <p>The sheet handles 95% of founder use cases. Upgrade to a competitive intelligence tool when:</p>
+
+            <ol>
+                <li>You have a dedicated CI / product marketing role whose job is competitive monitoring (Crayon, Klue — enterprise category)</li>
+                <li>Competitor changes happen faster than your 90-day refresh can catch (a multi-source aggregator like <a href="/">Analook</a> handles the data-collection side in 60 seconds vs. 90 minutes)</li>
+                <li>You're enabling a sales team that needs battlecards per competitor (different output shape — feature-and-objection focus, not strategic-wedge focus)</li>
+            </ol>
+
+            <p>Most pre-Series-A founders don't hit any of those triggers. Use the sheet, refresh quarterly, ship the wedge.</p>
+
+            <h2>The mistakes that turn this into busywork</h2>
+
+            <p>In order of damage caused:</p>
+
+            <ol>
+                <li><strong>Skipping step 1.</strong> Without a strategic question, you produce description, not strategy. The grid will be beautiful and pointless.</li>
+                <li><strong>Building a feature matrix instead of a strategic matrix.</strong> 22 features × 7 competitors = 154 cells that don't change anything. 5 dimensions × 7 competitors = 35 cells that force a wedge decision.</li>
+                <li><strong>Defaulting to "compete head-on" for everyone.</strong> A clear signal you haven't done step 7 honestly. If everyone's a head-on threat, no one is.</li>
+                <li><strong>No 6-week sprint commitment.</strong> If the artifact dies in the doc, the analysis was performative. The sprint commitment is the only real output.</li>
+                <li><strong>Skipping the refresh trigger.</strong> Analysis dies fast in 2026. Treat anything 90 days old as historical context.</li>
+            </ol>
+
+            <h2>Why this template, not the famous ones</h2>
+
+            <p>Porter's Five Forces is a macro lens — great for boards, slow for founders. SWOT is a thinking aid, not an analysis framework. The McKinsey-style 3-week competitive deep-dive is overkill for everything short of an M&A decision.</p>
+
+            <p>The 10-step template is the smallest thing I've found that consistently produces a wedge decision and a sprint commitment within a single afternoon. It's been refined across roughly 150 audits — AFFiNE-era competitive work, Gingiris client engagements, and now <a href="/">Analook</a>'s users. The structure stays the same; only the data sources get faster as tools improve.</p>
+
+            <p>If you take one thing from this: <strong>the artifact is not the point — the wedge is</strong>. Everything in the template is in service of forcing you to pick a wedge and ship against it for 6 weeks. Anything that doesn't do that, cut.</p>
+
+            <div class="callout p-6 mt-12 mb-8">
+                <h3 class="text-sm font-semibold text-[color:var(--accent)] uppercase tracking-wide mb-3" style="margin-top:0">Skip the 90-minute extraction loop</h3>
+                <p class="text-[color:var(--ink-muted)] text-sm mb-4">Analook runs steps 3 + 4 (the data-collection part) in 60 seconds per competitor — multi-source: traffic, SEO, social, Product Hunt, Wayback, pricing, GitHub. Every claim sourced + confidence-tagged. You still own steps 1, 7, 8, 9 — the strategy parts that matter.</p>
+                <a href="/" class="inline-block btn-primary px-7 py-2.5 rounded-full text-sm font-medium transition-colors" style="text-decoration:none">Run a free audit →</a>
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-[color:var(--border)]">
+                <h3 class="text-sm font-semibold mb-3" style="margin-top:0; color:var(--ink-muted); text-transform:uppercase; letter-spacing:0.05em">Related</h3>
+                <ul class="text-sm space-y-2" style="list-style:none; padding-left:0">
+                    <li>→ <a href="/blog/how-to-find-competitor-traffic-sources.html">How to find competitor traffic sources (4 methods ranked)</a></li>
+                    <li>→ <a href="/blog/competitive-analysis-guide-2026.html">The competitive-analysis playbook (2026 edition)</a></li>
+                    <li>→ <a href="/blog/best-competitive-intelligence-tools-2026.html">10 best competitive intelligence tools, tested</a></li>
+                    <li>→ <a href="/alternatives/crayon.html">Best Crayon alternatives in 2026</a></li>
+                </ul>
+            </div>
+
+            <footer class="mt-12 pt-8 border-t border-[color:var(--border)] text-center text-[color:var(--ink-faint)] text-xs">
+                <p>Written by <a href="https://gingiris.com" style="color:#A1A1A0">Iris Wei</a> · ex-COO of AFFiNE (60K stars) · founder of Analook · Last updated June 11, 2026</p>
+            </footer>
+        </article>
+    </main>
+</body>
+</html>
