@@ -1,0 +1,39 @@
+# Local dev virtualenv (~228MB) — the image installs deps from requirements.txt,
+# so this must never be uploaded as build context or COPY'd into the image.
+.venv/
+venv/
+env/
+
+# Version control & CI
+.git/
+.gitignore
+.github/
+
+# Python caches / build artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local env, secrets, logs
+.env
+.env.*
+*.log
+
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Runtime-generated reports (the app writes these at runtime)
+reports/
+
+# Tests & docs — not needed at runtime
+tests/
+docs/
+test-lovable.md
