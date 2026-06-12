@@ -1026,6 +1026,27 @@ async def autopilot_dashboard(sub_id: str, request: Request):
     }
 
 
+@app.get("/api/admin/api-balances")
+async def admin_api_balances(request: Request):
+    """Return live balance / health for every third-party API the app uses.
+
+    Reuses AUTOPILOT_TICK_TOKEN (single admin token, no need for a separate
+    secret). Header: X-Autopilot-Tick-Token.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    from modules.api_balances import check_all
+    from datetime import datetime, timezone
+    result = await check_all()
+    result["checked_at"] = datetime.now(timezone.utc).isoformat()
+    return result
+
+
 @app.post("/api/admin/autopilot/tick")
 async def autopilot_tick(request: Request):
     """Cron entry point — runs the autopilot worker for due subscriptions.
