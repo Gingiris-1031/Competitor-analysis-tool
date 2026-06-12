@@ -434,6 +434,7 @@ async def _analyze_current_site(url: str) -> dict:
     from datetime import datetime
 
     html = None
+    raw_html = None  # full-DOM HTML (footer/nav/social icons) for link extraction
     fetch_source = "httpx"
 
     # Strategy 0: TinyFish (Chromium-rendered, handles SPAs)
@@ -447,27 +448,38 @@ async def _analyze_current_site(url: str) -> dict:
     except Exception:
         pass
 
-    # Strategy 1: httpx fallback (with retry)
+    # Strategy 1: raw httpx fetch (with retry). Always attempt — this is the
+    # full DOM. TinyFish returns readability-extracted HTML that drops the
+    # footer/nav where social links live, so we need the raw markup regardless.
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                resp = await client.get(url, headers={
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+                })
+            if resp.status_code == 200:
+                raw_html = resp.text
+                break
+        except Exception:
+            if attempt == 0:
+                await asyncio.sleep(2)
+                continue
+
+    # Use raw httpx HTML for structure when TinyFish was unavailable/failed.
     if not html:
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-                    resp = await client.get(url, headers={
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
-                    })
-                if resp.status_code == 200:
-                    html = resp.text
-                    break
-            except Exception:
-                if attempt == 0:
-                    await asyncio.sleep(2)
-                    continue
+        html = raw_html
 
     if html:
         ts = datetime.now().strftime("%Y%m%d%H%M%S")
         result = _extract_page_structure(html, ts, url)
         result["is_current"] = True
         result["_fetch_source"] = fetch_source
+        # Social links live in footer/nav markup that TinyFish's content
+        # extraction drops — always (re)derive them from the full DOM.
+        if raw_html:
+            social = _extract_social_links(BeautifulSoup(raw_html, "html.parser"), url)
+            if social:
+                result["social_links"] = social
         # Verify we got real data
         if result.get("slogan") and result["slogan"] != "N/A":
             return result
@@ -476,6 +488,97 @@ async def _analyze_current_site(url: str) -> dict:
 
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     return {"timestamp": ts, "date": ts[:10], "is_current": True, "error": "Failed to fetch current site"}
+
+
+# ---------------------------------------------------------------------------
+# Social link extraction
+# ---------------------------------------------------------------------------
+# Capture group 1 is always the account handle / slug.
+_SOCIAL_PATTERNS = {
+    "twitter":   [r"(?:twitter|x)\.com/([A-Za-z0-9_]+)"],
+    "linkedin":  [r"linkedin\.com/(?:company|in|school)/([\w.\-]+)"],
+    "github":    [r"github\.com/([\w.\-]+)"],
+    "youtube":   [r"youtube\.com/@([\w.\-]+)", r"youtube\.com/(?:c|channel|user)/([\w.\-]+)"],
+    "instagram": [r"instagram\.com/([\w.\-]+)"],
+    "tiktok":    [r"tiktok\.com/@([\w.\-]+)"],
+    "facebook":  [r"facebook\.com/([\w.\-]+)"],
+    "discord":   [r"discord\.(?:gg|com)/(?:invite/)?([\w\-]+)"],
+}
+
+# Handles that are never a real account — share/intent widgets, URL path
+# keywords, and the dirty captures that used to leak through (e.g. the "com"
+# from discord.com, or "p" from instagram.com/p/<id>).
+_SOCIAL_HANDLE_BLOCKLIST = {
+    "share", "sharer", "intent", "home", "hashtag", "search", "explore",
+    "login", "signin", "signup", "about", "privacy", "tos", "policies",
+    "help", "i", "p", "reel", "reels", "tv", "watch", "playlist", "embed",
+    "company", "school", "in", "c", "channel", "user", "invite", "gg",
+    "com", "pages", "groups", "sponsors", "marketplace", "profile.php",
+}
+
+
+def _valid_social_handle(platform: str, handle: str, href: str) -> bool:
+    """Reject obvious non-account captures (share widgets, tweet permalinks)."""
+    h = (handle or "").lower()
+    if not h or h in _SOCIAL_HANDLE_BLOCKLIST:
+        return False
+    # x.com/<author>/status/<id> is an embedded tweet, not the site's account.
+    if platform == "twitter" and "/status/" in href.lower():
+        return False
+    return True
+
+
+def _social_anchor_weight(tag) -> int:
+    """Prefer the site's own social bar (footer) over nav, over body links
+    (embedded tweets, testimonial authors, "share" buttons)."""
+    for parent in tag.parents:
+        name = getattr(parent, "name", "")
+        if name == "footer":
+            return 2
+        if name in ("header", "nav"):
+            return 1
+    return 0
+
+
+def _extract_social_links(soup, base_url: str = "") -> dict:
+    """Extract the site's own social accounts from full-DOM HTML.
+
+    Footer/nav links beat body links, and shorter account-root URLs beat deep
+    links (so github.com/org wins over github.com/org/repo). This keeps the
+    site's declared handle from being overwritten by third-party links that
+    real landing pages are full of (embedded tweets, customer logos, etc.).
+    """
+    # best[platform] = (weight, -path_len, {...})  — higher tuple wins
+    best: dict = {}
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if not href or href.startswith("#"):
+            continue
+        weight = None
+        for platform, patterns in _SOCIAL_PATTERNS.items():
+            matched = False
+            for pattern in patterns:
+                m = re.search(pattern, href, re.I)
+                if not m:
+                    continue
+                handle = m.group(1)
+                if not _valid_social_handle(platform, handle, href):
+                    continue
+                if weight is None:
+                    weight = _social_anchor_weight(a)
+                try:
+                    path_len = len(urlparse(href).path)
+                except Exception:
+                    path_len = len(href)
+                rank = (weight, -path_len)
+                cur = best.get(platform)
+                if cur is None or rank > cur[0]:
+                    best[platform] = (rank, {"handle": handle, "url": href})
+                matched = True
+                break
+            if matched:
+                break
+    return {p: v[1] for p, v in best.items()}
 
 
 def _extract_page_structure(html: str, timestamp: str, url: str) -> dict:
@@ -545,27 +648,8 @@ def _extract_page_structure(html: str, timestamp: str, url: str) -> dict:
     has_terms = any(k in link_text_combined for k in ["terms", "条款"])
     
     # === Social Media Links ===
-    social_links = {}
-    social_patterns = {
-        "twitter": [r"twitter\.com/(\w+)", r"x\.com/(\w+)"],
-        "instagram": [r"instagram\.com/(\w+)"],
-        "linkedin": [r"linkedin\.com/company/([\w-]+)"],
-        "youtube": [r"youtube\.com/@?([\w-]+)", r"youtube\.com/channel/([\w-]+)"],
-        "tiktok": [r"tiktok\.com/@([\w.-]+)"],
-        "github": [r"github\.com/([\w-]+)"],
-        "discord": [r"discord\.(gg|com)/([\w-]+)"],
-    }
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        for platform, patterns in social_patterns.items():
-            for pattern in patterns:
-                match = re.search(pattern, href, re.I)
-                if match:
-                    social_links[platform] = {
-                        "handle": match.group(1),
-                        "url": href,
-                    }
-    
+    social_links = _extract_social_links(soup, url)
+
     # === Section count (approximate "screens") ===
     sections = soup.find_all(["section"])
     section_count = len(sections) if sections else len(h2s)
