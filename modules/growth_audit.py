@@ -231,8 +231,26 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
 # in _call_llm_long. Keep response shape {success, content, source}.
 
 
+# Per-provider timeout. A short CONNECT timeout fails over fast (~10s) when a
+# provider is down/unreachable — that's the UX win: no 6-minute hang waiting on
+# a sick endpoint. A generous READ timeout still lets a *healthy* provider
+# finish a long generation. Each provider gets ONE attempt; resilience comes
+# from failing over to the next path, not from retrying a struggling one.
+_LLM_TIMEOUT = httpx.Timeout(connect=10.0, read=150.0, write=10.0, pool=10.0)
+
+
+def _extract_content(data: dict) -> str:
+    """Pull ONLY the final answer text. DeepSeek V4 (and some routed hosts)
+    also return `reasoning_content` / `reasoning` in the message — that chain
+    of thought must never leak into the user-facing report, so we read
+    `content` exclusively."""
+    msg = ((data.get("choices") or [{}])[0] or {}).get("message", {}) or {}
+    return msg.get("content", "") or ""
+
+
 async def _try_deepseek(messages: list, max_tokens: int) -> Optional[dict]:
-    """Direct DeepSeek call. Returns dict on success, None on miss."""
+    """DeepSeek first-party API (deepseek-v4-flash). One attempt — the caller
+    owns failover, so we never burn time retrying a sick provider."""
     import os as _os
     key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not key:
@@ -242,103 +260,95 @@ async def _try_deepseek(messages: list, max_tokens: int) -> Optional[dict]:
             return None
     if not key:
         return None
-
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
-                resp = await client.post(
-                    "https://api.deepseek.com/chat/completions",
-                    headers={"Authorization": f"Bearer {key}",
-                             "Content-Type": "application/json"},
-                    json={
-                        "model": "deepseek-chat",
-                        "messages": messages,
-                        "temperature": 0.5,
-                        "max_tokens": max_tokens,
-                    },
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return {"success": True, "content": content, "source": "DeepSeek"}
-        except Exception as e:
-            log.warning("DeepSeek attempt %d failed: %s", attempt, e)
-        if attempt < 1:
-            await asyncio.sleep(3)
+    model = _os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    try:
+        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.post(
+                "https://api.deepseek.com/chat/completions",
+                headers={"Authorization": f"Bearer {key}",
+                         "Content-Type": "application/json"},
+                json={"model": model, "messages": messages,
+                      "temperature": 0.5, "max_tokens": max_tokens},
+            )
+            resp.raise_for_status()
+            content = _extract_content(resp.json())
+            if content:
+                return {"success": True, "content": content,
+                        "source": f"DeepSeek-direct ({model})"}
+    except Exception as e:
+        log.warning("DeepSeek-direct failed, failing over: %s", e)
     return None
 
 
-async def _try_openrouter(messages: list, max_tokens: int) -> Optional[dict]:
-    """OpenRouter fallback. Reads OPENROUTER_API_KEY env. Returns None if
-    no key configured — i.e. completely opt-in.
-    """
+async def _try_openrouter(messages: list, max_tokens: int,
+                          model: str = "anthropic/claude-sonnet-4") -> Optional[dict]:
+    """OpenRouter call for an explicit model. One attempt; caller handles
+    failover. Returns None if no OPENROUTER_API_KEY is configured."""
     import os as _os
     key = _os.environ.get("OPENROUTER_API_KEY", "").strip()
     if not key:
         return None
-
-    # Model picker: default to claude-sonnet-4 (best quality/cost balance
-    # in mid-2026). Override via OPENROUTER_MODEL env if Iris wants a
-    # cheaper Llama or a faster Gemini.
-    model = _os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=180, follow_redirects=True) as client:
-                resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {key}",
-                        "Content-Type": "application/json",
-                        # OpenRouter optionally accepts these for analytics.
-                        "HTTP-Referer": "https://www.analook.com",
-                        "X-Title": "Analook Growth Audit",
-                    },
-                    json={
-                        "model": model,
-                        "messages": messages,
-                        "temperature": 0.5,
-                        "max_tokens": max_tokens,
-                    },
-                )
-                # 402 = out of balance — log and skip retry.
-                if resp.status_code in (401, 402, 403):
-                    log.warning("OpenRouter rejected: HTTP %d (%s)",
-                                resp.status_code, resp.text[:200])
-                    return None
-                resp.raise_for_status()
-                data = resp.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return {"success": True, "content": content,
-                            "source": f"OpenRouter ({data.get('model', model)})"}
-        except Exception as e:
-            log.warning("OpenRouter attempt %d failed: %s", attempt, e)
-        if attempt < 1:
-            await asyncio.sleep(2)
+    try:
+        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://www.analook.com",
+                    "X-Title": "Analook Growth Audit",
+                },
+                json={"model": model, "messages": messages,
+                      "temperature": 0.5, "max_tokens": max_tokens},
+            )
+            # 401/402/403 = auth/balance problem — failing over won't help on
+            # the same key path, but the next plan uses a different vendor.
+            if resp.status_code in (401, 402, 403):
+                log.warning("OpenRouter rejected model=%s: HTTP %d (%s)",
+                            model, resp.status_code, resp.text[:200])
+                return None
+            resp.raise_for_status()
+            data = resp.json()
+            content = _extract_content(data)
+            if content:
+                return {"success": True, "content": content,
+                        "source": f"OpenRouter ({data.get('model', model)})"}
+    except Exception as e:
+        log.warning("OpenRouter (%s) failed, failing over: %s", model, e)
     return None
 
 
 async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int = 8000) -> dict:
-    """Run the prompt through whichever provider is configured & healthy.
+    """Multi-path LLM call. Each path is tried once and fails over fast (~10s)
+    when a provider is unreachable, so a sick provider never stalls the audit.
 
-    Order: DeepSeek (direct) → OpenRouter (if OPENROUTER_API_KEY set).
-    Returns: {success, content, source}.
+      Plan A: OpenRouter → deepseek-v4-flash   (fast, cheap, multi-host failover)
+      Plan B: DeepSeek direct → deepseek-v4-flash  (same model, independent vendor)
+      Plan C: OpenRouter → claude-sonnet-4     (different model — quality safety net)
+
+    A and B share the model (identical output quality); C is the last-resort
+    safety net on a different model so a total DeepSeek outage still produces a
+    report. Returns {success, content, source}.
     """
+    import os as _os
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",   "content": user_prompt},
     ]
+    or_primary = _os.environ.get("OPENROUTER_DEEPSEEK_MODEL", "deepseek/deepseek-v4-flash")
+    or_fallback = _os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
 
-    # Primary
-    result = await _try_deepseek(messages, max_tokens)
-    if result:
-        return result
-
-    # Fallback (opt-in)
-    result = await _try_openrouter(messages, max_tokens)
-    if result:
-        return result
+    plans = (
+        ("A", lambda: _try_openrouter(messages, max_tokens, or_primary)),
+        ("B", lambda: _try_deepseek(messages, max_tokens)),
+        ("C", lambda: _try_openrouter(messages, max_tokens, or_fallback)),
+    )
+    for label, plan in plans:
+        result = await plan()
+        if result:
+            if label != "A":
+                log.info("LLM served by Plan %s (%s)", label, result.get("source"))
+            return result
 
     return {"success": False, "content": "", "source": "error",
             "note": "All LLM providers failed or unconfigured."}
