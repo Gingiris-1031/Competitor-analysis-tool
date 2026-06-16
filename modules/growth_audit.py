@@ -1174,7 +1174,11 @@ GINGIRIS_SKILL_TACTICS = {
 # ─── Local SKILL.md paths ────────────────────────────────────────────────────
 # Skills live in /Users/iriscarrot/.agents/skills/<slug>/SKILL.md on the Mac.
 # On Fly.io they won't be present - we fall back to the tactical snippets.
-_SKILLS_DIR = os.path.expanduser("~/.agents/skills")
+# Skills lookup: prefer bundled gingiris-skills/ inside the repo (works on Fly.io),
+# fallback to ~/.agents/skills/ on developer machines.
+_REPO_SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "gingiris-skills")
+_LOCAL_SKILLS_DIR = os.path.expanduser("~/.agents/skills")
+_SKILLS_DIR = _REPO_SKILLS_DIR if os.path.isdir(_REPO_SKILLS_DIR) else _LOCAL_SKILLS_DIR
 
 # Maps product_type keyword → ordered list of skill slugs to inject.
 # We pick the first 4 that have a readable SKILL.md (to cap prompt size).
@@ -1228,8 +1232,12 @@ def _load_skill_content(slug: str, max_chars: int = 3500) -> str:
     Strips YAML front-matter, keeps the first `max_chars` of body content.
     Returns empty string if file not found (graceful fallback on Fly.io).
     """
-    path = os.path.join(_SKILLS_DIR, slug, "SKILL.md")
-    if not os.path.isfile(path):
+    # Try repo-bundled path first, then local dev path
+    for base in [_REPO_SKILLS_DIR, _LOCAL_SKILLS_DIR]:
+        path = os.path.join(base, slug, "SKILL.md")
+        if os.path.isfile(path):
+            break
+    else:
         return ""
     try:
         with open(path, "r", encoding="utf-8") as f:
