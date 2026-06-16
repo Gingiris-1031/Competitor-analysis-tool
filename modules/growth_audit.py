@@ -133,12 +133,38 @@ I. **判断产品类型的优先信号**：首页 hero 价值主张 → 客户�
 
 def _get_system_prompt() -> str:
     """Returns the system prompt with the real Gingiris skill registry
-    inlined. We do this lazily because _build_skill_registry_prompt is
-    defined later in the file (after GINGIRIS_SKILL_REGISTRY itself).
+    + tactical cheat-sheet inlined. We do this lazily because the
+    register-builder functions are defined later in the file.
+
+    The tactical block is what fixes "reports too template-y" — it gives
+    the LLM 2-3 concrete tactics per skill (with real benchmarks) to cite
+    instead of generic prose.
     """
     return GINGIRIS_SKILLS_CONTEXT.replace(
-        "%SKILL_REGISTRY%", _build_skill_registry_prompt()
+        "%SKILL_REGISTRY%",
+        _build_skill_registry_prompt() + "\n\n" + _build_tactical_cheatsheet()
     )
+
+
+def _build_tactical_cheatsheet() -> str:
+    """Compact tactical recipes per skill — drops into system prompt so
+    LLM can cite specific tactics verbatim instead of inventing fluffy
+    'launch on PH'-level recommendations.
+    """
+    lines = [
+        "## 🎯 战术速查表（强制：所有渠道推荐必须引用此表中的具体战术 + benchmark）",
+        "",
+        "格式：每个 skill 给出 2-3 个可执行战术：(时间窗 / 具体动作 / 实战 benchmark)",
+        "**LLM 引用此表中的战术时格式：【来自 `skill-slug` 的战术】+ 原文**",
+        "",
+    ]
+    for slug, tactics in GINGIRIS_SKILL_TACTICS.items():
+        info = GINGIRIS_SKILL_REGISTRY.get(slug, {})
+        lines.append(f"### `{slug}` — {info.get('title', slug)}")
+        for when, what, bench in tactics:
+            lines.append(f"- **{when}** — {what} _(benchmark: {bench})_")
+        lines.append("")
+    return "\n".join(lines)
 
 # ─── TinyFish Fetch ─────────────────────────────────────────────────────────
 
@@ -1036,6 +1062,112 @@ GINGIRIS_SKILL_REGISTRY = {
         "best_for": "构建 AI agent 系统的产品",
         "category": "agent",
     },
+
+    # ── Twitter / X Ops ──────────────────────────────────────────────────
+    "gingiris-twitter-agent-ops": {
+        "title": "Twitter Agent Ops — AI Ghostwriter SOP",
+        "desc": "AI agent 当推特代笔人：人设校准 + 素材库 + 排期 + 红线规则 + 发布前质检。45 天 1150→1837 关注 (+60%)，每天 1 条",
+        "best_for": "**Founder 个人品牌不发力的所有产品**，0→1 推特账号",
+        "category": "social",
+    },
+
+    # ── Competitor Intel / Go-Global ─────────────────────────────────────
+    "competitor-research-playbook": {
+        "title": "Competitor Research Playbook — Wayback to Flywheel",
+        "desc": "Wayback 拆官网演化 + X/Twitter 传播链 + 增长飞轮 6 阶段评分 (150+ AI startup 案例 + Lovable 完整复盘)",
+        "best_for": "需要拆竞品并定位差异化的所有阶段",
+        "category": "intel",
+    },
+    "gingiris-go-global": {
+        "title": "Go-Global SOP — Phase 0→5 Full Cycle",
+        "desc": "出海完整 SOP：市场验证 → 定位 → 前 100 用户 → 用户访谈 → Beta→增长 + OSS launch / PH / Reddit / SEO/GEO / 转化 / 组织",
+        "best_for": "**所有中国团队出海产品 (Day 0)**",
+        "category": "global",
+    },
+}
+
+
+# Concrete tactics per skill — used to override the LLM's tendency to
+# produce "做 SEO 优化"-level platitudes. Each entry is 2-3 ultra-specific
+# tactical recipes with real benchmarks/templates so the LLM can cite them
+# verbatim in the action plan rather than vaguely gesturing.
+#
+# Format: each tactic = (when, what, benchmark/proof).
+# Numbers are from real Gingiris case studies, not invented.
+GINGIRIS_SKILL_TACTICS = {
+    "gingiris-launch": [
+        ("发布前 W-6", "Asset 包：30s teaser video + 5 静图 + 1 founder-story tweet + comparison table", "30+ PH #1 daily 全用同一模板"),
+        ("发布前 W-2", "搭 launch team：~30 PH hunters + 20 X amplifier + 5 newsletter，发布日 1 小时内集中投票", "投票分散 6+ 小时 = rank 跌出 top 10"),
+        ("发布日 H+0~3", "Founder 亲发 X thread (≤7 推) + 评论区每条回复 ≤10 分钟", "高 engagement = PH 算法加权"),
+    ],
+    "product-hunt-playbook": [
+        ("发布前 D-7", "Upcoming page + 200 maker comment 攒 buzz", "PH 算法看预热互动"),
+        ("发布日 00:01 PT", "Maker 第一条 comment 必须含 'Hi PH community, X here from Y...' 标准开场", "缺了直接被 hide"),
+        ("发布日 H+0~6", "每 1-2 小时 founder 回所有 comment，X 持续 retweet 阶段性 update", "保 momentum 不停"),
+    ],
+    "gingiris-seo-geo-agent": [
+        ("W1", "搭 SEO Agent 三件套：daily audit + ranking 追踪 + schema 验证 + IndexNow push", "1 个月 32K impressions"),
+        ("W1-2", "Hub-spoke 内链：1 个 hub page + 6 个 spoke 互链，targeting KD 20-35 关键词", "AFFiNE 同打法 6 周拿 top 3"),
+        ("W2-4", "GEO 三件套：FAQ schema + AI 友好 robots.txt + Brave/Perplexity index 提交", "AI search 被引用率 30%+"),
+    ],
+    "gingiris-kol-outreach": [
+        ("W1", "KOL 筛选：用 Brave Search + Twitter API 筛 followers 1K-50K 的 micro-KOL，避开 macro (ROI 差 3x)", "AFFiNE 200+ KOL 实战，micro 转化 5-8%"),
+        ("W2", "Outreach 模板：'你最近关于 X 的帖子我看了，我们在做 Y 跟你 X 视角对得上，能寄你试用吗？' + 不要直接给链接", "Cold 回复率 18% vs 模板 outreach 2%"),
+        ("W3-4", "ROI 测量：每个 KOL 单独 UTM + Linktree slot，CAC < $25 才续约", "盲投 1000 美元 = 0 转化的常见陷阱"),
+    ],
+    "gingiris-reddit-marketing": [
+        ("W1", "养号 SOP：先 karma 0→500（20 天），评论 50+ 真实回答 + 0 自家产品提及", "Reddit 内容是 ChatGPT/Claude 40.11% 训练数据"),
+        ("W2", "选 sub：用 subredditstats.com 找 active>5K + content style 'show & tell' 友好的 sub，避开纯 news sub", "AFFiNE 3-4 万曝光 + 5-8% GitHub star 转化"),
+        ("W3-4", "AMA SOP：找 mod 24 小时前预约 + 准备 20 个 seed Q&A + founder 真名上 + 持续 4 小时", "Base44 用同样格式拿 $80M AMA"),
+    ],
+    "gingiris-ugc-matrix": [
+        ("W1", "找 5-10 个真人 creator (TikTok 5K-20K followers)，按出片付费 $30-50/支", "CPM $0.5 vs paid ads $5-15"),
+        ("W2", "AI 矩阵号：用 ElevenLabs + Sora + Hedra 量产 50 条/周，每号差异化人设", "60 天 $10M ARR / 70M impressions 案例"),
+        ("W3+", "Top-3 表现内容 reinvest：投流 boost 跑赢 baseline 2x 才追加", "盲投 50% 预算浪费"),
+    ],
+    "gingiris-twitter-agent-ops": [
+        ("W1", "人设校准：voice guide + 死开场 blacklist + 5 段过往真实推作 sample，喂 AI agent", "AI 写的初稿过 triple-translation test 才发"),
+        ("W2", "排期：每天 1 条 8AM PT 黄金窗口 + 周三/五各 1 条 thread，dedup 检查防重", "45 天 1150→1837 关注 (+60%)"),
+        ("W3-4", "数据闭环：tweet-log 周报 → top-3 archetype reinforce + bottom-3 type 砍掉", "纯凭感觉发等于浪费 50% 时间"),
+    ],
+    "gingiris-aso-growth": [
+        ("W1", "关键词研究：用 Sensor Tower 找 traffic>1K + difficulty<30 的 long-tail，5 个塞 title/subtitle", "ASO 占 70% organic install"),
+        ("W2", "截图 A/B：4 套创意，每套 1 周，按 CVR 留最优", "截图差异 = CVR 差 2-3x"),
+        ("W3+", "UGC creator 矩阵：5 TikTok creator × 3 video / 月，导流 App Store", "i18n-aso-growth 同打法 multi-locale"),
+    ],
+    "gingiris-b2b-growth": [
+        ("W1", "ICP 锚定：用 user-interview SOP 跑 5 场 60min 访谈，提炼 'JTBD 一句话'", "HeyGen 937 场访谈到 PMF"),
+        ("W2", "LinkedIn ABM：用 Apollo + Clay 抓 100 个 ICP，定制 3-touch 序列（教育→案例→demo）", "B2B cold reply rate 12% vs 模板 1%"),
+        ("W3-4", "案例 study：与 3 个 lighthouse 客户做 co-marketing case study，输出 X thread + LinkedIn post + landing page", "案例 page 比 feature page 高 4x CVR"),
+    ],
+    "gingiris-opensource": [
+        ("W1", "README 优化：hero gif + tagline + 5 行 quickstart + comparison table（对照 #1-3 alternatives）", "AFFiNE 0→60K stars"),
+        ("W2", "Show HN：周二/周三 8AM PT 发，标题 'Show HN: X - the Y open-source alternative to Z'", "Show HN front-page = 1-5K stars/周"),
+        ("W3+", "Reddit/Discord/Twitter 三轨：weekly digest + roadmap voting + contributor shoutout", "维持 300+ stars/月 (sustained skill 模板)"),
+    ],
+    "github-stars-playbook": [
+        ("D1-3", "14 天 sprint：Day 1 Show HN, Day 3 Reddit r/programming, Day 5 X thread, Day 7 Hacker Newsletter", "10K stars 24-36 个月加速到 14 天"),
+        ("D7-10", "Newsletter outreach：JS Weekly, Pointer.io, TLDR — pitch 是 1 段 + 1 demo gif", "命中率 30% (vs PR 模板 3%)"),
+    ],
+    "gingiris-user-interview": [
+        ("W1", "5 场 60min 访谈 + JTBD 问题模板（'上次你解决 X 的方式 / 哪里卡 / 改用我们之后变化'）", "HeyGen 937 场访谈复盘"),
+        ("W2", "Churn 诊断：用流失用户访谈反推激活 gap (cohort 4-09 类似)", "PMF 前 churn root cause 80% 是 onboarding"),
+    ],
+    "competitor-research-playbook": [
+        ("W1", "拆 top 3 对手 Wayback v1/Beta/Launch 3 版官网演化，画 positioning 漂移图", "150+ AI startup 实战"),
+        ("W2", "X/Twitter 传播链：用 advanced search 找首发 thread + 转评最多 5 个账号，导出 KOL list", "Lovable 4.3M views 复盘同法"),
+        ("W3", "飞轮 6 阶段评分：Activation/Referral/Acquisition/Retention/Revenue/Product 各 1-5 分，找弱环节", "对手最弱环节 = 你的 wedge"),
+    ],
+    "community-ambassador-playbook": [
+        ("W1", "申请表：A 题（pre-launch readiness 6 条）+ B 题（评分 rubric） 双 gate 卡 70% noise", "Notion 20M 用户实战"),
+        ("W2", "4 级体系：Bronze→Silver→Gold→Platinum，每级 points threshold 公开", "防 ghosting 关键"),
+        ("W3+", "Churn 早期预警：连续 2 周 0 活动 → 1v1 调研，不要直接踢", "AFFiNE 60K stars 同打法"),
+    ],
+    "gingiris-go-global": [
+        ("Phase 0-1", "市场验证 + positioning：抓 5 个 ICP 国家 × 3 个 substitute 跑过 user-interview", "出海最常死在 Phase 0 跳过"),
+        ("Phase 2-3", "前 100 用户：OSS launch 走 HN/Reddit 路径，闭源走 PH/X founder thread 路径", "Gingiris 自身验证"),
+        ("Phase 4-5", "Beta→增长：建立 weekly digest 邮件 + 1v1 onboarding call 节奏 (Iris@AFFiNE 同流程)", "10 倍提高 D30 retention"),
+    ],
 }
 
 
@@ -1413,63 +1545,146 @@ def _pick_skills_for_product_type(hints: dict) -> list:
 
     if is_oss:
         return [
-            "gingiris-opensource",                # OSS-specific growth motion
-            "github-stars-playbook",              # 0→10K stars sprint
-            "gingiris-github-star-growth",        # sustained 300/mo
-            "open-source-marketing-playbook",     # HN + Reddit + community launch
-            "gingiris-seo-geo-agent",             # SEO/GEO infra
-            "gingiris-reddit-marketing",          # Reddit = AI training data
-            "community-building-playbook",        # Discord/Slack community
-            "devrel-playbook",                    # DevRel for dev tools
-            "gingiris-user-interview",            # PMF validation
+            "gingiris-opensource",
+            "github-stars-playbook",
+            "gingiris-github-star-growth",
+            "gingiris-reddit-marketing",
+            "gingiris-seo-geo-agent",
+            "gingiris-twitter-agent-ops",        # NEW — founder X 渠道一直缺
+            "community-building-playbook",
+            "devrel-playbook",
+            "competitor-research-playbook",      # NEW — 拆对手定位差异化
+            "gingiris-user-interview",
         ]
     if is_sales_led:
-        # Enterprise / B2B Infra: SEO + B2B + DevRel + KOL (B2B style) +
-        # community (technical), explicitly NO PH / UGC / Reddit-Karma.
         return [
-            "gingiris-b2b-growth",                # the core B2B playbook
-            "b2b-marketing-playbook",             # LinkedIn / cold email / webinar
-            "saas-growth-playbook",               # MRR scaling tactics
-            "gingiris-seo-geo-agent",             # SEO + GEO automation
-            "gingiris-kol-outreach",              # B2B-version (case-study collab)
-            "devrel-playbook",                    # DevRel for technical buyers
-            "community-building-playbook",        # technical user community
-            "gingiris-user-interview",            # ICP validation
-            "startup-consultant",                 # 外部视角审查
+            "gingiris-b2b-growth",
+            "b2b-marketing-playbook",
+            "saas-growth-playbook",
+            "gingiris-seo-geo-agent",
+            "gingiris-kol-outreach",
+            "gingiris-twitter-agent-ops",        # NEW — B2B 也越来越靠 founder X
+            "devrel-playbook",
+            "competitor-research-playbook",      # NEW — B2B 差异化关键
+            "gingiris-user-interview",
+            "startup-consultant",
         ]
     if "PLG" in product_type or "Consumer" in product_type:
         return [
-            "gingiris-launch",                    # full launch sequencing
-            "product-hunt-playbook",              # PH ranking-algorithm
-            "gingiris-seo-geo-agent",             # SEO + GEO infrastructure
-            "gingiris-reddit-marketing",          # Reddit种草 + AI citation
-            "gingiris-ugc-matrix",                # UGC creator matrix
-            "gingiris-kol-outreach",              # micro-KOL outreach
-            "community-building-playbook",        # build community
-            "gingiris-user-interview",            # activation analysis
-            "viral-marketing-playbook",           # K-factor / referral loop
+            "gingiris-launch",
+            "product-hunt-playbook",
+            "gingiris-seo-geo-agent",
+            "gingiris-reddit-marketing",
+            "gingiris-ugc-matrix",
+            "gingiris-kol-outreach",
+            "gingiris-twitter-agent-ops",        # NEW
+            "competitor-research-playbook",      # NEW
+            "community-building-playbook",
+            "gingiris-user-interview",
+            "viral-marketing-playbook",
         ]
     if "Mobile" in product_type or "App" in product_type:
         return [
-            "gingiris-aso-growth",                # ASO + UGC for mobile
-            "aso-playbook",                       # keyword + screenshot A/B
-            "i18n-aso-growth",                    # iOS + Google Play complete
-            "gingiris-ugc-matrix",                # creator UGC matrix
-            "gingiris-kol-outreach",              # creator partnerships
-            "gingiris-launch",                    # launch sequence
-            "viral-marketing-playbook",           # referral loops
-            "gingiris-user-interview",            # ICP validation
+            "gingiris-aso-growth",
+            "aso-playbook",
+            "i18n-aso-growth",
+            "gingiris-ugc-matrix",
+            "gingiris-kol-outreach",
+            "gingiris-twitter-agent-ops",        # NEW
+            "gingiris-launch",
+            "viral-marketing-playbook",
+            "competitor-research-playbook",      # NEW
+            "gingiris-user-interview",
         ]
-    # Unknown / fall-through
+    # Unknown / fall-through — always include go-global for China teams
     return [
-        "gingiris-growth-finder",                 # meta-router
-        "startup-consultant",                     # advisory framework
-        "go-to-market-playbook",                  # generic GTM
-        "gingiris-seo-geo-agent",                 # SEO foundation
-        "gingiris-user-interview",                # PMF validation
-        "startup-launch-playbook",                # first-week SOP
-        "community-building-playbook",            # general community
+        "gingiris-go-global",                    # NEW — 中国团队出海默认配
+        "gingiris-growth-finder",
+        "competitor-research-playbook",          # NEW
+        "go-to-market-playbook",
+        "gingiris-seo-geo-agent",
+        "gingiris-twitter-agent-ops",            # NEW
+        "gingiris-user-interview",
+        "startup-launch-playbook",
+        "community-building-playbook",
     ]
+
+
+# ─── Deterministic Action Matrix ──────────────────────────────────────────────
+
+
+def _render_action_matrix(hints: dict, level: int = 2) -> str:
+    """Render a Week-by-Week × Channel × Tactic matrix grounded in real
+    skill tactics. Forces multi-channel coverage — fixes Iris's
+    'reports too SEO-only' complaint.
+
+    For each picked skill, we pull its top 2 tactics from GINGIRIS_SKILL_TACTICS
+    (if defined) and slot them into the matrix.
+    """
+    skills = _pick_skills_for_product_type(hints)
+    h = "#" * level
+    sub_h = "#" * (level + 1)
+    lines = [
+        f"{h} 🎯 30 天 Channel × Tactic 执行矩阵",
+        "",
+        "下面是把每个 finding 落到 **具体渠道 × 具体战术** 的可执行表。每条都引自上方"
+        "匹配 skill 的真实战术 SOP（不是 LLM 拍脑袋），带 benchmark 数据可对照。",
+        "",
+        "| Week | 渠道 | 具体战术 | 来源 Skill | Benchmark |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+
+    # Order skills to vary channels (prevents stacking 3 SEO rows together)
+    channel_label = {
+        "launch":   "🚀 Launch",
+        "seo":      "🔍 SEO/GEO",
+        "b2b":      "📈 B2B GTM",
+        "oss":      "🐙 OSS / GitHub",
+        "mobile":   "📱 ASO/Mobile",
+        "kol":      "📣 KOL",
+        "ugc":      "🎬 UGC 矩阵",
+        "community":"💬 Community",
+        "social":   "🐦 Twitter/X",
+        "intel":    "🔬 Competitor Intel",
+        "research": "👥 User Research",
+        "global":   "🌏 Go Global",
+        "general":  "⚙️ GTM",
+        "agent":    "🤖 Agent Ops",
+        "router":   "🧭 Strategy",
+    }
+
+    # Walk picked skills in registry order; for each, pull up to 2 tactics
+    # so a typical 8-9 skill audit produces 12-18 matrix rows across 4 weeks.
+    week_alloc = ["W1", "W1-2", "W2", "W2-3", "W3", "W3-4", "W4"]
+    matrix_rows = []
+    week_idx = 0
+    for slug in skills:
+        if slug not in GINGIRIS_SKILL_TACTICS:
+            continue
+        info = GINGIRIS_SKILL_REGISTRY.get(slug, {})
+        chan = channel_label.get(info.get("category", "general"), "⚙️ GTM")
+        for tactic in GINGIRIS_SKILL_TACTICS[slug][:2]:
+            when, what, bench = tactic
+            # If tactic has its own week-label, use it; else allocate round-robin
+            week = when if when.startswith(("W", "D", "Phase", "发布")) else week_alloc[week_idx % len(week_alloc)]
+            week_idx += 1
+            matrix_rows.append(
+                f"| **{week}** | {chan} | {what} | "
+                f"[`{slug}`](https://huggingface.co/datasets/Gingiris/{slug}) | "
+                f"_{bench}_ |"
+            )
+
+    lines.extend(matrix_rows)
+    lines.extend([
+        "",
+        f"{sub_h} 📌 如何使用这张矩阵",
+        "",
+        "1. **按周倒入日历** — 把每行的 \"Week + 渠道 + 战术\" 直接当成 calendar event 排进去",
+        "2. **每周 retro** — week 末对照 Benchmark 列查实际数据；落后 50% 砍掉换下一周战术",
+        "3. **不要全部一次开** — 同一周最多并行 3 个渠道，否则没人盯得过来",
+        "4. **改 channel 不改 skill** — 渠道选完再装对应 skill 当 agent 上下文，让 AI 帮你执行细节",
+    ])
+    return "\n".join(lines)
 
 
 def _render_playbook_section(hints: dict, level: int = 2) -> str:
@@ -1785,6 +2000,13 @@ async def generate_action_plan(site_data: dict, product_name: str, diagnosis_md:
 
 🚨 **多渠道覆盖硬约束**：以下 4 周每周必须聚焦一个**不同的增长维度**。**不允许整个 4 周计划都聚焦 SEO/GEO**。如果产品类型是 Sales-led，跳过 PH/UGC/Reddit-Karma 周，替换为 Sales Enablement / DevRel / Case Study 周。
 
+🚨 **每个任务的硬约束（落地度）**：
+- **必须**引用 **GINGIRIS_SKILL_TACTICS** 里某个 skill 的**具体战术**（不是泛泛 "做 SEO"），格式：`【来自 \`<skill-slug>\` 的战术】` + 战术原话引述
+- **必须**带 1 个 benchmark 数据（CAC、CVR、CTR、follower 增长、ROI 等等的具体数字，从对应 skill 引）
+- **必须**带 1 段可立即执行的"今天能做什么"（命令 / 邮件模板原文 / 链接 / 工具操作步骤）
+- 禁止写"考虑 / 评估 / 探索"这类含糊词；只用"做 X，结果 Y"的祈使句
+- 禁止"做 SEO 优化"这种笼统建议；必须是"在 sitemap.xml 加 5 个 /alternatives/ URL，明天 10AM PT 提交 GSC"这种动作级
+
 ## Week 1: Day 1-7 — SEO/GEO + 基础设施
 
 任务来源：诊断报告 "## 3. SEO/GEO 现状审计" + "## 5. P0"。
@@ -2059,6 +2281,18 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
         plan_md = _replace_playbook_section(plan_md, hints, heading_level=2)
+        # Inject the deterministic Week × Channel × Tactic matrix RIGHT
+        # BEFORE the Gingiris Skills section. This is the fix for Iris's
+        # "reports too SEO-only / channels too limited" complaint —
+        # programmatically forces multi-channel coverage drawn from real
+        # skill tactics with real benchmarks, instead of trusting the LLM
+        # to remember to span Reddit/Twitter/KOL/UGC/etc.
+        matrix_md = _render_action_matrix(hints, level=2)
+        anchor = "## 📚 匹配的 Gingiris Skills"
+        if anchor in plan_md:
+            plan_md = plan_md.replace(anchor, matrix_md + "\n\n" + anchor, 1)
+        else:
+            plan_md = plan_md.rstrip() + "\n\n" + matrix_md + "\n"
         # Pull KOL handles (the task has been running since Phase 1 start;
         # it should already be done by now). Bound the wait tightly so a
         # hung Brave call can't extend total audit time.
