@@ -294,11 +294,11 @@ async def get_pricing():
     return {
         "plans": [
             {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 2, "features": ["2 reports/month", "Basic analysis"]},
-            {"key": "pro", "name": "Pro", "price": 29, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
-            {"key": "team", "name": "Team", "price": 99, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
+            {"key": "pro", "name": "Pro", "price": 19, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
+            {"key": "team", "name": "Team", "price": 79, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
             # Growth Audit is a CREDIT-PRICED tool (10 credits / use). It's not a
-            # standalone purchase tier — to run it you buy Pro ($29/mo → 3 audits/mo)
+            # standalone purchase tier — to run it you buy Pro ($19/mo → 3 audits/mo)
             # or Team. No standalone Polar product exists for it; if a one-time
             # tier is re-added later, also wire POLAR_PRODUCT_GROWTH + the
             # add_credits branch in modules/polar_payment.py.

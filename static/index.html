@@ -466,6 +466,36 @@
     </main>
 
     <!-- ══════════════════════════════════════════════════════════════
+         Upgrade Modal — shown when user hits paywall (402)
+    ══════════════════════════════════════════════════════════════ -->
+    <div id="upgrade-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-7 relative shadow-2xl">
+            <button id="upgrade-close-btn"
+                    class="absolute top-4 right-4 text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-3">⚡</div>
+                <h2 class="text-xl font-bold text-white mb-2">You've used all your free reports</h2>
+                <p class="text-sm text-gray-400">Free plan includes 2 reports/month. Pick an option to keep going:</p>
+            </div>
+
+            <!-- Single report CTA (primary) -->
+            <button id="upgrade-single-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl mb-3 transition-colors text-sm">
+                Get 1 report — $5
+            </button>
+
+            <!-- Pro CTA (secondary) -->
+            <button id="upgrade-pro-btn"
+                    class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-medium py-3 rounded-xl mb-4 transition-colors text-sm">
+                Pro Plan — $19/month · 30 reports + 7-day free trial
+            </button>
+
+            <p class="text-center text-xs text-gray-600">No subscription lock-in on the $5 option. Cancel Pro anytime.</p>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
          Auth Modal — Sign In / Sign Up
     ══════════════════════════════════════════════════════════════ -->
     <div id="auth-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -477,7 +507,7 @@
             <!-- Logo -->
             <div class="text-center mb-6">
                 <span class="text-2xl font-bold text-white">Analook</span>
-                <p class="text-xs text-gray-500 mt-1">Sign in to get 3 free analysis credits</p>
+                <p class="text-xs text-gray-500 mt-1">Sign in to get 2 free competitor reports</p>
             </div>
 
             <!-- Tab toggle -->
@@ -512,7 +542,7 @@
                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-sm">
                 <button id="auth-signup-btn"
                         class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors text-sm">
-                    Sign Up Free (3 credits included)
+                    Sign Up Free — 2 reports included
                 </button>
             </div>
 

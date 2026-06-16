@@ -191,7 +191,7 @@ async function startAnalysis() {
             // 积分不足 → 友好提示
             if (resp.status === 402) {
                 _abortProgress('');
-                showError('⚡ 积分不足！免费用户每月 3 次，升级 Pro 可获得 50 次。');
+                showUpgradeModal();
                 return;
             }
             // 未登录 → 弹出登录框
@@ -466,6 +466,8 @@ async function loadReport() {
         renderStrategy(report.sections.growth_strategy || {});
         if (typeof renderPlaybooks === 'function') renderPlaybooks(report);
 
+        _maybeShowLastCreditBanner();
+
         document.getElementById('hero-section')?.classList.add('hidden');
 
         const btn = document.getElementById('start-btn');
@@ -646,4 +648,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ── Upgrade modal ────────────────────────────────────────────────────────────────────────────
+function showUpgradeModal() {
+    const modal = document.getElementById('upgrade-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+}
+
+function hideUpgradeModal() {
+    const modal = document.getElementById('upgrade-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// Wire up upgrade modal buttons
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('upgrade-close-btn')?.addEventListener('click', hideUpgradeModal);
+    document.getElementById('upgrade-modal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) hideUpgradeModal();
+    });
+
+    async function _doCheckout(plan) {
+        const headers = {'Content-Type': 'application/json'};
+        const token = window._analookAuth?.getToken?.();
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        try {
+            hideUpgradeModal();
+            const resp = await fetch('/api/checkout', {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    plan,
+                    success_url: window.location.origin + '/?payment=success&plan=' + plan,
+                    cancel_url: window.location.origin + '/?payment=canceled',
+                }),
+            });
+            const data = await resp.json();
+            if (data.url) window.location.href = data.url;
+            else alert('Error: ' + (data.error || 'Unknown'));
+        } catch(e) { alert('Network error: ' + e.message); }
+    }
+
+    document.getElementById('upgrade-single-btn')?.addEventListener('click', () => _doCheckout('single_report'));
+    document.getElementById('upgrade-pro-btn')?.addEventListener('click', () => _doCheckout('pro'));
+});
+
+// ── Last-credit banner ────────────────────────────────────────────────────────────────────
+async function _maybeShowLastCreditBanner() {
+    const token = window._analookAuth?.getToken?.();
+    if (!token) return;
+    try {
+        const res = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token }});
+        if (!res.ok) return;
+        const profile = await res.json();
+        if (profile.credits_balance === 1 && profile.plan_type === 'free') {
+            _showLastCreditBanner();
+        }
+    } catch(e) {}
+}
+
+function _showLastCreditBanner() {
+    const existing = document.getElementById('last-credit-banner');
+    if (existing) return;
+    const banner = document.createElement('div');
+    banner.id = 'last-credit-banner';
+    banner.className = 'fixed bottom-0 left-0 right-0 bg-amber-900/95 border-t border-amber-700 px-4 py-3 z-40 flex items-center justify-between gap-3';
+    banner.innerHTML = `
+        <span class="text-amber-100 text-sm">⚡ <strong>1 free report left</strong> this month — make it count, or upgrade for unlimited access.</span>
+        <div class="flex gap-2 flex-shrink-0">
+            <button onclick="document.getElementById('last-credit-banner').remove()" class="text-amber-400 hover:text-amber-200 text-xs px-2 py-1">Dismiss</button>
+            <button onclick="showUpgradeModal()" class="bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Upgrade →</button>
+        </div>
+    `;
+    document.body.appendChild(banner);
+}
 
