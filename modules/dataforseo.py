@@ -261,18 +261,32 @@ async def _top_keywords(client, headers, domain) -> dict:
     product_non_branded = [k for k in non_branded_by_volume if not k.get("is_content_only")]
     content_non_branded = [k for k in non_branded_by_volume if k.get("is_content_only")]
 
+    # Keyword gap: low-competition but decent-volume non-branded keywords
+    # These are opportunities a competitor can realistically target
+    gap_keywords = sorted(
+        [k for k in non_branded if not k.get("is_content_only") and k.get("search_volume", 0) >= 500],
+        key=lambda x: (
+            # Score: high volume + low competition + NOT already top-3 for incumbent
+            x.get("search_volume", 0) * (1.5 if x.get("competition") in ("LOW", "") else 0.8 if x.get("competition") == "MEDIUM" else 0.4)
+            * (1.0 if x.get("position", 1) > 3 else 0.3)
+        ),
+        reverse=True,
+    )
+
     return {
         "cost": cost,
         "keywords": all_keywords[:10],  # Legacy: top 10 overall
-        "branded_keywords": branded[:10],
-        "non_branded_keywords": non_branded_by_volume[:10],
-        "product_keywords": product_non_branded[:10],    # Non-branded but product-adjacent
-        "content_keywords": content_non_branded[:5],     # Unrelated content-SEO pages
+        "branded_keywords": branded[:30],
+        "non_branded_keywords": non_branded_by_volume[:30],
+        "product_keywords": product_non_branded[:20],    # Non-branded but product-adjacent
+        "content_keywords": content_non_branded[:10],    # Unrelated content-SEO pages
+        "gap_keywords": gap_keywords[:15],               # Keyword gap opportunities
         "total": task.get("result", [{}])[0].get("total_count", 0) if task.get("result") else 0,
         "branded_count": len(branded),
         "non_branded_count": len(non_branded),
         "product_keyword_count": len(product_non_branded),
         "content_keyword_count": len(content_non_branded),
+        "gap_keyword_count": len(gap_keywords),
     }
 
 

@@ -349,6 +349,24 @@ def report_to_markdown(report: dict) -> str:
                 for k_item in non_branded_kw:
                     md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
                 md += "\n"
+
+            gap_kw = kw.get("gap_keywords", [])
+            if gap_kw:
+                md += f"### 关键词缺口机会（竞争对手可切入的低竞争词，共 {kw.get('gap_keyword_count', len(gap_kw))} 个）\n\n"
+                md += "| 关键词 | 当前排名 | 月搜索量 | 竞争度 | 机会评级 |\n|--------|----------|----------|--------|------------|\n"
+                for k_item in gap_kw:
+                    pos = k_item.get('position', 99)
+                    vol = k_item.get('search_volume', 0)
+                    comp = k_item.get('competition', '')
+                    if pos > 10 and comp in ('LOW', ''):
+                        opp = '🟢 高'
+                    elif pos > 5 or comp == 'MEDIUM':
+                        opp = '🟡 中'
+                    else:
+                        opp = '🔴 低'
+                    md += f"| {k_item['keyword']} | #{pos} | {vol:,} | {comp or '—'} | {opp} |\n"
+                md += "\n"
+
             elif not branded_kw and legacy_kw:
                 md += f"### Top 排名关键词（共 {kw.get('total', 0):,} 个）\n\n"
                 md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"

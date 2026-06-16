@@ -730,7 +730,11 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
 **变现策略**：免费用户如何转化为付费用户？核心升级触发点是什么？
 
-**收入规模估算**：基于流量数据和行业平均转化率，给出保守的月收入范围估算（需标注假设条件）。
+**收入规模估算**：基于以下顺序逐步推算：
+  1. 先看是否有实际定价页数据，提取真实套餐价格和功能限制
+  2. 用 Product Hunt reviews 数量作付费用户下限（留评用户中付费率假设 30-60%）
+  3. 用流量对比行业基准（SaaS DevTools 平均免费→付费转化率 2-5%）
+  4. 三种方法对比，给出保守/基准/乐观三个区间，每个区间必须标注假设前提
 
 ### 三、增长密码（做对了什么）
 
@@ -761,7 +765,22 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 - 引用 Gingiris Playbook 作为行动框架
 - 每条建议说明"不这样做的代价是什么"
 
-### 七、风险与机会
+### 七、关键词缺口分析
+
+基于上方“关键词缺口”数据：
+- **后来者切入机会**：哪 3-5 个词是竞争对手排名弱但搜索量可观的？应该建什么内容去抢？
+- **内容缺口**：有哪些高搜索量的关键词竞争对手没有做自己的内容页？
+- 如果该部分数据为空，写“关键词数据不足”
+
+### 八、流量变化归因
+
+如果流量历史数据显示明显增长或下降，必须进行归因：
+- 指出具体月份和变化幅度（如“2026-01 到 2026-06 下降 18%”）
+- 分析可能原因：关键词丢失？竞争加剧？产品转型？算法更新？
+- 平行对比社交数据走势（如流量降但 Twitter 遥升，说明转向直接进流）
+- 如果数据不足以判断，标注“归因数据不足”
+
+### 九、风险与机会
 
 **主要风险**（2-3 条，有数据支撑）：这个产品目前的增长隐患或结构性弱点是什么？
 
@@ -1134,15 +1153,38 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
             parts.append(f"  {h['date']}: {h.get('organic_traffic',0):,} 有机 / {h.get('keywords',0):,} 关键词")
 
     kw = tr.get("top_keywords", {})
-    kw_list = kw.get("keywords") if isinstance(kw, dict) else None
-    if isinstance(kw_list, list) and kw_list:
-        # Show non-branded keywords first (higher signal for competitor analysis)
-        nb = kw.get("non_branded_keywords") or []
-        display_kw = (nb[:5] + [k for k in kw_list if k not in nb])[:8] if nb else kw_list[:8]
-        parts.append("**Top 非品牌关键词**:")
-        for k in display_kw:
-            if isinstance(k, dict):
-                parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
+    if isinstance(kw, dict):
+        # Non-branded product keywords — highest signal for competitor analysis
+        nb = kw.get("non_branded_keywords") or kw.get("product_keywords") or []
+        branded = kw.get("branded_keywords") or []
+        gap = kw.get("gap_keywords") or []
+        kw_list = kw.get("keywords") or []
+
+        if nb:
+            parts.append(f"**Top 非品牌关键词**（{kw.get('non_branded_count', len(nb))} 个）:")
+            for k in nb[:20]:
+                if isinstance(k, dict):
+                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,} 竞争度:{k.get('competition','—')}")
+
+        if branded:
+            parts.append(f"**品牌词**（{kw.get('branded_count', len(branded))} 个）:")
+            for k in branded[:10]:
+                if isinstance(k, dict):
+                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
+
+        if gap:
+            parts.append(f"**关键词缺口（后来者可切入）**（{kw.get('gap_keyword_count', len(gap))} 个）:")
+            for k in gap[:10]:
+                if isinstance(k, dict):
+                    comp = k.get('competition', '')
+                    opp = '高机会' if k.get('position',99) > 10 and comp in ('LOW','') else '中机会'
+                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',99)} 月搜索量{k.get('search_volume',0):,} [{opp}]")
+
+        elif not nb and kw_list:
+            parts.append("**Top 关键词**:")
+            for k in kw_list[:8]:
+                if isinstance(k, dict):
+                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
 
     sm = social or {}
     ch = sm.get("channels", {})
