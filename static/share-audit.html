@@ -106,7 +106,7 @@
   .md strong { color:var(--ink); }
   .md code { background:var(--elev); padding:2px 7px; border-radius:5px; font-family:"JetBrains Mono",monospace; font-size:13px; color:#a5f3fc; }
   .md pre { background:var(--elev); border:1px solid var(--border); border-radius:10px; padding:14px 18px; overflow-x:auto; margin:12px 0; font-size:13px; }
-  .md pre code { background:transparent; padding:0; }
+  .md pre code { background:transparent; padding:0; color:#e2d9c4; }
   .md blockquote { border-left:3px solid var(--accent); padding-left:14px; margin:12px 0; color:var(--ink-muted); font-style:italic; }
   .md table { width:100%; border-collapse:collapse; margin:14px 0; font-size:13.5px; }
   .md th, .md td { border:1px solid var(--border); padding:8px 12px; text-align:left; color:var(--ink-muted); }
@@ -153,6 +153,19 @@
     .report-card { padding:24px 22px; }
     .tab { padding:11px 14px; font-size:13px; }
   }
+
+  /* ── Diagnostic snapshot badges ──────────────────────────────── */
+  .diag-snapshot {
+    display:flex; flex-wrap:wrap; gap:8px;
+    margin-bottom:28px;
+  }
+  .diag-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:4px 12px; border-radius:999px; border:1px solid;
+    font-family:"JetBrains Mono",monospace; font-size:11px; line-height:1;
+  }
+  .diag-badge.red  { color:#f87171; border-color:rgba(248,113,113,0.35); background:rgba(248,113,113,0.07); }
+  .diag-badge.green { color:#4ade80; border-color:rgba(74,222,128,0.35); background:rgba(74,222,128,0.07); }
 
   /* ── Q&A widget ─────────────────────────────────────────────── */
   .qa-bubble {
@@ -309,10 +322,14 @@
       <div class="hero-stripe"></div>
       <h1 class="hero">Growth audit for <em id="hero-product">your product</em></h1>
       <div class="hero-meta">
+        <span id="hero-date">—</span>
+        <span>•</span>
         <span id="hero-url">—</span>
         <span>•</span>
         <span>Powered by Gingiris Growth Framework</span>
       </div>
+
+      <div id="diag-snapshot" class="diag-snapshot" style="display:none"></div>
 
       <div class="tabs">
         <button class="tab active" data-tab="exec">📋 Executive Summary</button>
@@ -406,6 +423,32 @@
     document.getElementById('hero-product').textContent = productName;
     document.getElementById('hero-url').textContent = data.url || '';
 
+    // shared_at date
+    const formattedDate = (data.shared_at && data.shared_at !== 'now')
+        ? new Date(data.shared_at).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'})
+        : new Date().toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+    document.getElementById('hero-date').textContent = formattedDate;
+
+    // site_data_summary diagnostic badges
+    const sds = data.site_data_summary || {};
+    const badgeDefs = [
+        { key:'has_robots',  trueLabel:'robots.txt',    falseLabel:'No robots.txt' },
+        { key:'has_sitemap', trueLabel:'Sitemap',       falseLabel:'No sitemap' },
+        { key:'has_pricing', trueLabel:'Pricing page',  falseLabel:'No pricing page' },
+    ];
+    const snapshotEl = document.getElementById('diag-snapshot');
+    let hasBadges = false;
+    badgeDefs.forEach(def => {
+        if (!(def.key in sds)) return;
+        const val = sds[def.key];
+        const badge = document.createElement('span');
+        badge.className = 'diag-badge ' + (val ? 'green' : 'red');
+        badge.textContent = (val ? '✅ ' : '🔴 ') + (val ? def.trueLabel : def.falseLabel);
+        snapshotEl.appendChild(badge);
+        hasBadges = true;
+    });
+    if (hasBadges) snapshotEl.style.display = 'flex';
+
     // Meta tags for social previews
     document.title = `${productName} — Growth Audit | Analook`;
     document.getElementById('page-title').textContent = document.title;
@@ -436,6 +479,18 @@
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
     renderTab('exec');
+
+    // ─── Dynamic Q&A suggestion from executive_summary ───────────────
+    const execMd = reports.executive_summary || '';
+    const problemMatch = execMd.match(/###\s*问题\s*\d[：:]\s*([^\n]+)/);
+    if (problemMatch) {
+        const firstProblem = problemMatch[1].replace(/\*\*/g, '').trim().slice(0, 40);
+        const btn = document.querySelector('.qa-suggestion');
+        if (btn) {
+            btn.dataset.q = `"${firstProblem}" 具体该怎么修？`;
+            btn.textContent = `🔍 "${firstProblem}" 具体该怎么修？`;
+        }
+    }
 
     // ─── Q&A widget — reveal once the report has rendered ────────────
     initQaWidget(jobId);
