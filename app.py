@@ -1283,6 +1283,21 @@ async def _run_analysis(job_id: str):
         except asyncio.TimeoutError:
             return {"error": f"timeout after {timeout}s", "_timed_out": True}
 
+    # ── Lightweight phase clock (zero-risk: just logs + stashes timings) ──
+    # Lets us see which phase actually dominates a real run via `fly logs` or
+    # the report's results._timings, before tuning any external-API timeout.
+    import time as _time
+    _clock = {"start": _time.monotonic(), "last": _time.monotonic()}
+    job["results"]["_timings"] = {}
+
+    def _mark(name: str):
+        now = _time.monotonic()
+        dt = round(now - _clock["last"], 1)
+        job["results"]["_timings"][name] = dt
+        log.info("[timing] %s %s=%.1fs (cumulative %.1fs)",
+                 job_id, name, dt, now - _clock["start"])
+        _clock["last"] = now
+
     # Phase 1: all modules run in parallel (including SEO Review Tools alongside DataForSEO)
     job["progress"]["pr_news"] = "running"
     results_phase1 = await asyncio.gather(
@@ -1336,6 +1351,8 @@ async def _run_analysis(job_id: str):
             if _brand_lower in _first_seg.lower().replace(" ", ""):
                 product_name = _first_seg
                 job["product_name"] = product_name
+
+    _mark("phase1")
 
     # Prepare for Phase 1.5 parallel tasks
     _gh_result = job["results"].get("github_oss", {})
@@ -1398,6 +1415,8 @@ async def _run_analysis(job_id: str):
         return_exceptions=True,
     )
 
+    _mark("phase1.5_apify")
+
     # Phase 1.7: Reconcile social handles — update website social_links with
     # Brave/Apify-verified handles from the social module (fixes handle mismatches)
     _soc_channels = job["results"].get("social", {}).get("channels", {})
@@ -1457,6 +1476,8 @@ async def _run_analysis(job_id: str):
                     _ws_social_links["twitter"]["verified"] = True
         except Exception:
             pass
+
+    _mark("phase1.8_twitter")
 
     # ================================================================
     # Phase 2: Propagation + Traffic Peaks (parallel, ~10s)
@@ -1592,6 +1613,8 @@ async def _run_analysis(job_id: str):
     if _cancelled(): return
 
     # ================================================================
+    _mark("phase2_prop_traffic_ai")
+
     # Phase 3: Growth analysis + Playbook (sync, instant <1s)
     # These need propagation data from Phase 2, so they run after.
     # ================================================================
