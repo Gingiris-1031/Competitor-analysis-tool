@@ -69,7 +69,14 @@ async def _weekly_summary_prose(product_name: str, diff: dict, target_url: str) 
         f"DATA:\n{facts}\n\nWRITE THE RECAP:"
     )
 
-    text = await _try_deepseek(prompt) or await _try_openrouter(prompt)
+    # Same resilient A→B→C chain as growth_audit._call_llm_long: OpenRouter
+    # deepseek-v4-flash → DeepSeek direct → OpenRouter Claude. Deterministic
+    # template below is the ultimate fallback if all three are unreachable.
+    text = (
+        await _try_openrouter(prompt, "deepseek/deepseek-v4-flash")
+        or await _try_deepseek(prompt)
+        or await _try_openrouter(prompt, "anthropic/claude-sonnet-4")
+    )
     if text:
         return text.strip()
 
@@ -93,17 +100,29 @@ async def _weekly_summary_prose(product_name: str, diff: dict, target_url: str) 
     return " ".join(parts)
 
 
+# Fast-failover timeout: ~10s connect (dead provider → next path fast),
+# generous read for the short generation. One attempt per provider.
+_LLM_TIMEOUT = httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
+
+
+def _final_content(data: dict) -> Optional[str]:
+    """Read ONLY the answer text — never DeepSeek V4's reasoning_content."""
+    msg = ((data.get("choices") or [{}])[0] or {}).get("message", {}) or {}
+    return msg.get("content") or None
+
+
 async def _try_deepseek(prompt: str) -> Optional[str]:
     key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
     if not key:
         return None
+    model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
     try:
-        async with httpx.AsyncClient(timeout=45) as c:
+        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT) as c:
             r = await c.post(
                 "https://api.deepseek.com/chat/completions",
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json={
-                    "model": "deepseek-chat",
+                    "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.4,
                     "max_tokens": 400,
@@ -112,23 +131,24 @@ async def _try_deepseek(prompt: str) -> Optional[str]:
             if r.status_code != 200:
                 log.warning("deepseek weekly-summary http %s: %s", r.status_code, r.text[:200])
                 return None
-            return r.json()["choices"][0]["message"]["content"]
+            return _final_content(r.json())
     except Exception as e:
         log.warning("deepseek weekly-summary error: %s", e)
         return None
 
 
-async def _try_openrouter(prompt: str) -> Optional[str]:
+async def _try_openrouter(prompt: str, model: str = "deepseek/deepseek-v4-flash") -> Optional[str]:
     key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
     if not key:
         return None
     try:
-        async with httpx.AsyncClient(timeout=45) as c:
+        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT) as c:
             r = await c.post(
                 "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                         "HTTP-Referer": "https://www.analook.com", "X-Title": "Analook Autopilot"},
                 json={
-                    "model": "deepseek/deepseek-chat",
+                    "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.4,
                     "max_tokens": 400,
@@ -136,7 +156,7 @@ async def _try_openrouter(prompt: str) -> Optional[str]:
             )
             if r.status_code != 200:
                 return None
-            return r.json()["choices"][0]["message"]["content"]
+            return _final_content(r.json())
     except Exception:
         return None
 
