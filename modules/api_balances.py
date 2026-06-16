@@ -275,6 +275,32 @@ async def _producthunt(c: httpx.AsyncClient) -> dict:
         return {"provider": "ProductHunt", "status": "error", "note": str(e)[:120]}
 
 
+async def _twitterapi_io(c: httpx.AsyncClient) -> dict:
+    key = _key("TWITTERAPI_IO_KEY") or _key("TWITTER_API_IO_KEY")
+    if not key:
+        return _missing("TwitterAPI.io")
+    try:
+        # Cheap liveness check: user info for the public @x account
+        r = await c.get(
+            "https://api.twitterapi.io/twitter/user/info",
+            params={"userName": "x"},
+            headers={"x-api-key": key},
+        )
+        if r.status_code == 200:
+            return {
+                "provider": "TwitterAPI.io",
+                "status":   "ok",
+                "note":     "Key valid. KOL discovery fallback. Check usage at twitterapi.io dashboard.",
+            }
+        if r.status_code in (401, 403):
+            return {"provider": "TwitterAPI.io", "status": "error", "note": f"Auth fail HTTP {r.status_code}"}
+        if r.status_code == 402:
+            return {"provider": "TwitterAPI.io", "status": "exhausted", "note": "Credits depleted (402)"}
+        return {"provider": "TwitterAPI.io", "status": "unknown", "note": f"HTTP {r.status_code}: {r.text[:120]}"}
+    except Exception as e:
+        return {"provider": "TwitterAPI.io", "status": "error", "note": str(e)[:120]}
+
+
 async def _polar(c: httpx.AsyncClient) -> dict:
     tok = _key("POLAR_ACCESS_TOKEN")
     if not tok:
@@ -307,6 +333,7 @@ async def check_all() -> dict:
             _serpapi(c),
             _github(c),
             _producthunt(c),
+            _twitterapi_io(c),
             _polar(c),
             return_exceptions=True,
         )

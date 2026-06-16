@@ -1352,14 +1352,48 @@ def _extract_product_category(site_data: dict) -> list:
 
 
 async def _discover_real_kols(categories: list, hints: dict, k: int = 6) -> list:
-    """Use Brave Search to find real Twitter / LinkedIn handles that
-    publish about the given product categories. Returns up to `k` deduped
-    candidates each with {handle, platform, bio_snippet, source_url}.
+    """Multi-source KOL discovery. Tries each backend in cheap→expensive
+    order and stops as soon as we have `k` deduped candidates.
 
-    Falls back to empty list if Brave key missing or all queries fail —
-    the audit then just skips the "Real KOL candidates" section instead
-    of fabricating handles.
+    Backends (in order): Brave → SerpAPI → TwitterAPI.io.
+
+    Background: Brave has been returning 402 (quota exhausted) → audit
+    was falling through to no KOL data → LLM was inventing placeholder
+    names like 'AI Tool Report'. The fallback chain fixes this by
+    consuming SerpAPI (Iris's Developer plan) and TwitterAPI.io
+    (already on Fly secrets) when Brave is unavailable.
     """
+    if not categories:
+        return []
+    results: list = []
+    seen_handles: set = set()
+
+    async def _merge(source_fn):
+        nonlocal results, seen_handles
+        if len(results) >= k:
+            return
+        try:
+            rows = await source_fn(categories, hints, k=k - len(results))
+        except Exception as e:
+            log.warning("KOL backend %s failed: %s", source_fn.__name__, e)
+            return
+        for r in rows:
+            h = (r.get("handle") or "").lower()
+            if h and h not in seen_handles:
+                seen_handles.add(h)
+                results.append(r)
+                if len(results) >= k:
+                    return
+
+    await _merge(_discover_kols_brave)
+    await _merge(_discover_kols_serpapi)
+    await _merge(_discover_kols_twitterapi)
+
+    return results[:k]
+
+
+async def _discover_kols_brave(categories: list, hints: dict, k: int = 6) -> list:
+    """Original Brave-based discovery (preserved as Backend #1)."""
     key = (os.environ.get("BRAVE_SEARCH_API_KEY") or "").strip()
     if not key:
         try:
@@ -1466,6 +1500,181 @@ async def _discover_real_kols(categories: list, hints: dict, k: int = 6) -> list
                 if len(results) >= k:
                     break
 
+    return results[:k]
+
+
+async def _discover_kols_serpapi(categories: list, hints: dict, k: int = 6) -> list:
+    """Google search via SerpAPI for the same site:twitter.com /
+    site:linkedin.com queries Brave does. SerpAPI has better recall than
+    Brave for niche queries and Iris's Developer plan has generous quota.
+    """
+    key = (os.environ.get("SERPAPI_KEY") or "").strip()
+    if not key or not categories:
+        return []
+
+    if hints.get("is_sales_led"):
+        templates = [
+            'site:twitter.com {cat} ("engineer" OR "principal" OR "CTO")',
+            'site:linkedin.com/in/ {cat} engineer OR cto',
+            '"{cat}" "I write about" site:twitter.com',
+        ]
+    else:
+        templates = [
+            'site:twitter.com {cat} (review OR tutorial OR guide)',
+            'site:twitter.com "{cat}" ("I share" OR "I build")',
+            'site:youtube.com "{cat}" review',
+        ]
+
+    queries = []
+    for cat in categories[:3]:
+        for tmpl in templates:
+            queries.append(tmpl.format(cat=cat))
+
+    results = []
+    seen = set()
+    HARD_BUDGET_S = 20.0
+    t0 = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient(timeout=8) as client:
+        for q in queries:
+            if len(results) >= k or (asyncio.get_event_loop().time() - t0) > HARD_BUDGET_S:
+                break
+            try:
+                r = await client.get(
+                    "https://serpapi.com/search.json",
+                    params={"engine": "google", "q": q, "num": 10, "api_key": key},
+                )
+                if r.status_code != 200:
+                    continue
+                hits = r.json().get("organic_results") or []
+            except Exception as e:
+                log.warning("SerpAPI KOL search failed %r: %s", q, e)
+                continue
+
+            for hit in hits:
+                url = hit.get("link", "") or ""
+                title = hit.get("title", "") or ""
+                snippet = hit.get("snippet", "") or ""
+
+                tw_m = _re.search(r"(?:twitter|x)\.com/([A-Za-z0-9_]{2,15})(?:/|$|\?)", url)
+                if tw_m and "/status/" not in url:
+                    h = "@" + tw_m.group(1)
+                    if h.lower() in seen or tw_m.group(1).lower() in {
+                        "home", "search", "explore", "i", "compose", "intent",
+                    }:
+                        continue
+                    seen.add(h.lower())
+                    results.append({
+                        "handle":     h,
+                        "platform":   "Twitter / X",
+                        "bio_snippet":(snippet or title)[:220],
+                        "source_url": f"https://twitter.com/{tw_m.group(1)}",
+                        "found_via":  f"SerpAPI: {q[:50]}",
+                    })
+                    continue
+
+                li_m = _re.search(r"linkedin\.com/in/([A-Za-z0-9-]{3,80})", url)
+                if li_m:
+                    slug = li_m.group(1)
+                    if slug.lower() in seen:
+                        continue
+                    seen.add(slug.lower())
+                    results.append({
+                        "handle":     slug,
+                        "platform":   "LinkedIn",
+                        "bio_snippet":(snippet or title)[:220],
+                        "source_url": f"https://linkedin.com/in/{slug}",
+                        "found_via":  f"SerpAPI: {q[:50]}",
+                    })
+                    continue
+
+                yt_m = _re.search(
+                    r"youtube\.com/(?:@|c/|channel/|user/)([A-Za-z0-9_-]{3,80})", url
+                )
+                if yt_m:
+                    h = "@" + yt_m.group(1)
+                    if h.lower() in seen:
+                        continue
+                    seen.add(h.lower())
+                    results.append({
+                        "handle":     h,
+                        "platform":   "YouTube",
+                        "bio_snippet":(snippet or title)[:220],
+                        "source_url": url.split("?")[0],
+                        "found_via":  f"SerpAPI: {q[:50]}",
+                    })
+
+                if len(results) >= k:
+                    break
+
+    return results[:k]
+
+
+async def _discover_kols_twitterapi(categories: list, hints: dict, k: int = 6) -> list:
+    """TwitterAPI.io direct user search by bio keyword. Returns real
+    Twitter accounts whose bio matches the product category — usually
+    higher quality than SERP-scraped accounts because we get follower
+    counts to filter into the micro-KOL band (1K-200K).
+    """
+    key = (
+        os.environ.get("TWITTERAPI_IO_KEY")
+        or os.environ.get("TWITTER_API_IO_KEY")
+        or ""
+    ).strip()
+    if not key or not categories:
+        return []
+
+    results = []
+    seen = set()
+    async with httpx.AsyncClient(timeout=12) as client:
+        for cat in categories[:3]:
+            if len(results) >= k:
+                break
+            if hints.get("is_sales_led"):
+                bio_query = f'"{cat}" (engineer OR CTO OR principal OR architect)'
+            else:
+                bio_query = f'"{cat}" (review OR tutorial OR creator OR builder)'
+            try:
+                r = await client.get(
+                    "https://api.twitterapi.io/twitter/user/advance_search_by_bio",
+                    params={"query": bio_query, "min_followers": 1000, "max_followers": 200000},
+                    headers={"x-api-key": key},
+                )
+                if r.status_code != 200:
+                    log.info("TwitterAPI.io status %s for cat=%s", r.status_code, cat)
+                    continue
+                data = r.json() or {}
+                users = data.get("users") or data.get("data") or []
+            except Exception as e:
+                log.warning("TwitterAPI.io error for %s: %s", cat, e)
+                continue
+
+            for u in users[:5]:
+                username = (
+                    u.get("userName") or u.get("screen_name") or u.get("username")
+                )
+                if not username:
+                    continue
+                h = "@" + username
+                if h.lower() in seen:
+                    continue
+                seen.add(h.lower())
+                followers = u.get("followers") or u.get("followers_count") or 0
+                bio = u.get("description") or u.get("bio") or ""
+                snippet = f"{bio[:170]} · {followers:,} followers" if followers else bio[:220]
+                results.append({
+                    "handle":      h,
+                    "platform":    "Twitter / X",
+                    "bio_snippet": snippet,
+                    "source_url":  f"https://twitter.com/{username}",
+                    "found_via":   f"TwitterAPI.io bio:{cat}",
+                    "followers":   followers,
+                })
+                if len(results) >= k:
+                    break
+
+    # Micro-KOL band (1K-100K) usually best ROI — sort by followers desc
+    results.sort(key=lambda x: x.get("followers") or 0, reverse=True)
     return results[:k]
 
 
