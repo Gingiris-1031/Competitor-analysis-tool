@@ -279,7 +279,7 @@ async def _call_deepseek(messages: list) -> tuple[Optional[str], dict]:
                 "https://api.deepseek.com/chat/completions",
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json={
-                    "model":       "deepseek-chat",
+                    "model":       os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash"),
                     "messages":    messages,
                     "temperature": 0.3,   # low — we want grounded, not creative
                     "max_tokens":  500,
@@ -289,7 +289,11 @@ async def _call_deepseek(messages: list) -> tuple[Optional[str], dict]:
             if r.status_code != 200:
                 return None, {"error": f"HTTP {r.status_code}: {r.text[:200]}", "latency_ms": latency_ms}
             data = r.json()
-            answer = data["choices"][0]["message"]["content"]
+            # `content` is the final answer; DeepSeek V4 puts chain-of-thought in
+            # a separate `reasoning_content` field, which we deliberately ignore.
+            answer = ((data.get("choices") or [{}])[0].get("message", {}) or {}).get("content")
+            if not answer:
+                return None, {"error": "empty content", "latency_ms": latency_ms}
             usage  = data.get("usage") or {}
             return answer.strip(), {
                 "latency_ms":     latency_ms,

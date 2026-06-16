@@ -1245,17 +1245,30 @@ def _build_github_insight(github_oss: dict) -> str:
     return "\n".join(parts)
 
 
-async def _call_llm(prompt: str) -> dict:
-    """LLM call: DeepSeek primary, OpenRouter fallback (opt-in).
+# Per-provider timeout: a short CONNECT timeout fails over fast (~10s) when a
+# provider is unreachable, a generous READ timeout lets a healthy one finish.
+# One attempt per provider — resilience comes from failing over, not retrying.
+_AI_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 
-    Old TeamoRouter path was removed 2026-06-11 after the provider's
-    URL changed, model catalog changed, AND the account ran out of
-    balance simultaneously — three failure modes that all routed
-    through 'fallback to DeepSeek anyway' while burning 6+ min of
-    retry latency per LLM call. See growth_audit._call_llm_long for
-    the same pattern used by the audit pipeline.
+
+def _ai_final_content(data: dict) -> str:
+    """Read ONLY the answer text — never DeepSeek V4's reasoning_content."""
+    msg = ((data.get("choices") or [{}])[0] or {}).get("message", {}) or {}
+    return msg.get("content", "") or ""
+
+
+async def _call_llm(prompt: str) -> dict:
+    """Multi-path LLM call — same resilient chain as growth_audit._call_llm_long:
+
+      Plan A: OpenRouter → deepseek-v4-flash   (fast, cheap, multi-host failover)
+      Plan B: DeepSeek direct → deepseek-v4-flash  (same model, independent vendor)
+      Plan C: OpenRouter → claude-sonnet-4     (different model — quality safety net)
+
+    Each path is tried once; a ~10s connect timeout fails over fast so a sick
+    provider never stalls the analysis. Returns {success, content, source}.
     """
-    # ─── Primary: DeepSeek ───────────────────────────────────────────────
+    messages = [{"role": "user", "content": prompt}]
+    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not ds_key:
         try:
@@ -1263,76 +1276,67 @@ async def _call_llm(prompt: str) -> dict:
         except FileNotFoundError:
             pass
 
-    last_ds_err = None
-    if ds_key:
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-                    resp = await client.post(
-                        "https://api.deepseek.com/chat/completions",
-                        headers={"Authorization": f"Bearer {ds_key}",
-                                 "Content-Type": "application/json"},
-                        json={
-                            "model": "deepseek-chat",
-                            "messages": [{"role": "user", "content": prompt}],
-                            "temperature": 0.6,
-                            "max_tokens": 4000,
-                        },
-                    )
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content:
-                        return {"success": True, "content": content, "source": "DeepSeek"}
-                    last_ds_err = "empty response"
-            except Exception as e:
-                last_ds_err = str(e)
-            if attempt < 1:
-                await asyncio.sleep(3)
+    or_primary = os.environ.get("OPENROUTER_DEEPSEEK_MODEL", "deepseek/deepseek-v4-flash")
+    or_fallback = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
+    ds_model = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    errs: list = []
 
-    # ─── Fallback: OpenRouter (opt-in via OPENROUTER_API_KEY) ────────────
-    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    last_or_err = None
-    if or_key:
-        model = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
-        for attempt in range(2):
-            try:
-                async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
-                    resp = await client.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {or_key}",
-                            "Content-Type":  "application/json",
-                            "HTTP-Referer":  "https://www.analook.com",
-                            "X-Title":       "Analook AI Summary",
-                        },
-                        json={
-                            "model": model,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "temperature": 0.6,
-                            "max_tokens": 4000,
-                        },
-                    )
-                    if resp.status_code in (401, 402, 403):
-                        last_or_err = f"HTTP {resp.status_code}"
-                        break
-                    resp.raise_for_status()
-                    data = resp.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content:
-                        return {"success": True, "content": content,
-                                "source": f"OpenRouter ({data.get('model', model)})"}
-                    last_or_err = "empty response"
-            except Exception as e:
-                last_or_err = str(e)
-            if attempt < 1:
-                await asyncio.sleep(2)
+    async def _openrouter(model):
+        if not or_key:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=_AI_TIMEOUT, follow_redirects=True) as client:
+                resp = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {or_key}",
+                             "Content-Type": "application/json",
+                             "HTTP-Referer": "https://www.analook.com",
+                             "X-Title": "Analook AI Summary"},
+                    json={"model": model, "messages": messages,
+                          "temperature": 0.6, "max_tokens": 4000},
+                )
+                if resp.status_code in (401, 402, 403):
+                    errs.append(f"OpenRouter {model}: HTTP {resp.status_code}")
+                    return None
+                resp.raise_for_status()
+                content = _ai_final_content(resp.json())
+                if content:
+                    return {"success": True, "content": content,
+                            "source": f"OpenRouter ({model})"}
+                errs.append(f"OpenRouter {model}: empty")
+        except Exception as e:
+            errs.append(f"OpenRouter {model}: {str(e)[:60]}")
+        return None
 
-    note = (
-        f"LLM 调用失败 (DeepSeek[key={bool(ds_key)}]: {last_ds_err or 'skipped'} / "
-        f"OpenRouter[key={bool(or_key)}]: {last_or_err or 'skipped'})"
-    )
-    return {"success": False, "content": "", "note": note[:250], "source": "error"}
+    async def _deepseek():
+        if not ds_key:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=_AI_TIMEOUT, follow_redirects=True) as client:
+                resp = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {ds_key}",
+                             "Content-Type": "application/json"},
+                    json={"model": ds_model, "messages": messages,
+                          "temperature": 0.6, "max_tokens": 4000},
+                )
+                resp.raise_for_status()
+                content = _ai_final_content(resp.json())
+                if content:
+                    return {"success": True, "content": content,
+                            "source": f"DeepSeek-direct ({ds_model})"}
+                errs.append("DeepSeek-direct: empty")
+        except Exception as e:
+            errs.append(f"DeepSeek-direct: {str(e)[:60]}")
+        return None
+
+    for plan in (lambda: _openrouter(or_primary), _deepseek, lambda: _openrouter(or_fallback)):
+        result = await plan()
+        if result:
+            return result
+
+    return {"success": False, "content": "",
+            "note": ("LLM 调用失败: " + " / ".join(errs))[:250], "source": "error"}
 
 
 def _fallback_summary() -> dict:
