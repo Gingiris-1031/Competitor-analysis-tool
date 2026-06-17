@@ -113,20 +113,45 @@ async def brave_find_ph_slug(brand: str, product_name: str, domain: str = "") ->
 
 
 async def brave_find_social(brand: str, product_name: str, domain: str = "") -> dict:
-    """Use Brave Search to find official social media handles for multiple platforms."""
+    """Use Brave Search to find official social media handles for multiple platforms.
+
+    Query strategy (most specific to least):
+    1. site:<platform>.com "{domain}"  — best when domain is known and indexed
+    2. site:<platform>.com "{product_name}"  — catches rebrands & non-matching domains
+    3. site:<platform>.com "{brand}"  — broadest fallback
+    Also scans description/title snippets for handles, not just URLs.
+    """
     import asyncio
+    _skip_yt = {"watch", "results", "channel", "user", "playlist", "shorts", "feed"}
+    _skip_generic = {"share", "intent", "home", "search", "explore", "login", "signup",
+                     "privacy", "tos", "about", "help", "company", "in", "school",
+                     "pages", "groups", "p", "reel", "reels", "tv", "embed"}
 
     async def _find_platform(p: str, rx) -> str | None:
-        _skip_yt = {"watch", "results", "channel", "user", "playlist", "shorts", "feed"}
-        q = f'"{domain}" site:{p}.com' if domain else f'"{brand}" site:{p}.com'
-        results = await brave_search(q, count=3)
-        for r in results:
-            m = rx.search(r.get("url", ""))
-            if m:
-                h = m.group(1)
-                if p == "youtube" and h.lower() in _skip_yt:
-                    continue
-                return h
+        # Build query list from most specific to broadest
+        queries = []
+        if domain:
+            queries.append(f'site:{p}.com "{domain}"')
+        if product_name and product_name.lower() != brand.lower():
+            queries.append(f'site:{p}.com "{product_name}"')
+        queries.append(f'site:{p}.com "{brand}"')
+        if domain:
+            # Also try without quotes for JS-heavy sites that don't get indexed with domain
+            queries.append(f'{domain} {p}')
+        for q in queries:
+            results = await brave_search(q, count=5)
+            for r in results:
+                # Scan URL and description+title for handles
+                for field in [r.get("url", ""), r.get("description", ""), r.get("title", "")]:
+                    m = rx.search(field)
+                    if not m:
+                        continue
+                    h = m.group(1)
+                    if p == "youtube" and h.lower() in _skip_yt:
+                        continue
+                    if h.lower() in _skip_generic:
+                        continue
+                    return h
         return None
 
     # Run Twitter + other platforms concurrently

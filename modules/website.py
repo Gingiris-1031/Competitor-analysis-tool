@@ -543,13 +543,75 @@ def _social_anchor_weight(tag) -> int:
 def _extract_social_links(soup, base_url: str = "") -> dict:
     """Extract the site's own social accounts from full-DOM HTML.
 
+    Parses four sources in order of reliability:
+    1. <link rel="me" href="..."> — W3C standard for publishing official accounts
+    2. JSON-LD sameAs field — structured data standard used by many SaaS sites
+    3. <meta property="og:see_also"> / <meta name="twitter:site"> — meta tags
+    4. <a href="..."> in footer/nav/body — existing anchor scanning
+
     Footer/nav links beat body links, and shorter account-root URLs beat deep
-    links (so github.com/org wins over github.com/org/repo). This keeps the
-    site's declared handle from being overwritten by third-party links that
-    real landing pages are full of (embedded tweets, customer logos, etc.).
+    links (so github.com/org wins over github.com/org/repo).
     """
     # best[platform] = (weight, -path_len, {...})  — higher tuple wins
     best: dict = {}
+
+    def _try_url(href: str, weight: int) -> None:
+        """Try to match href against all social patterns and update best."""
+        if not href:
+            return
+        for platform, patterns in _SOCIAL_PATTERNS.items():
+            for pattern in patterns:
+                m = re.search(pattern, href, re.I)
+                if not m:
+                    continue
+                handle = m.group(1)
+                if not _valid_social_handle(platform, handle, href):
+                    break
+                try:
+                    path_len = len(urlparse(href).path)
+                except Exception:
+                    path_len = len(href)
+                rank = (weight, -path_len)
+                cur = best.get(platform)
+                if cur is None or rank > cur[0]:
+                    best[platform] = (rank, {"handle": handle, "url": href})
+                break
+
+    # === Source 1: <link rel="me"> tags (W3C official account declaration) ===
+    for link in soup.find_all("link", rel=True):
+        rels = link.get("rel", [])
+        if isinstance(rels, str):
+            rels = [rels]
+        if "me" in [r.lower() for r in rels]:
+            _try_url(link.get("href", ""), weight=4)  # highest weight — site's own declaration
+
+    # === Source 2: JSON-LD sameAs field ===
+    for script in soup.find_all("script", {"type": "application/ld+json"}):
+        try:
+            data = _json.loads(script.string or "")
+            same_as = data.get("sameAs") or []
+            if isinstance(same_as, str):
+                same_as = [same_as]
+            for url in same_as:
+                _try_url(url, weight=4)
+        except Exception:
+            pass
+
+    # === Source 3: meta tags ===
+    # twitter:site gives us the Twitter handle directly
+    tw_site = soup.find("meta", attrs={"name": "twitter:site"})
+    if tw_site:
+        content = (tw_site.get("content") or "").strip().lstrip("@")
+        if content and _valid_social_handle("twitter", content, ""):
+            cur = best.get("twitter")
+            rank = (3, 0)
+            if cur is None or rank > cur[0]:
+                best["twitter"] = (rank, {"handle": content, "url": f"https://x.com/{content}"})
+    # og:see_also is sometimes used for social profile URLs
+    for meta in soup.find_all("meta", {"property": "og:see_also"}):
+        _try_url(meta.get("content", ""), weight=3)
+
+    # === Source 4: <a href> anchor scanning (original logic) ===
     for a in soup.find_all("a", href=True):
         href = a["href"]
         if not href or href.startswith("#"):
