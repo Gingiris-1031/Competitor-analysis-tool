@@ -329,7 +329,15 @@
 
         <!-- Hero (Oginify-style) -->
         <section id="hero-section" class="text-center pt-16 pb-10">
-            <p class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)] mb-8">Trusted by 100+ founders, growth teams, and consultants</p>
+            <!-- Trust bar -->
+            <div class="flex flex-col items-center gap-3 mb-8">
+                <p class="text-[11px] uppercase tracking-[0.22em] text-[color:var(--ink-muted)]">Built by the team behind</p>
+                <a href="https://gingiris.com" target="_blank" rel="noopener" class="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
+                    <img src="/assets/gingiris-logo.svg" alt="Gingiris" class="w-5 h-5" />
+                    <span class="text-sm font-medium text-[color:var(--ink-muted)]">Gingiris</span>
+                    <span class="text-[11px] text-[color:var(--ink-faint)]">— Growth tools for founders</span>
+                </a>
+            </div>
 
             <h1 class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
                 Analyze any competitor<br>in <span class="italic">60 seconds</span>
@@ -498,6 +506,17 @@
                 <div id="section-summary" class="fade-in"></div>
                 <div id="section-strategy" class="fade-in"></div>
                 <div id="section-playbooks" class="fade-in"></div>
+
+                <!-- ── Post-report CTA ── -->
+                <div id="post-report-cta" class="fade-in mt-10 rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-card)] p-8 text-center">
+                    <p class="text-xs uppercase tracking-widest text-[color:var(--ink-muted)] mb-3">Want to analyze more competitors?</p>
+                    <h3 class="font-serif text-2xl text-[color:var(--ink)] mb-2">You just read their whole growth story.</h3>
+                    <p class="text-sm text-[color:var(--ink-muted)] mb-6 max-w-sm mx-auto">Run another competitor through the same 15-signal analysis — SEO, traffic, social, Product Hunt, GitHub, pricing, AI verdict.</p>
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center" id="post-report-cta-buttons">
+                        <!-- Populated by JS based on credits remaining -->
+                    </div>
+                    <p class="text-xs text-[color:var(--ink-faint)] mt-4">No subscription required for single reports.</p>
+                </div>
             </div>
         </div>
     </main>
@@ -680,7 +699,7 @@
             <div class="text-center">
                 <div class="text-2xl mb-4 text-[color:var(--ink-muted)]">02</div>
                 <h4 class="font-serif text-2xl text-[color:var(--ink)] mb-3">We read everything</h4>
-                <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">15+ data sources scanned in parallel: Wayback, Twitter, GitHub, Product Hunt, Google Trends, SEO tools.</p>
+                <p class="text-sm text-[color:var(--ink-muted)] leading-relaxed">15+ real data sources in parallel: DataForSEO traffic estimates, Wayback Machine, Twitter, GitHub, Product Hunt API, Google Trends. No hallucinations &mdash; every number is sourced.</p>
             </div>
             <div class="text-center">
                 <div class="text-2xl mb-4 text-[color:var(--ink-muted)]">03</div>

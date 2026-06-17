@@ -467,6 +467,7 @@ async function loadReport() {
         if (typeof renderPlaybooks === 'function') renderPlaybooks(report);
 
         _maybeShowLastCreditBanner();
+        _renderPostReportCTA();
 
         document.getElementById('hero-section')?.classList.add('hidden');
 
@@ -704,6 +705,43 @@ async function _maybeShowLastCreditBanner() {
             _showLastCreditBanner();
         }
     } catch(e) {}
+}
+
+async function _renderPostReportCTA() {
+    const container = document.getElementById('post-report-cta-buttons');
+    if (!container) return;
+
+    const token = window._analookAuth?.getToken?.();
+    let credits = null;
+    let planType = 'free';
+
+    if (token) {
+        try {
+            const res = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + token }});
+            if (res.ok) {
+                const p = await res.json();
+                credits = p.credits_balance;
+                planType = p.plan_type;
+            }
+        } catch(e) {}
+    }
+
+    // Has credits left (or Pro) → show "Analyze another" button
+    if (credits === null || credits > 0 || planType !== 'free') {
+        container.innerHTML = `
+            <button onclick="newAnalysis()" class="inline-flex items-center gap-2 bg-[color:var(--ink)] hover:bg-white text-[color:var(--bg)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
+                Analyze another competitor &rarr;
+            </button>`;
+    } else {
+        // No credits → show upgrade options
+        container.innerHTML = `
+            <button onclick="_doCheckout('single')" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-6 py-3 rounded-full transition-colors">
+                Get 1 more report &mdash; $5
+            </button>
+            <button onclick="showUpgradeModal()" class="inline-flex items-center gap-2 bg-[color:var(--cream-elev)] hover:bg-[color:var(--elev)] border border-[color:var(--warm-border)] text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
+                Pro &mdash; $19/mo &middot; 30 reports
+            </button>`;
+    }
 }
 
 function _showLastCreditBanner() {
