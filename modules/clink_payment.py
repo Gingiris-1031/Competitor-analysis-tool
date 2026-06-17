@@ -76,8 +76,8 @@ CLINK_PRICES: dict[str, str] = {
 
 # Pricing in USD cents (for non-registered product mode fallback)
 PLAN_AMOUNTS_CENTS: dict[str, int] = {
-    "pro":           2900,   # $29/mo
-    "team":          9900,   # $99/mo
+    "pro":           1900,   # $19/mo
+    "team":          7900,   # $79/mo
     "single_report":  500,   # $5 one-time
     "growth_audit":  4900,   # $49 one-time
     "autopilot":     4900,   # $49/mo

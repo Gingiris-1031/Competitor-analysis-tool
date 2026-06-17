@@ -184,7 +184,7 @@ async function startAnalysis() {
         const resp = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ url: normalized, product_name: name }),
+            body: JSON.stringify({ url: normalized, product_name: name, lang: window._ANALOOK_LANG || 'en' }),
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));

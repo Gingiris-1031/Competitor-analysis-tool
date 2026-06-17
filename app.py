@@ -625,6 +625,7 @@ def _load_persisted_report(job_id: str) -> dict | None:
 class AnalyzeRequest(BaseModel):
     url: str
     product_name: Optional[str] = None
+    lang: Optional[str] = "en"  # "en" or "zh"
 
 
 class TextAnalyzeRequest(BaseModel):
@@ -677,6 +678,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
         "product_name": product_name,
         "url": req.url if req.url.startswith("http") else f"https://{req.url}",
         "user_id": user["id"] if user else None,       # ← 记录报告归属人
+        "lang": (req.lang or "en").lower(),             # ← 报告语言
         "cancelled": False,
         "progress": {
             "website": "pending",
@@ -1656,6 +1658,7 @@ async def _run_analysis(job_id: str):
                 growth_strategy={},  # Not available yet, will be added post-hoc
                 pricing=job["results"].get("pricing", {}),
                 github_oss=job["results"].get("github_oss", {}),
+                lang=job.get("lang", "en"),
             )
             job["results"]["ai_summary"] = ai
             return ai
@@ -2109,8 +2112,20 @@ async def export_markdown(job_id: str):
                 data = _json.load(f)
             markdown = data.get("markdown")
             product_name = data.get("product_name", "report")
+    # Supabase fallback — survives Fly.io restarts where memory/disk are lost
     if not markdown:
-        return JSONResponse({"error": "Report not ready"}, status_code=202)
+        try:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                result = sb.table("reports").select("markdown,product_name").eq("id", job_id).limit(1).execute()
+                if result.data and result.data[0].get("markdown"):
+                    markdown = result.data[0]["markdown"]
+                    product_name = result.data[0].get("product_name", "report") or "report"
+        except Exception:
+            pass
+    if not markdown:
+        return JSONResponse({"error": "Report not ready"}, status_code=404)
     from urllib.parse import quote
     safe_name = quote(f"{product_name}_竞品调研.md")
     return PlainTextResponse(

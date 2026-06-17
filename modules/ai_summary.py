@@ -614,7 +614,7 @@ def _apply_confidence_markers(prose: str, facts: dict) -> str:
     return out
 
 
-async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None, github_oss: dict = None) -> dict:
+async def generate_ai_summary(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict, growth_strategy: dict = None, growth_analysis: dict = None, traffic_peaks: dict = None, pricing: dict = None, github_oss: dict = None, lang: str = "en") -> dict:
     """Two-pass synthesis: extract verified facts (Pass 1) → constrained
     prose synthesis (Pass 2) → confidence badges (Pass 3)."""
 
@@ -650,7 +650,8 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     pricing_insight = _safe(_build_pricing_insight, pricing)
     github_insight  = _safe(_build_github_insight, github_oss)
 
-    prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
+    _lang_note = "" if (lang or "en").lower() == "zh" else "IMPORTANT: Write the ENTIRE report in English. All headings, analysis, and conclusions must be in English.\n\n"
+    prompt = f"""{_lang_note}你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
 以下是对竞品 **{product_name}** ({url}) 的系统化调研数据，来源包括 Wayback Machine 历史快照、Product Hunt 发布记录、DataForSEO 流量数据、社交媒体数据以及 Gingiris Playbook 智能匹配。
 
