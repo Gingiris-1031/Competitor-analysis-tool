@@ -124,6 +124,17 @@ async def brave_find_social(brand: str, product_name: str, domain: str = "") -> 
                      "privacy", "tos", "about", "help", "company", "in", "school",
                      "pages", "groups", "p", "reel", "reels", "tv", "embed"}
 
+    def _norm(s: str) -> str:
+        return re.sub(r'[^a-z0-9]', '', (s or '').lower())
+
+    def _handle_matches(handle: str) -> bool:
+        """Require handle to overlap brand or product_name (≥4 chars)."""
+        h = _norm(handle)
+        for token in (_norm(brand), _norm(product_name)):
+            if token and len(token) >= 4 and (token in h or (h in token and len(h) >= 4)):
+                return True
+        return False
+
     async def _find_platform(p: str, rx) -> str | None:
         # Single query: prefer domain anchor, fall back to brand
         q = f'site:{p}.com "{domain}"' if domain else f'site:{p}.com "{brand}"'
@@ -138,6 +149,9 @@ async def brave_find_social(brand: str, product_name: str, domain: str = "") -> 
                 if p == "youtube" and h.lower() in _skip_yt:
                     continue
                 if h.lower() in _skip_generic:
+                    continue
+                # Validate: handle must overlap brand or product name
+                if not _handle_matches(h):
                     continue
                 return h
         return None

@@ -82,15 +82,40 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         except Exception:
             brave_hints = {}
 
-    # Merge: the site's OWN declared social links are ground truth and take
-    # priority — Brave only fills platforms the site didn't declare. (Reversed
-    # from the old Brave-first order, which let a fuzzy guess like @testingcatalog
-    # override the site's published @tiny_fish.) Downstream per-platform handlers
-    # still validate the hint, so a junk site link falls back gracefully.
+    # Merge hints: website links > Brave, but validate both against brand name.
+    # website_hints can contain false positives: testimonial users' Twitter handles,
+    # competitor links in blog posts, share-widget URLs etc.
+    # We validate ALL hints with _handle_matches_brand() before accepting.
+    # Exception: high-confidence sources (link[rel=me], JSON-LD sameAs weight=4)
+    # from _extract_social_links are already authoritative — we keep them.
+    # Brave results are always validated.
     website_hints = website_social_links or {}
     hints = {}
     for platform in set(list(brave_hints.keys()) + list(website_hints.keys())):
-        hints[platform] = website_hints.get(platform) or brave_hints.get(platform) or {}
+        w_hint = website_hints.get(platform) or {}
+        b_hint = brave_hints.get(platform) or {}
+        w_handle = w_hint.get("handle", "")
+        b_handle = b_hint.get("handle", "")
+        # Validate website hint — reject if it doesn't overlap brand/product name
+        # (skip validation for weight-4 hints: link[rel=me] / JSON-LD sameAs)
+        w_weight = w_hint.get("weight", 0)
+        w_valid = bool(
+            w_handle and (
+                w_weight >= 4  # authoritative declaration — trust unconditionally
+                or _handle_matches_brand(w_handle, brand, product_name)
+            )
+        )
+        b_valid = bool(b_handle and _handle_matches_brand(b_handle, brand, product_name))
+        if w_valid:
+            hints[platform] = w_hint
+        elif b_valid:
+            hints[platform] = b_hint
+        # Both invalid → omit (downstream will fall back to direct API lookup)
+        if not w_valid and not b_valid and (w_handle or b_handle):
+            log.info(
+                "social hint rejected for %s: website=%s brave=%s (no brand overlap with '%s'/'%s')",
+                platform, w_handle, b_handle, brand, product_name,
+            )
 
     # Extract hint handles
     twitter_hint   = hints.get("twitter", {}).get("handle")
@@ -1027,6 +1052,14 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
         try:
             r = await client.get(f"https://www.youtube.com/@{handle}")
             if r.status_code == 200 and "This page isn" not in r.text[:1000]:
+                # Validate: only accept if page title/meta contains brand or product name
+                # (avoids false-positives on common-word handles like @brand that belong to unrelated channels)
+                page_lower = r.text[:5000].lower()
+                brand_in_page = brand.lower() in page_lower or name.lower() in page_lower
+                is_hint = handle_hint and handle == handle_hint.lstrip("@")
+                if not brand_in_page and not is_hint:
+                    log.info("YouTube HTML @%s rejected: brand '%s' not found in page", handle, brand)
+                    continue
                 result["detected"] = True
                 result["handle"] = f"@{handle}"
                 result["url"] = f"https://www.youtube.com/@{handle}"
