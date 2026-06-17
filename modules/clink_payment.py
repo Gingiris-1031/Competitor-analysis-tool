@@ -150,8 +150,14 @@ async def create_checkout(
 
     # Customer resolution — prefer referenceCustomerId (our Supabase user id)
     # so returning customers are resolved even if they change email.
+    # Clink requires at least one of: customerId, customerEmail, referenceCustomerId.
+    # For unauthenticated users we generate an ephemeral reference so Clink
+    # can create an anonymous customer record (they supply email at checkout).
     if user_id:
         payload["referenceCustomerId"] = user_id
+    elif not user_email:
+        # Anonymous checkout — Clink will collect email on the hosted page
+        payload["referenceCustomerId"] = f"anon-{product_key}-{int(time.time())}"
     if user_email:
         payload["customerEmail"] = user_email
 
@@ -182,8 +188,14 @@ async def create_checkout(
             )
             if resp.status_code in (200, 201):
                 resp_json = resp.json()
-                # Clink wraps response: {code, msg, data: {sessionId, url, ...}}
-                data = resp_json.get("data") or resp_json
+                # Clink wraps response: {code:200, msg:'Success', data:{sessionId,url,...}}
+                # Non-200 code means error even if HTTP status is 200
+                clink_code = resp_json.get("code", 0)
+                if clink_code != 200:
+                    msg = resp_json.get("msg", "unknown error")
+                    log.error("Clink checkout error code=%s msg=%s", clink_code, msg)
+                    return {"error": f"Clink error {clink_code}: {msg}"}
+                data = resp_json.get("data") or {}
                 return {
                     "url": data.get("url", ""),
                     "sessionId": data.get("sessionId", ""),
@@ -191,7 +203,7 @@ async def create_checkout(
                     "id": data.get("sessionId", ""),
                 }
             log.error("Clink checkout HTTP %s: %s", resp.status_code, resp.text[:300])
-            return {"error": f"Clink HTTP {resp.status_code}"}
+            return {"error": f"Clink HTTP {resp.status_code}: {resp.text[:200]}"}
     except Exception as exc:
         log.error("Clink checkout error: %s", exc)
         return {"error": f"Clink error: {str(exc)[:100]}"}
