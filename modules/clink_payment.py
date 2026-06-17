@@ -20,7 +20,13 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-CLINK_API = "https://api.clinkbill.com/api"
+# UAT: https://uat-api.clinkbill.com/api  |  Prod: https://api.clinkbill.com/api
+_CLINK_ENV = os.environ.get("CLINK_ENV", "production").lower()
+CLINK_API = (
+    "https://uat-api.clinkbill.com/api"
+    if _CLINK_ENV in ("uat", "sandbox", "test", "staging")
+    else "https://api.clinkbill.com/api"
+)
 
 # ── In-memory idempotency store ───────────────────────────────────────────────
 # Clink retries up to 10× with exponential backoff (≈ 1 day window).
