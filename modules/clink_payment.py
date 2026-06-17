@@ -75,13 +75,14 @@ CLINK_PRICES: dict[str, str] = {
 }
 
 # Pricing in USD cents (for non-registered product mode fallback)
+# Clink originalAmount unit is USD (not cents)
 PLAN_AMOUNTS_CENTS: dict[str, int] = {
-    "pro":           1900,   # $19/mo
-    "team":          7900,   # $79/mo
-    "single_report":  500,   # $5 one-time
-    "growth_audit":  4900,   # $49 one-time
-    "autopilot":     4900,   # $49/mo
-    "autopilot_team":14900,  # $149/mo
+    "pro":           19,    # $19/mo
+    "team":          79,    # $79/mo
+    "single_report":  5,    # $5 one-time
+    "growth_audit":  49,    # $49 one-time
+    "autopilot":     49,    # $49/mo
+    "autopilot_team":149,   # $149/mo
 }
 
 PLAN_CREDITS: dict[str, int] = {
