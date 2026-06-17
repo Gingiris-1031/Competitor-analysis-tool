@@ -1948,6 +1948,96 @@ async def submit_referral_source(request: Request):
     return {"ok": True, "source": source}
 
 
+@app.post("/api/redeem")
+async def redeem_promo_code(request: Request):
+    """Redeem a promo code for bonus credits.
+
+    Body: {"code": "GINGIRIS20"}
+    Returns: {"ok": True, "credits_added": 20, "new_balance": 22}
+    Errors: 401 AUTH_REQUIRED | 400 INVALID_CODE | 409 ALREADY_REDEEMED | 503 DB unavailable
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    code = (body.get("code") or "").strip().upper()
+    if not code:
+        return JSONResponse({"error": "请输入兑换码", "code": "MISSING_CODE"}, status_code=400)
+
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Service unavailable"}, status_code=503)
+
+    # 1. Look up the promo code
+    try:
+        promo_result = sb.table("promo_codes").select(
+            "code, credits_reward, max_uses, used_count, active"
+        ).eq("code", code).eq("active", True).execute()
+    except Exception as e:
+        log.error("promo_codes lookup failed code=%s: %s", code, e)
+        return JSONResponse({"error": "服务暂时不可用，请稍后重试"}, status_code=503)
+
+    if not promo_result.data:
+        return JSONResponse({"error": "无效的兑换码", "code": "INVALID_CODE"}, status_code=400)
+
+    promo = promo_result.data[0]
+
+    # 2. Check max_uses
+    if promo["max_uses"] is not None and promo["used_count"] >= promo["max_uses"]:
+        return JSONResponse({"error": "该兑换码已达到使用上限", "code": "CODE_EXHAUSTED"}, status_code=400)
+
+    # 3. Check if user already redeemed this code
+    try:
+        redemption_check = sb.table("promo_redemptions").select("id").eq(
+            "user_id", user["id"]
+        ).eq("code", code).execute()
+    except Exception as e:
+        log.error("promo_redemptions check failed user=%s code=%s: %s", user["id"], code, e)
+        return JSONResponse({"error": "服务暂时不可用，请稍后重试"}, status_code=503)
+
+    if redemption_check.data:
+        return JSONResponse({"error": "你已经使用过这个兑换码了", "code": "ALREADY_REDEEMED"}, status_code=409)
+
+    credits_to_add = promo["credits_reward"]
+
+    # 4. Add credits to user profile
+    try:
+        profile_result = sb.table("profiles").select(
+            "credits_balance"
+        ).eq("id", user["id"]).single().execute()
+        current_balance = profile_result.data["credits_balance"]
+        new_balance = current_balance + credits_to_add
+
+        sb.table("profiles").update({
+            "credits_balance": new_balance
+        }).eq("id", user["id"]).execute()
+    except Exception as e:
+        log.error("Failed to add credits user=%s code=%s: %s", user["id"], code, e)
+        return JSONResponse({"error": "积分更新失败，请重试"}, status_code=500)
+
+    # 5. Record redemption + increment used_count
+    try:
+        sb.table("promo_redemptions").insert({
+            "user_id": user["id"],
+            "code": code,
+        }).execute()
+        sb.table("promo_codes").update({
+            "used_count": promo["used_count"] + 1
+        }).eq("code", code).execute()
+    except Exception as e:
+        # Non-fatal: credits already added, just log
+        log.error("Failed to record promo redemption user=%s code=%s: %s", user["id"], code, e)
+
+    log.info("Promo code redeemed: user=%s code=%s credits_added=%d", user["id"], code, credits_to_add)
+    return {"ok": True, "credits_added": credits_to_add, "new_balance": new_balance}
+
+
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
     job = jobs.get(job_id)

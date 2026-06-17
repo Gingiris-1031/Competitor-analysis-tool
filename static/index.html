@@ -311,6 +311,10 @@
                     <div id="auth-dropdown"
                          class="hidden absolute right-0 top-10 w-48 bg-[color:var(--cream-card)] border border-[color:var(--warm-border)] rounded-xl shadow-xl z-50 py-1">
                         <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-[color:var(--ink-muted)] border-b border-[color:var(--warm-border)] truncate"></div>
+                        <button id="redeem-code-btn"
+                                class="w-full text-left px-4 py-2 text-sm text-[color:var(--ink)] hover:bg-[color:var(--cream-elev)] transition-colors">
+                            🎁 Redeem Code
+                        </button>
                         <button id="auth-logout-btn"
                                 class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[color:var(--cream-elev)] transition-colors">
                             Sign out
@@ -529,6 +533,35 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════════════
+         Promo Code Modal
+    ══════════════════════════════════════════════════════════════ -->
+    <div id="promo-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-7 relative shadow-2xl">
+            <button id="promo-close-btn"
+                    class="absolute top-4 right-4 text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-3">🎁</div>
+                <h2 class="text-xl font-bold text-white mb-1">Redeem a promo code</h2>
+                <p class="text-sm text-gray-400">Enter your code to get bonus credits instantly.</p>
+            </div>
+            <div class="mb-4">
+                <input id="promo-code-input"
+                       type="text"
+                       placeholder="e.g. GINGIRIS20"
+                       autocomplete="off"
+                       class="w-full bg-gray-800 border border-gray-600 text-white rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-blue-500 text-center"
+                />
+                <p id="promo-error" class="text-red-400 text-xs mt-2 text-center hidden"></p>
+                <p id="promo-success" class="text-green-400 text-xs mt-2 text-center hidden"></p>
+            </div>
+            <button id="promo-submit-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                Redeem
+            </button>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
          Auth Modal — Sign In / Sign Up
     ══════════════════════════════════════════════════════════════ -->
     <div id="auth-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -615,6 +648,7 @@
 
     <script src="/js/auth.js?v=20260611"></script>
     <script src="/js/referral-modal.js" defer></script>
+    <script src="/js/promo-modal.js" defer></script>
     <script src="/js/app.js?v=20260611"></script>
     <script src="/js/health.js"></script>
     <script src="/js/render-github.js"></script>
