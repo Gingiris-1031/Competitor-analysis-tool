@@ -181,7 +181,9 @@ async def create_checkout(
                 json=payload,
             )
             if resp.status_code in (200, 201):
-                data = resp.json()
+                resp_json = resp.json()
+                # Clink wraps response: {code, msg, data: {sessionId, url, ...}}
+                data = resp_json.get("data") or resp_json
                 return {
                     "url": data.get("url", ""),
                     "sessionId": data.get("sessionId", ""),
