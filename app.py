@@ -35,9 +35,27 @@ from modules.supabase_client import (
     get_user_profile, save_report_to_db, list_user_reports,
 )
 from modules.polar_payment import (
-    create_checkout, handle_webhook_event, PRODUCTS, PLAN_CREDITS,
-    verify_webhook_signature, mark_event_seen,
+    create_checkout as _polar_create_checkout,
+    handle_webhook_event as _polar_handle_webhook_event,
+    PRODUCTS as POLAR_PRODUCTS,
+    PLAN_CREDITS,
+    verify_webhook_signature as polar_verify_signature,
+    mark_event_seen as polar_mark_seen,
 )
+from modules.clink_payment import (
+    create_checkout as clink_create_checkout,
+    handle_webhook_event as clink_handle_webhook_event,
+    verify_webhook_signature as clink_verify_signature,
+    mark_event_seen as clink_mark_seen,
+    CLINK_PRODUCTS,
+    PLAN_CREDITS as CLINK_PLAN_CREDITS,
+)
+
+# Active payment provider: 'clink' (default) or 'polar' (legacy fallback)
+_PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "clink").lower()
+
+# Unified product list for /api/checkout validation
+PRODUCTS = CLINK_PRODUCTS if _PAYMENT_PROVIDER == "clink" else POLAR_PRODUCTS
 
 # Propagate the MCP sub-app's lifespan (StreamableHTTPSessionManager.run())
 # through FastAPI's own lifespan — Starlette Mount does NOT call sub-app
@@ -205,6 +223,7 @@ async def health_check():
         "PRODUCTHUNT_TOKEN": bool(os.environ.get("PRODUCTHUNT_TOKEN", "").strip()),
         "SUPABASE_URL": bool(os.environ.get("SUPABASE_URL", "").strip()),
         "POLAR_ACCESS_TOKEN": bool(os.environ.get("POLAR_ACCESS_TOKEN", "").strip()),
+        "CLINK_SECRET_KEY": bool(os.environ.get("CLINK_SECRET_KEY", "").strip()),
         "TINYFISH_API_KEY": bool(os.environ.get("TINYFISH_API_KEY", "").strip()),
     }
 
@@ -322,10 +341,12 @@ async def get_pricing():
 
 @app.post("/api/checkout")
 async def create_checkout_session(request: Request):
-    """Create a Polar checkout session."""
+    """Create a checkout session (Clink by default, Polar as legacy fallback)."""
     body = await request.json()
     plan = body.get("plan", "")
-    if plan not in PRODUCTS:
+    # Validate against active provider's product list
+    active_products = CLINK_PRODUCTS if _PAYMENT_PROVIDER == "clink" else POLAR_PRODUCTS
+    if plan not in active_products and plan not in CLINK_PLAN_CREDITS:
         return JSONResponse({"error": f"Invalid plan: {plan}"}, status_code=400)
 
     # Get user info if authenticated
@@ -341,13 +362,23 @@ async def create_checkout_session(request: Request):
     success_url = body.get("success_url", "https://www.analook.com/?payment=success")
     cancel_url = body.get("cancel_url", "https://www.analook.com/pricing.html?payment=canceled")
 
-    result = await create_checkout(
-        plan,
-        user_email=user_email,
-        success_url=success_url,
-        user_id=user_id,
-        cancel_url=cancel_url,
-    )
+    if _PAYMENT_PROVIDER == "clink":
+        result = await clink_create_checkout(
+            plan,
+            user_email=user_email,
+            user_id=user_id,
+            success_url=success_url,
+            cancel_url=cancel_url,
+        )
+    else:
+        result = await _polar_create_checkout(
+            plan,
+            user_email=user_email,
+            success_url=success_url,
+            user_id=user_id,
+            cancel_url=cancel_url,
+        )
+
     if result.get("error"):
         return JSONResponse({"error": result["error"]}, status_code=500)
 
@@ -356,41 +387,77 @@ async def create_checkout_session(request: Request):
 
 @app.post("/api/webhook/polar")
 async def polar_webhook(request: Request):
-    """Handle Polar webhook events (payment confirmations, subscription changes).
+    """Handle Polar webhook events (kept for legacy subscriptions still on Polar).
 
-    Security: verifies Standard Webhooks signature via POLAR_WEBHOOK_SECRET.
-    Idempotent: repeated webhook-id is acknowledged without re-processing, so
-    Polar's retry-on-failure doesn't double-credit users.
+    New payments go through Clink (/api/webhook/clink). This endpoint stays
+    active until all active Polar subscriptions have churned or been migrated.
     """
     body = await request.body()
     headers = {k.lower(): v for k, v in request.headers.items()}
 
-    # --- Signature verification (production) ---
     secret = os.environ.get("POLAR_WEBHOOK_SECRET", "").strip()
     if secret:
-        if not verify_webhook_signature(body, headers, secret):
+        if not polar_verify_signature(body, headers, secret):
             log.warning("Polar webhook: invalid signature, id=%s", headers.get("webhook-id", ""))
             return JSONResponse({"error": "Invalid signature"}, status_code=401)
     else:
-        # Missing secret in prod is a severe misconfig — log loudly but don't 500
-        # (so Polar keeps retrying while we fix env vars rather than giving up).
         log.warning("Polar webhook: POLAR_WEBHOOK_SECRET not set — signature NOT verified")
 
-    # --- Idempotency (Polar retries on non-2xx; Standard Webhooks id is unique) ---
     event_id = headers.get("webhook-id", "")
-    if not mark_event_seen(event_id):
+    if not polar_mark_seen(event_id):
         log.info("Polar webhook: duplicate event_id=%s, skipping", event_id)
         return {"received": True, "duplicate": True}
 
-    # --- Parse event ---
     try:
         import json as _json_wb
         event = _json_wb.loads(body)
     except Exception:
         return JSONResponse({"error": "Invalid JSON"}, status_code=400)
 
+    result = await _polar_handle_webhook_event(event)
+    return {"received": True, **result}
+
+
+@app.post("/api/webhook/clink")
+async def clink_webhook(request: Request):
+    """Handle Clink webhook events (payment confirmations, subscription changes).
+
+    Security: HMAC-SHA256 over "{X-Clink-Timestamp}.{raw_body}" with
+    CLINK_WEBHOOK_SIGNING_KEY (copy from Developers > Webhooks in Clink dashboard).
+    Idempotent via in-memory event-id store (Clink retries up to 10× over ~24 h).
+    """
+    body = await request.body()
+
+    # --- Signature verification ---
+    signing_key = os.environ.get("CLINK_WEBHOOK_SIGNING_KEY", "").strip()
+    timestamp = request.headers.get("X-Clink-Timestamp", "")
+    signature = request.headers.get("X-Clink-Signature", "")
+
+    if signing_key:
+        if not clink_verify_signature(body, timestamp, signature, signing_key):
+            log.warning("Clink webhook: invalid signature, ts=%s", timestamp)
+            return JSONResponse({"error": "Invalid signature"}, status_code=401)
+    else:
+        log.warning("Clink webhook: CLINK_WEBHOOK_SIGNING_KEY not set — signature NOT verified")
+
+    # --- Idempotency ---
+    # Use timestamp + first 32 chars of body hash as event id (Clink doesn't
+    # expose a dedicated event-id header like Polar's webhook-id).
+    import hashlib as _hs
+    event_fingerprint = timestamp + "-" + _hs.sha256(body).hexdigest()[:32]
+    if not clink_mark_seen(event_fingerprint):
+        log.info("Clink webhook: duplicate fingerprint=%s, skipping", event_fingerprint)
+        return {"received": True, "duplicate": True}
+
+    # --- Parse ---
+    try:
+        import json as _json_cw
+        event = _json_cw.loads(body)
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+
     # --- Process ---
-    result = await handle_webhook_event(event)
+    result = await clink_handle_webhook_event(event)
     return {"received": True, **result}
 
 
