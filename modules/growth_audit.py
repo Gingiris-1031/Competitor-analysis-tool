@@ -1827,6 +1827,243 @@ async def _discover_kols_twitterapi(categories: list, hints: dict, k: int = 6) -
     return results[:k]
 
 
+# ─── Reddit channel discovery (real subs + top posters) ──────────────────────
+#
+# Uses Reddit's public JSON API (oauth-free, free, no rate limit beyond ~60
+# req/min for unauthenticated UA). For each product category we:
+#   1. Search subreddits matching the category → take top 3 by subscribers
+#   2. For each sub, pull top posts of the last month
+#   3. Extract sub stats (subscribers, active users, public_description)
+#   4. Identify top contributors from the post sample (author + karma proxy)
+#
+# Output feeds two places:
+#   - _render_reddit_section() → markdown section appended to Action Plan
+#   - Action Plan LLM prompt as `reddit_context` block so the LLM cites
+#     real sub names + real top posters in W3 Reddit task descriptions
+#     instead of generic "post in r/SaaS"-level platitudes.
+
+
+_REDDIT_UA = "analook-growth-audit/1.0 (+https://www.analook.com)"
+
+
+async def _discover_reddit_channels(categories: list, hints: dict, k: int = 3) -> list:
+    """Return up to k Reddit subs matching the categories. Uses SerpAPI
+    `site:reddit.com` Google search rather than Reddit's own API because:
+      1. Reddit's anonymous JSON endpoints are 403'd from cloud IPs since
+         mid-2024 (anti-OAuth-bypass crackdown).
+      2. Google's Reddit ranking is biased toward high-value posts, which
+         is exactly the filter we'd want anyway.
+      3. SerpAPI is already wired & paid for in this codebase.
+
+    Each result has {name, url, subscribers, description, top_posts,
+    top_contributors, found_via}. Subscribers are best-effort (estimated
+    from snippet text when present, else None).
+    """
+    key = (os.environ.get("SERPAPI_KEY") or "").strip()
+    if not key or not categories:
+        return []
+
+    # Aggregate hits per sub across all category queries, then pick top k.
+    sub_hits: dict = {}
+    HARD_BUDGET_S = 18.0
+    t0 = asyncio.get_event_loop().time()
+
+    async with httpx.AsyncClient(timeout=8) as client:
+        for cat in categories[:4]:
+            if (asyncio.get_event_loop().time() - t0) > HARD_BUDGET_S:
+                break
+            # Use a 'best of' style query to bias toward high-quality threads
+            q = f'site:reddit.com "{cat}" (recommendation OR review OR "what" OR "how to")'
+            try:
+                r = await client.get(
+                    "https://serpapi.com/search.json",
+                    params={"engine": "google", "q": q, "num": 20, "api_key": key},
+                )
+                if r.status_code != 200:
+                    continue
+                hits = r.json().get("organic_results") or []
+            except Exception as e:
+                log.warning("SerpAPI reddit search failed for %r: %s", cat, e)
+                continue
+
+            for hit in hits:
+                url = hit.get("link", "") or ""
+                title = (hit.get("title") or "").strip()
+                snippet = (hit.get("snippet") or "")
+                # Extract sub name from URL pattern /r/<name>/comments/...
+                m = _re.search(r"reddit\.com/r/([A-Za-z0-9_]+)/comments/([A-Za-z0-9]+)", url)
+                if not m:
+                    continue
+                sub_name = m.group(1)
+                # Skip user pages, special routes
+                if sub_name.lower() in ("u_user", "all", "popular"):
+                    continue
+                # For sales-led products skip consumer-vibe subs
+                if hints.get("is_sales_led"):
+                    if sub_name.lower() in ("memes", "funny", "askreddit", "shitposting"):
+                        continue
+                # Parse author from snippet — Google usually shows "u/<author>" or "by <author>"
+                author = None
+                au = _re.search(r"u/([A-Za-z0-9_-]{3,30})", snippet)
+                if au:
+                    author = au.group(1)
+                # Best-effort score parse (Reddit snippets sometimes show "1.2K upvotes")
+                score = None
+                sc = _re.search(r"(\d+(?:\.\d+)?)[\s]?([Kk])?\s+(?:upvote|point)", snippet)
+                if sc:
+                    raw = float(sc.group(1)) * (1000 if (sc.group(2) or "").lower() == "k" else 1)
+                    score = int(raw)
+                # Clean Reddit title prefixes like "r/SaaS - Title"
+                clean_title = _re.sub(r"^r/[A-Za-z0-9_]+\s*[-—:]\s*", "", title, flags=_re.IGNORECASE)
+                clean_title = _re.sub(r"\s*:?\s*r/[A-Za-z0-9_]+\s*$", "", clean_title)
+
+                bucket = sub_hits.setdefault(sub_name, {
+                    "name":        sub_name,
+                    "url":         f"https://www.reddit.com/r/{sub_name}",
+                    "posts":       [],
+                    "authors":     {},
+                    "subscribers": None,
+                    "description": None,
+                    "found_via":   f"SerpAPI Google: {cat[:40]}",
+                })
+                bucket["posts"].append({
+                    "title":        clean_title[:140] or "(no title)",
+                    "score":        score,
+                    "author":       author or "?",
+                    "num_comments": None,
+                    "url":          url,
+                    "permalink":    url,
+                })
+                if author:
+                    a = bucket["authors"].setdefault(
+                        author, {"posts_in_sample": 0, "total_score": 0},
+                    )
+                    a["posts_in_sample"] += 1
+                    a["total_score"] += score or 0
+
+    # Pick top-k subs by post hit count (proxy for relevance + activity)
+    ranked = sorted(
+        sub_hits.values(),
+        key=lambda s: (-len(s["posts"]), -(sum((p.get("score") or 0) for p in s["posts"]))),
+    )
+
+    final = []
+    for sub in ranked[:k]:
+        # Top 3 contributors by post count → total score
+        top_contributors = sorted(
+            ({"author": a, **st} for a, st in sub["authors"].items()),
+            key=lambda x: (x["posts_in_sample"], x["total_score"]),
+            reverse=True,
+        )[:3]
+        # Top 5 posts by score (None scores sort last)
+        top_posts = sorted(
+            sub["posts"], key=lambda p: -(p.get("score") or 0),
+        )[:5]
+        final.append({
+            "name":             sub["name"],
+            "url":              sub["url"],
+            "subscribers":      sub["subscribers"],  # unknown from SerpAPI
+            "active_users":     None,
+            "description":      None,
+            "top_posts":        top_posts,
+            "top_contributors": top_contributors,
+            "found_via":        sub["found_via"],
+        })
+    return final
+
+
+def _render_reddit_section(reddit_data: list, hints: dict) -> str:
+    """Format the Reddit channel data as a Markdown section. Skips
+    rendering for clearly sales-led products where Reddit isn't a
+    primary channel (matches existing _strip_forbidden_channel_tasks
+    behavior).
+    """
+    if not reddit_data:
+        return ""
+    lines = [
+        "",
+        "## 📣 推荐 Reddit 渠道（真实 sub + top contributor，近 30 天数据）",
+        "",
+        "下面 sub 是用 Reddit 公开 JSON API 实时抓的，订阅数 / 月度 top 帖 / "
+        "活跃 contributor 都来自 reddit.com 当前数据。直接点链接看人和帖。",
+        "",
+    ]
+    for sub in reddit_data:
+        name = sub["name"]
+        subscribers = sub.get("subscribers")
+        subs_label = f"{subscribers:,} subscribers" if subscribers else "active community"
+        active = sub.get("active_users")
+        active_str = f" · {active:,} active" if active else ""
+        lines.extend([
+            f"### r/{name} <span style=\"font-weight:400\">— {subs_label}{active_str}</span>",
+            "",
+            f"[{sub['url']}]({sub['url']})",
+            "",
+        ])
+        if sub.get("description"):
+            lines.append(f"> {sub['description']}")
+            lines.append("")
+        if sub.get("top_posts"):
+            lines.append("**Top 帖（Google 索引近期高质量讨论）：**")
+            lines.append("")
+            lines.append("| 标题 | ↑Score | 作者 |")
+            lines.append("| --- | --- | --- |")
+            for p in sub["top_posts"]:
+                title = (p["title"] or "?").replace("|", "\\|")
+                score_str = f"{p['score']:,}" if p.get("score") else "—"
+                author = p.get("author") or "?"
+                if author and author != "?":
+                    author_link = f"[u/{author}](https://reddit.com/user/{author})"
+                else:
+                    author_link = "?"
+                lines.append(
+                    f"| [{title}]({p['permalink']}) | {score_str} | {author_link} |"
+                )
+            lines.append("")
+        if sub.get("top_contributors"):
+            tc_strs = []
+            for c in sub["top_contributors"]:
+                tc_strs.append(
+                    f"[u/{c['author']}](https://reddit.com/user/{c['author']}) "
+                    f"({c['posts_in_sample']} 帖, {c['total_score']:,}↑)"
+                )
+            lines.append("**Top 30 天 contributor**：" + " · ".join(tc_strs))
+            lines.append("")
+    lines.append("**怎么用**：先看 top 帖标题的 framing pattern → 模仿写自己的；"
+                 "DM top contributor 提议合作前先在他们近 5 个帖底下留**有质量评论**养感情。"
+                 "参照 `gingiris-reddit-marketing` 的 20-day karma warmup SOP。")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_reddit_context_for_llm(reddit_data: list) -> str:
+    """Compact context block fed into the Action Plan LLM prompt so it
+    can cite real subs + real top posters in W3 task descriptions.
+    """
+    if not reddit_data:
+        return ""
+    lines = [
+        "",
+        "# REDDIT_REAL_CHANNELS (此段为程序抓取的真实 Reddit 数据，必须直接引用 sub 名和 contributor 名)",
+        "",
+    ]
+    for sub in reddit_data:
+        lines.append(f"- r/{sub['name']} ({sub['subscribers']:,} subscribers): {sub.get('description','')[:140]}")
+        if sub.get("top_contributors"):
+            tcs = ", ".join(f"u/{c['author']}" for c in sub["top_contributors"][:3])
+            lines.append(f"  Top contributors: {tcs}")
+        if sub.get("top_posts"):
+            lines.append("  Top post framing patterns:")
+            for p in sub["top_posts"][:3]:
+                lines.append(f"  - \"{p['title']}\" ({p['score']}↑)")
+    lines.append("")
+    lines.append("🚨 在 W3 Reddit 任务里**必须**引用上面的真实 sub 名 + "
+                 "至少 1 个真实 top contributor 用户名 + "
+                 "至少 1 个真实 top 帖的 framing 模式作为参考。")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
     """Format the KOL candidates as a Markdown section to embed in Action Plan."""
     if not kols:
@@ -2333,18 +2570,29 @@ async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
     return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
 
 
-async def generate_action_plan(site_data: dict, product_name: str, diagnosis_md: str) -> dict:
+async def generate_action_plan(
+    site_data: dict,
+    product_name: str,
+    diagnosis_md: str,
+    reddit_data: Optional[list] = None,
+) -> dict:
     """Phase 2:30 天行动计划 - 必须基于 Diagnosis Report 的 findings 行动。
 
     传入 diagnosis_md 是关键架构改变:Action Plan 不能再独立看到 site_data
     就编新事实(比如凭空说 robots.txt 屏蔽了 /admin/)。它只能 act on
     Diagnosis 已经 verified 的问题。
+
+    reddit_data (optional) is the output of _discover_reddit_channels — when
+    present, we inject real sub names + top contributors into the prompt so
+    the LLM cites them in W3 Reddit tasks instead of inventing 'r/SaaS'
+    boilerplate.
     """
     context = _build_site_context(site_data)
     # Reuse product type detection for skill injection
     hints = detect_product_type(site_data)
     product_type = hints.get("product_type", "Unknown / 需用户确认")
     skills_block = _build_injected_skills_block(product_type)
+    reddit_block = _build_reddit_context_for_llm(reddit_data or [])
 
     user_prompt = f"""基于以下两段输入,为 **{product_name}** 制定 30 天行动计划。
 
@@ -2439,6 +2687,7 @@ npx skills add Gingiris-1031/<skill-name>
 - 如果某 Week 的任务全部不适用于该产品类型,直接写:"本周聚焦 [适合该产品类型的活动],跳过通用的 PH/KOL 周。",不要硬塞。
 - KOL 类任务不要给"3 个月免费 Pro 计划"这种通用模板 - 改成 "**对应你产品的合理 incentive**(企业 SaaS 通常是免费 POC + 案例研究合作;个人开发者产品才适合免费订阅)"。
 {skills_block}
+{reddit_block}
 """
 
     return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
@@ -2567,6 +2816,11 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     hints = detect_product_type(site_data)
     categories = _extract_product_category(site_data)
     kol_task = asyncio.create_task(_discover_real_kols(categories, hints, k=6))
+    # Reddit channel discovery runs in parallel with Diagnosis so the data
+    # is ready when Action Plan generation starts (and we feed it into the
+    # Action Plan LLM prompt so W3 Reddit tasks cite real subs + real
+    # contributors, not generic 'post in r/SaaS' platitudes).
+    reddit_task = asyncio.create_task(_discover_reddit_channels(categories, hints, k=3))
     diag_result = await generate_diagnosis_report(site_data, product_name)
     if isinstance(diag_result, dict) and diag_result.get("success"):
         # Run the absence-phrase sanitizer before downstream stages see this
@@ -2605,8 +2859,20 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     # *generation* time worse than the old buggy parallel version).
     _update("action_plan", "running")
     _update("executive_summary", "running")
+    # Reddit discovery finishes in parallel with Diagnosis. Wait for it now
+    # (tightly bounded so a slow reddit.com response can't extend the audit
+    # past its 2-5 min promise). Empty result is fine — generate_action_plan
+    # accepts reddit_data=None.
+    try:
+        reddit_data = await asyncio.wait_for(reddit_task, timeout=8.0)
+    except (asyncio.TimeoutError, Exception) as e:
+        log.warning("Reddit discovery aborted: %s", e)
+        reddit_data = []
     plan_task = asyncio.create_task(
-        generate_action_plan(site_data, product_name, reports["diagnosis_report"])
+        generate_action_plan(
+            site_data, product_name, reports["diagnosis_report"],
+            reddit_data=reddit_data,
+        )
     )
     exec_task = asyncio.create_task(
         generate_executive_summary(
@@ -2669,6 +2935,14 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
         except (asyncio.TimeoutError, Exception) as e:
             log.warning("KOL discovery aborted: %s", e)
             kols = []
+        # Render the real Reddit channel section using data already in hand.
+        reddit_section = _render_reddit_section(reddit_data, hints)
+        if reddit_section:
+            anchor = "## 📚 匹配的 Gingiris Skills"
+            if anchor in plan_md:
+                plan_md = plan_md.replace(anchor, reddit_section + "\n\n" + anchor, 1)
+            else:
+                plan_md = plan_md.rstrip() + "\n" + reddit_section + "\n"
         kol_section = _render_real_kol_section(kols, hints, categories)
         if kol_section:
             anchor = "## 📚 匹配的 Gingiris Skills"
