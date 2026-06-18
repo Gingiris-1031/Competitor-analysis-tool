@@ -479,12 +479,6 @@ async def api_v1_analyze(request: Request):
         -H "Content-Type: application/json"
         -d '{"url": "notion.so"}'
     """
-    # Auth
-    auth = request.headers.get("Authorization", "")
-    user = None
-    if auth.startswith("Bearer "):
-        user = await verify_token_and_get_user(auth[7:])
-
     # Parse body
     try:
         body = await request.json()
@@ -497,14 +491,13 @@ async def api_v1_analyze(request: Request):
 
     product_name = body.get("product_name") or None
 
-    # Credit check (if authenticated)
-    if user:
-        has_credit = await deduct_credit(user["id"])
-        if not has_credit:
-            return JSONResponse({
-                "error": "Insufficient credits",
-                "upgrade_url": "https://www.analook.com/pricing.html",
-            }, status_code=402)
+    # ── 鉴权 + 积分检查（统一走 _require_credits；未登录→401，余额不足→402）──
+    # 修复前此端点的鉴权是「可选」的（无 token 也照跑），匿名可刷 LLM 额度。
+    # 现与 /api/analyze 一致：强制鉴权。扣分放在 url 校验之后，避免无效请求误扣。
+    # _extract_user 与原 verify_token_and_get_user 同源，JWT / API key 均兼容。
+    user, err = await _require_credits(request)
+    if err:
+        return err
 
     # Create job (reuse existing analyze logic)
     job_id = uuid.uuid4().hex[:8]
@@ -701,8 +694,13 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
 
 
 @app.post("/api/analyze-text")
-async def start_text_analysis(req: TextAnalyzeRequest, bg: BackgroundTasks):
+async def start_text_analysis(req: TextAnalyzeRequest, bg: BackgroundTasks, request: Request):
     """分析用户提供的文字描述（无需网站 URL）"""
+    # ── 积分检查（与 /api/analyze 一致，防止匿名滥用烧 LLM 额度）──────────────
+    user, err = await _require_credits(request)
+    if err:
+        return err
+
     job_id = str(uuid.uuid4())[:8]
     name = (req.product_name or "产品").strip()
     jobs[job_id] = {
@@ -710,6 +708,7 @@ async def start_text_analysis(req: TextAnalyzeRequest, bg: BackgroundTasks):
         "product_name": name,
         "url": "—",
         "mode": "text",
+        "user_id": user["id"] if user else None,
         "cancelled": False,
         "progress": {
             "website": "done",
@@ -730,10 +729,16 @@ async def start_text_analysis(req: TextAnalyzeRequest, bg: BackgroundTasks):
 
 @app.post("/api/analyze-pdf")
 async def start_pdf_analysis(
+    request: Request,
     file: UploadFile = File(...),
     product_name: str = Form(default="产品"),
 ):
     """分析上传的 PDF 文件（pitch deck、产品文档等）"""
+    # ── 积分检查（在解析 PDF 之前，防止匿名滥用烧 LLM 额度）────────────────────
+    user, err = await _require_credits(request)
+    if err:
+        return err
+
     job_id = str(uuid.uuid4())[:8]
     name = (product_name or file.filename or "产品").strip()
 
@@ -752,6 +757,7 @@ async def start_pdf_analysis(
         "product_name": name,
         "url": "—",
         "mode": "pdf",
+        "user_id": user["id"] if user else None,
         "cancelled": False,
         "progress": {
             "website": "done",
