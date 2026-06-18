@@ -131,7 +131,17 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
     <header class="border-b border-[color:var(--border)] py-5">
         <div class="max-w-6xl mx-auto px-6 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <a href="/" class="text-xs text-[color:var(--ink-faint)] hover:text-white transition-colors">English</a>
+                <a id="lang-switch-btn" href="/" class="text-xs text-[color:var(--ink-faint)] hover:text-white transition-colors">English</a>
+                <script>
+                (function(){
+                  document.getElementById('lang-switch-btn').addEventListener('click', function(e){
+                    if (window.currentJobId) {
+                      e.preventDefault();
+                      window.location.href = '/report/' + window.currentJobId;
+                    }
+                  });
+                })();
+                </script>
                 <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
                 <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
                 <span class="hidden sm:inline text-xs bg-blue-900/50 text-[color:var(--ink)] border border-blue-700/50 px-2 py-0.5 rounded-full">MVP v0.6</span>

@@ -293,7 +293,18 @@
                 <a href="/blog/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Blog</a>
                 <a href="/growth-audit.html" class="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">Growth Audit</a>
                 <a href="/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">Pricing</a>
-                <a href="/zh/" class="text-xs text-[color:var(--ink-faint)] hover:text-[color:var(--ink)] transition-colors">中文</a>
+                <a id="lang-switch-btn" href="/zh/" class="text-xs text-[color:var(--ink-faint)] hover:text-[color:var(--ink)] transition-colors">中文</a>
+                <script>
+                (function(){
+                  // If a report is loaded, switch language while keeping the report
+                  document.getElementById('lang-switch-btn').addEventListener('click', function(e){
+                    if (window.currentJobId) {
+                      e.preventDefault();
+                      window.location.href = '/zh/report/' + window.currentJobId;
+                    }
+                  });
+                })();
+                </script>
                 <!-- Not logged in: show sign-in button -->
                 <button id="auth-btn"
                         class="text-sm bg-[color:var(--ink)] hover:bg-white text-[color:var(--cream-bg)] px-4 py-1.5 rounded-full font-medium transition-colors">

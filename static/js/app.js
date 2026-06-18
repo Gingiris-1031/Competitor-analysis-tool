@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 暴露给 auth.js 调用：首次同步交给 auth.js 的 onAuthStateChange 触发
     window.syncServerHistory = syncServerHistory;
 
-    const pathMatch = window.location.pathname.match(/^\/report\/([a-f0-9]+)/);
+    const pathMatch = window.location.pathname.match(/^(?:\/zh)?\/report\/([a-f0-9]+)/);
     if (pathMatch) {
         const jobId = pathMatch[1];
         loadSharedReport(jobId).catch(() => {

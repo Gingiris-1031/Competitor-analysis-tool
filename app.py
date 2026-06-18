@@ -2186,8 +2186,19 @@ async def get_share_info(job_id: str):
 
 
 @app.get("/report/{job_id}")
-async def shared_report_page(job_id: str):
+async def shared_report_page(job_id: str, request: Request):
+    # Serve zh/index.html for ?lang=zh or Referer from /zh/
+    lang = request.query_params.get("lang", "")
+    referer = request.headers.get("referer", "")
+    if lang == "zh" or "/zh/" in referer:
+        return FileResponse("static/zh/index.html")
     return FileResponse("static/index.html")
+
+
+@app.get("/zh/report/{job_id}")
+async def shared_report_page_zh(job_id: str):
+    """Chinese-shell report page — same data, zh/index.html renders it."""
+    return FileResponse("static/zh/index.html")
 
 
 class QARequest(BaseModel):
