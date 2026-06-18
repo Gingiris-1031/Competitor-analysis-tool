@@ -2474,7 +2474,7 @@ def _strip_forbidden_channel_tasks(md: str, hints: dict) -> str:
     return result + callout
 
 
-async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
+async def generate_diagnosis_report(site_data: dict, product_name: str, lang: str = "zh") -> dict:
     """Phase 1:诊断报告(事实层)。
 
     这是 pipeline 的第一份报告,直接基于抓取数据写。所有后续报告
@@ -2487,7 +2487,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str) -> dict:
     product_type = hints.get("product_type", "Unknown / 需用户确认")
     skills_block = _build_injected_skills_block(product_type)
 
-    user_prompt = f"""基于以下抓取的产品网站数据,为 **{product_name}** 生成一份完整的增长诊断报告。
+    user_prompt = f"""{_lang_instruction(lang)}基于以下抓取的产品网站数据,为 **{product_name}** 生成一份完整的增长诊断报告。
 
 {context}
 
@@ -2575,6 +2575,7 @@ async def generate_action_plan(
     product_name: str,
     diagnosis_md: str,
     reddit_data: Optional[list] = None,
+    lang: str = "zh",
 ) -> dict:
     """Phase 2:30 天行动计划 - 必须基于 Diagnosis Report 的 findings 行动。
 
@@ -2594,7 +2595,7 @@ async def generate_action_plan(
     skills_block = _build_injected_skills_block(product_type)
     reddit_block = _build_reddit_context_for_llm(reddit_data or [])
 
-    user_prompt = f"""基于以下两段输入,为 **{product_name}** 制定 30 天行动计划。
+    user_prompt = f"""{_lang_instruction(lang)}基于以下两段输入,为 **{product_name}** 制定 30 天行动计划。
 
 # 输入 1:原始抓取数据
 {context}
@@ -2694,12 +2695,13 @@ npx skills add Gingiris-1031/<skill-name>
 
 
 async def generate_executive_summary(site_data: dict, product_name: str,
-                                     diagnosis_md: str, action_plan_md: str) -> dict:
+                                     diagnosis_md: str, action_plan_md: str,
+                                     lang: str = "zh") -> dict:
     """Phase 3:Executive Summary - 综合前两份报告,**不能引入新事实**。
 
     传入 diagnosis_md + action_plan_md,Executive 只能摘录 / 重组,不能新增。
     """
-    user_prompt = f"""基于以下两份已生成的报告,提炼出 **{product_name}** 的执行摘要。
+    user_prompt = f"""{_lang_instruction(lang)}基于以下两份已生成的报告,提炼出 **{product_name}** 的执行摘要。
 
 # 输入 1:诊断报告
 {diagnosis_md}
@@ -2763,10 +2765,36 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 # ─── Main Orchestrator ──────────────────────────────────────────────────────
 
 
-async def run_growth_audit(url: str, product_name: str = None, job_id: str = None, jobs_dict: dict = None) -> dict:
+def _lang_instruction(lang: str) -> str:
+    """Return a forceful 'respond in <lang>' directive to prepend to LLM
+    user prompts. Fixes the 'EN users get Chinese reports' bug — the
+    Chinese system+user prompts otherwise drag the answer language back
+    to Chinese regardless of caller's intent.
+    """
+    if (lang or "").lower().startswith("en"):
+        return (
+            "🌐 LANGUAGE RULE (CRITICAL): The user is reading this report in English. "
+            "Your ENTIRE response — every heading, every bullet, every table cell — "
+            "must be in fluent natural English. Do NOT mix in any Chinese characters, "
+            "phrases, or em-dashes used in Chinese style. Translate any Chinese strings "
+            "from the input data into English when quoting them. Section headers in "
+            "English (e.g. 'Executive Summary', '30-Day Action Plan', 'Diagnosis', "
+            "'Channel Strategy'), NOT '执行摘要' / '30 天行动计划'.\n\n"
+        )
+    return ""  # zh / default — original prompts are Chinese
+
+
+async def run_growth_audit(
+    url: str,
+    product_name: str = None,
+    job_id: str = None,
+    jobs_dict: dict = None,
+    lang: str = "zh",
+) -> dict:
     """完整的 Growth Audit pipeline:抓站 → 生成三份报告。
 
     如果提供 job_id 和 jobs_dict,会实时更新 job 状态。
+    lang: "zh" (default) or "en" — controls report output language.
     """
     # Parse product name from URL if not provided
     if not product_name:
@@ -2821,7 +2849,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     # Action Plan LLM prompt so W3 Reddit tasks cite real subs + real
     # contributors, not generic 'post in r/SaaS' platitudes).
     reddit_task = asyncio.create_task(_discover_reddit_channels(categories, hints, k=3))
-    diag_result = await generate_diagnosis_report(site_data, product_name)
+    diag_result = await generate_diagnosis_report(site_data, product_name, lang=lang)
     if isinstance(diag_result, dict) and diag_result.get("success"):
         # Run the absence-phrase sanitizer before downstream stages see this
         # - otherwise Action Plan + Executive Summary will inherit the
@@ -2871,7 +2899,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
     plan_task = asyncio.create_task(
         generate_action_plan(
             site_data, product_name, reports["diagnosis_report"],
-            reddit_data=reddit_data,
+            reddit_data=reddit_data, lang=lang,
         )
     )
     exec_task = asyncio.create_task(
@@ -2884,6 +2912,7 @@ async def run_growth_audit(url: str, product_name: str = None, job_id: str = Non
             # text available, it falls back to the Diagnosis P0/P1/P2 list
             # which is the same content the Plan would have echoed.
             reports["diagnosis_report"],
+            lang=lang,
         )
     )
 

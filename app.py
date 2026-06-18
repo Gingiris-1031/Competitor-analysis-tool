@@ -848,11 +848,33 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
 
     product_name = body.get("product_name") or None
 
+    # Detect report language. Order of precedence:
+    #   1. explicit body.lang ("en" | "zh")
+    #   2. query param ?lang=
+    #   3. Referer contains "/zh/" → zh
+    #   4. Accept-Language header parsed for primary language
+    #   5. default to "zh" (Iris-base audience)
+    lang = (body.get("lang") or request.query_params.get("lang") or "").strip().lower()
+    if not lang:
+        referer = request.headers.get("referer", "") or request.headers.get("origin", "")
+        if "/zh/" in referer or "lang=zh" in referer:
+            lang = "zh"
+        else:
+            al = (request.headers.get("accept-language") or "").lower()
+            # English-prefixed = en, Chinese-prefixed = zh, else default zh
+            if al.startswith("en"):
+                lang = "en"
+            elif al.startswith("zh"):
+                lang = "zh"
+    if lang not in ("en", "zh"):
+        lang = "zh"
+
     job_id = f"ga-{uuid.uuid4().hex[:8]}"
     _growth_audit_jobs[job_id] = {
         "status": "running",
         "product_name": product_name or url,
         "url": url,
+        "lang": lang,
         "user_id": user["id"] if user else None,
         "progress": {
             "fetch": "pending",
@@ -863,8 +885,8 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
         "reports": None,
     }
 
-    bg.add_task(_run_growth_audit, job_id, url, product_name)
-    return {"job_id": job_id, "status": "started"}
+    bg.add_task(_run_growth_audit, job_id, url, product_name, lang)
+    return {"job_id": job_id, "status": "started", "lang": lang}
 
 
 @app.get("/api/growth-audit/{job_id}")
@@ -1237,7 +1259,7 @@ async def autopilot_tick(request: Request):
     return result
 
 
-async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
+async def _run_growth_audit(job_id: str, url: str, product_name: str = None, lang: str = "zh"):
     """Background task to run the full growth audit."""
     try:
         result = await run_growth_audit(
@@ -1245,6 +1267,7 @@ async def _run_growth_audit(job_id: str, url: str, product_name: str = None):
             product_name=product_name,
             job_id=job_id,
             jobs_dict=_growth_audit_jobs,
+            lang=lang,
         )
 
         if result.get("error"):

@@ -96,31 +96,37 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
     {
         "@context": "https://schema.org",
         "@type": "FAQPage",
+        "inLanguage": "zh-CN",
         "mainEntity": [
             {
                 "@type": "Question",
-                "name": "What is Analook?",
-                "acceptedAnswer": {"@type": "Answer", "text": "Analook is an AI-powered competitive intelligence tool that analyzes any product's growth strategy, SEO, social media presence, and market positioning in about 2 minutes. It aggregates data from 15+ sources including Wayback Machine, DataForSEO, Twitter, GitHub, Product Hunt, and Google Trends."}
+                "name": "Analook 是什么？",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook 是一款 AI 驱动的竞品分析工具，能在 2 分钟内分析任意产品的增长策略、SEO、社媒矩阵、市场定位。聚合 15+ 数据源，包括 Wayback Machine、DataForSEO、Twitter、GitHub、Product Hunt、Google Trends 等。"}
             },
             {
                 "@type": "Question",
-                "name": "How much does Analook cost?",
-                "acceptedAnswer": {"@type": "Answer", "text": "Analook offers a free tier with 2 reports per month. The Pro plan costs $19/month for 30 reports, and individual reports can be purchased for $5 each. No credit card required to start."}
+                "name": "Analook 收费吗？",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook 提供免费版，每月可生成 2 份报告。Pro 订阅 $19/月，含 30 份报告。也可按次购买，$5/份。无需绑卡即可开始使用。"}
             },
             {
                 "@type": "Question",
-                "name": "What data sources does Analook use?",
-                "acceptedAnswer": {"@type": "Answer", "text": "Analook aggregates data from 15+ sources: Wayback Machine for website history, DataForSEO and SEO Review Tools for traffic/SEO, TwitterAPI.io for social media, Product Hunt API, GitHub API, Google Trends via SerpApi, Brave Search, HN Algolia, and AI language models for strategic analysis."}
+                "name": "Analook 使用哪些数据源？",
+                "acceptedAnswer": {"@type": "Answer", "text": "Analook 聚合 15+ 数据源：Wayback Machine 抓官网历史快照；DataForSEO 与 SEO Review Tools 提供流量与 SEO 数据；TwitterAPI.io 抓社媒；Product Hunt API、GitHub API、SerpAPI 抓 Google Trends；Brave Search、HN Algolia 做内容发现；AI 大模型做战略分析。"}
             },
             {
                 "@type": "Question",
-                "name": "Is Analook a SimilarWeb alternative?",
-                "acceptedAnswer": {"@type": "Answer", "text": "Yes, Analook can serve as a more affordable alternative to SimilarWeb for competitive intelligence. While SimilarWeb focuses on traffic data, Analook provides a broader analysis including growth strategy, social media, Product Hunt launches, and AI-powered strategic insights at a fraction of the cost ($5/report vs $125+/month)."}
+                "name": "Analook 可以替代 SimilarWeb 吗？",
+                "acceptedAnswer": {"@type": "Answer", "text": "可以。Analook 是 SimilarWeb 的低成本替代方案。SimilarWeb 主要关注流量数据，Analook 在此基础上还包含增长策略、社媒分析、Product Hunt 发布历史、AI 战略洞察等更全面的维度，价格仅为 SimilarWeb 的零头（$5/份 vs $125+/月）。"}
             },
             {
                 "@type": "Question",
-                "name": "Can I use Analook with Claude Code or AI agents?",
-                "acceptedAnswer": {"@type": "Answer", "text": "Yes, Analook offers a REST API at /api/v1/analyze that can be called from Claude Code, MCP servers, or any AI agent. Simply POST a URL and get a full competitive intelligence report as JSON."}
+                "name": "Analook 能配合 Claude Code 或 AI agent 使用吗？",
+                "acceptedAnswer": {"@type": "Answer", "text": "可以。Analook 提供 REST API `/api/v1/analyze`，可从 Claude Code、MCP server 或任何 AI agent 调用。POST 一个 URL，返回完整竞品报告 JSON。"}
+            },
+            {
+                "@type": "Question",
+                "name": "中国团队出海，Analook 适合吗？",
+                "acceptedAnswer": {"@type": "Answer", "text": "非常适合。Analook 内置中国团队出海产品的常见模式识别（OSS / Dev Tool / SaaS / Consumer），生成的行动计划基于 Gingiris 出海 SOP（AFFiNE 0→60K stars 创始团队提炼），覆盖 Product Hunt、Reddit、Twitter、KOL、UGC 等海外渠道，比通用工具更落地。"}
             }
         ]
     }
@@ -169,6 +175,10 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                     <div id="auth-dropdown"
                          class="hidden absolute right-0 top-10 w-48 bg-gray-800 border border-[color:var(--border)] rounded-xl shadow-xl z-50 py-1">
                         <div id="auth-dropdown-email" class="px-4 py-2 text-xs text-[color:var(--ink-muted)] border-b border-[color:var(--border)] truncate"></div>
+                        <button id="redeem-code-btn"
+                                class="w-full text-left px-4 py-2 text-sm text-[color:var(--ink)] hover:bg-gray-700 transition-colors">
+                            🎁 兑换促销码
+                        </button>
                         <button id="auth-logout-btn"
                                 class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 transition-colors">
                             退出登录
@@ -357,9 +367,79 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                 <div id="section-summary" class="fade-in"></div>
                 <div id="section-strategy" class="fade-in"></div>
                 <div id="section-playbooks" class="fade-in"></div>
+
+                <!-- ── 报告完成后的 CTA ── -->
+                <div id="post-report-cta" class="fade-in mt-10 rounded-2xl border border-[color:var(--border)] bg-gray-800/50 p-8 text-center">
+                    <p class="text-xs uppercase tracking-widest text-[color:var(--ink-muted)] mb-3">还想分析更多竞品？</p>
+                    <h3 class="font-serif text-2xl text-[color:var(--ink)] mb-2">你刚刚把对手的整条增长路径拆完了。</h3>
+                    <p class="text-sm text-[color:var(--ink-muted)] mb-6 max-w-sm mx-auto">再跑一个对手 — 同样 15 个信号：SEO / 流量 / 社媒 / Product Hunt / GitHub / 定价 / AI 综合判断。</p>
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center" id="post-report-cta-buttons">
+                        <!-- 由 JS 根据剩余积分填充按钮 -->
+                    </div>
+                    <p class="text-xs text-[color:var(--ink-faint)] mt-4">单次报告无需订阅。</p>
+                </div>
             </div>
         </div>
     </main>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         Upgrade Modal — 用户触发付费墙时显示 (402)
+    ══════════════════════════════════════════════════════════════ -->
+    <div id="upgrade-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-7 relative shadow-2xl">
+            <button id="upgrade-close-btn"
+                    class="absolute top-4 right-4 text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-3">⚡</div>
+                <h2 class="text-xl font-bold text-white mb-2">本月免费额度已用完</h2>
+                <p class="text-sm text-gray-400">免费版每月 2 次报告。选择一个方案继续：</p>
+            </div>
+
+            <!-- 单次报告 (主) -->
+            <button id="upgrade-single-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl mb-3 transition-colors text-sm">
+                单次报告 — $5
+            </button>
+
+            <!-- Pro (次) -->
+            <button id="upgrade-pro-btn"
+                    class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white font-medium py-3 rounded-xl mb-4 transition-colors text-sm">
+                Pro 订阅 — $19/月 · 30 次报告 + 7 天免费试用
+            </button>
+
+            <p class="text-center text-xs text-gray-600">单次报告不绑定订阅；Pro 可随时取消。</p>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         Promo Code Modal — 兑换码弹窗
+    ══════════════════════════════════════════════════════════════ -->
+    <div id="promo-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-7 relative shadow-2xl">
+            <button id="promo-close-btn"
+                    class="absolute top-4 right-4 text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+            <div class="text-center mb-6">
+                <div class="text-4xl mb-3">🎁</div>
+                <h2 class="text-xl font-bold text-white mb-1">兑换促销码</h2>
+                <p class="text-sm text-gray-400">输入兑换码立即获得额外积分。</p>
+            </div>
+            <div class="mb-4">
+                <input id="promo-code-input"
+                       type="text"
+                       placeholder="例如：GINGIRIS20"
+                       autocomplete="off"
+                       class="w-full bg-gray-800 border border-gray-600 text-white rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-blue-500 text-center"
+                />
+                <p id="promo-error" class="text-red-400 text-xs mt-2 text-center hidden"></p>
+                <p id="promo-success" class="text-green-400 text-xs mt-2 text-center hidden"></p>
+            </div>
+            <button id="promo-submit-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                立即兑换
+            </button>
+        </div>
+    </div>
 
     <!-- ══════════════════════════════════════════════════════════════
          Auth Modal — 登录 / 注册弹窗
@@ -449,6 +529,7 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
     <script>window._ANALOOK_LANG = 'zh';</script>
     <script src="/js/auth.js"></script>
     <script src="/js/referral-modal.js" defer></script>
+    <script src="/js/promo-modal.js" defer></script>
     <script src="/js/app.js"></script>
     <script src="/zh/js/render-github.js"></script>
     <script src="/zh/js/render-pr.js"></script>

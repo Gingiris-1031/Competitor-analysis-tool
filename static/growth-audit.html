@@ -528,13 +528,27 @@
         btn.textContent = 'Starting...';
 
         try {
+            // Pick report language from URL/document context:
+            //   /zh/ prefix → zh
+            //   <html lang="..."> attribute
+            //   navigator.language fallback
+            // Default 'en' here because growth-audit.html is the EN page.
+            const _pathLang = location.pathname.startsWith('/zh/') ? 'zh' : null;
+            const _htmlLang = (document.documentElement.lang || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+            const _navLang  = (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+            const reportLang = _pathLang || _htmlLang || _navLang || 'en';
+
             const resp = await fetch('/api/growth-audit', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ url, product_name: nameInput || undefined }),
+                body: JSON.stringify({
+                    url,
+                    product_name: nameInput || undefined,
+                    lang: reportLang,
+                }),
             });
 
             const data = await resp.json();
