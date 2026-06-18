@@ -1743,7 +1743,14 @@ async def _run_analysis(job_id: str):
     async def _run_traffic_peaks():
         job["progress"]["traffic_peaks"] = "running"
         # Pass first_seen from website analysis to filter HN results before product launch
-        website_first_seen = job["results"].get("website", {}).get("first_seen", "")
+        # 2026-06-18 fix: prefer current_owner_since when ownership change
+        # was detected (multi-year Wayback gap). Iris's analook.com Wayback
+        # first_seen=2007 belongs to a previous owner; the current product
+        # launched 2026-04. Using 2007 as the trends window pulls in
+        # 2014-2017 "Analook by UIComet" data that has nothing to do with
+        # the current product.
+        _w = job["results"].get("website", {}) or {}
+        website_first_seen = _w.get("current_owner_since") or _w.get("first_seen", "")
         peaks = await analyze_traffic_peaks(
             product_name, domain,
             producthunt=job["results"].get("producthunt", {}),
