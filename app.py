@@ -2081,6 +2081,74 @@ async def submit_referral_source(request: Request):
     return {"ok": True, "source": source}
 
 
+# ─── First-touch attribution (objective acquisition capture) ───────────────
+# Complements the self-report survey above. The browser (attribution.js) locks
+# utm_* + referrer + landing path on the very first pageview; auth.js POSTs it
+# here once the user is authenticated. Write-once: we only fill columns that
+# are still NULL, so the channel that ORIGINALLY acquired the user is never
+# overwritten by a later visit / second device.
+
+_ATTR_FIELDS = (
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+)
+
+
+@app.post("/api/profile/attribution")
+async def submit_first_touch_attribution(request: Request):
+    """Record the user's first-touch acquisition attribution.
+
+    Body (all optional): {
+        "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+        "referrer", "landing_path", "ts"
+    }
+    Write-once — only fills profiles columns that are currently NULL.
+    Returns {"ok": True, "written": bool}.
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "请先登录", "code": "AUTH_REQUIRED"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+    def _clip(v, n):
+        return (str(v).strip()[:n]) or None if v else None
+
+    payload = {f"first_{k}": _clip(body.get(k), 200) for k in _ATTR_FIELDS}
+    payload["first_referrer"] = _clip(body.get("referrer"), 500)
+    payload["first_landing_path"] = _clip(body.get("landing_path"), 300)
+
+    # Nothing meaningful to record (e.g. localStorage was empty) → no-op.
+    if not any(payload.values()):
+        return {"ok": True, "written": False}
+
+    from datetime import datetime, timezone
+    payload["first_touch_at"] = datetime.now(timezone.utc).isoformat()
+
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Supabase 未配置"}, status_code=503)
+
+    try:
+        # Write-once: filter on first_touch_at IS NULL so a row that already
+        # has attribution is left untouched (matches zero rows → no-op).
+        res = (
+            sb.table("profiles")
+            .update(payload)
+            .eq("id", user["id"])
+            .is_("first_touch_at", "null")
+            .execute()
+        )
+        written = bool(getattr(res, "data", None))
+    except Exception as e:
+        log.error("Failed to save first-touch attribution for %s: %s", user["id"], e)
+        return JSONResponse({"error": "保存失败"}, status_code=500)
+
+    return {"ok": True, "written": written}
+
+
 @app.post("/api/redeem")
 async def redeem_promo_code(request: Request):
     """Redeem a promo code for bonus credits.

@@ -31,16 +31,41 @@
   } else {
     _updateUI(session?.user ?? null);
   }
+  if (session?.user) _sendFirstTouch();
 
   // 监听 Auth 状态变化（登录 / 登出 / token 刷新）
   sb.auth.onAuthStateChange((_event, newSession) => {
     _session = newSession;
     _updateUI(newSession?.user ?? null);
+    // 新登录/注册：上报首次触点归因（服务端 write-once，只填 NULL）
+    if (newSession?.user) _sendFirstTouch();
     // 登录/登出切换后，重新从服务端拉历史
     if (typeof window.syncServerHistory === 'function') {
       window.syncServerHistory();
     }
   });
+
+  // ── 首次触点归因上报 ──────────────────────────────────────────────────────
+  // localStorage 里由 attribution.js 锁定的首次 utm/referrer/landing，在用户
+  // 鉴权后 POST 一次。_ft_sent 标记防止每次 pageview 重复请求；服务端 write-once
+  // 保证即使多设备登录也只记录首次注册时的来源。
+  async function _sendFirstTouch() {
+    try {
+      const token = _session?.access_token;
+      if (!token) return;
+      if (localStorage.getItem('_analook_ft_sent')) return;
+      const ft = window._analookAttribution?.getFirstTouch?.();
+      if (!ft) { localStorage.setItem('_analook_ft_sent', '1'); return; } // nothing to send
+      const res = await fetch('/api/profile/attribution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(ft),
+      });
+      if (res.ok) localStorage.setItem('_analook_ft_sent', '1');
+    } catch (e) {
+      // best-effort — never block auth UX
+    }
+  }
 
   // ── 公开接口 ──────────────────────────────────────────────────────────────
   window._analookAuth = {
