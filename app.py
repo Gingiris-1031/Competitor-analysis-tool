@@ -999,8 +999,109 @@ async def get_growth_audit_share(job_id: str):
 @app.get("/share/audit/{job_id}")
 async def share_audit_page(job_id: str):
     """Public, link-only share page. Serves the cream/Instrument-Serif themed
-    static viewer which fetches /api/share/audit/{job_id} client-side."""
-    return FileResponse("static/share-audit.html")
+    static viewer which fetches /api/share/audit/{job_id} client-side.
+
+    Server-side injects the per-audit OG image URL so Twitter / LinkedIn /
+    Slack previews show a custom card with the product name instead of
+    the generic growth-audit.png. Social-card crawlers don't execute JS,
+    so this swap must happen here, not in the client.
+    """
+    from starlette.responses import HTMLResponse
+    import re as _re_inj
+    try:
+        with open("static/share-audit.html", "r", encoding="utf-8") as f:
+            html = f.read()
+        og_url = f"https://www.analook.com/api/og/audit/{job_id}.png"
+        # Swap both og:image and twitter:image content values
+        html = _re_inj.sub(
+            r'(<meta[^>]+(?:property="og:image"|name="twitter:image")[^>]+content=")[^"]*"',
+            lambda m: m.group(1) + og_url + '"',
+            html,
+        )
+        return HTMLResponse(content=html)
+    except Exception as e:
+        log.warning("share_audit_page template inject failed: %s", e)
+        return FileResponse("static/share-audit.html")
+
+
+# In-memory OG card cache. Cards rarely change once an audit completes,
+# so we cap at 1024 entries (FIFO) — bigger LRU not worth the complexity.
+_og_card_cache: dict[str, bytes] = {}
+_OG_CACHE_MAX = 1024
+
+
+@app.get("/api/og/audit/{job_id}.png")
+async def og_card_audit(job_id: str):
+    """Dynamic OG / Twitter share card for /share/audit/{job_id}.
+
+    Renders 1200×630 PNG with the product name in Instrument Serif —
+    so Twitter / LinkedIn / Slack previews show WHAT the audit is about
+    instead of the generic homepage card. Cached in-memory.
+    """
+    from starlette.responses import Response
+
+    if job_id in _og_card_cache:
+        return Response(
+            content=_og_card_cache[job_id],
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400, immutable"},
+        )
+
+    # Pull product name + URL from the same data sources /api/share/audit uses.
+    product_name = "your product"
+    audit_url = "analook.com"
+    score_band = None
+    key_stats: list = []
+    try:
+        job = _growth_audit_jobs.get(job_id) or {}
+        if job.get("reports"):
+            product_name = job.get("product_name") or product_name
+            audit_url = job.get("url") or audit_url
+        else:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                rs = sb.table("reports").select(
+                    "product_name,url,report"
+                ).eq("id", job_id).limit(1).execute()
+                rows = rs.data or []
+                if rows:
+                    product_name = rows[0].get("product_name") or product_name
+                    audit_url = rows[0].get("url") or audit_url
+    except Exception as e:
+        log.warning("og_card_audit lookup failed for %s: %s", job_id, e)
+
+    # Tasteful default stats line. We could pull real numbers from
+    # site_data_summary but that's an extra DB hit and noisy — the static
+    # tagline below works for most preview contexts.
+    key_stats = ["15 data sources", "60-second teardown", "by Iris @ Gingiris"]
+
+    try:
+        from modules.og_card import render_audit_share_card
+        png = render_audit_share_card(
+            product_name=product_name,
+            audit_url=audit_url,
+            score_band=score_band,
+            key_stats=key_stats,
+        )
+    except Exception as e:
+        log.error("og_card render failed for %s: %s", job_id, e)
+        # Fall back to the static homepage card so previews still render
+        return FileResponse("static/assets/og/homepage.png")
+
+    # FIFO eviction — drop oldest entry when full
+    if len(_og_card_cache) >= _OG_CACHE_MAX:
+        try:
+            _og_card_cache.pop(next(iter(_og_card_cache)))
+        except StopIteration:
+            pass
+    _og_card_cache[job_id] = png
+
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400, immutable"},
+    )
 
 
 # ─── Growth Autopilot endpoints ────────────────────────────────────────────

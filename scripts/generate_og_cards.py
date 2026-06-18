@@ -43,6 +43,19 @@ PAGES = [
     ("alt-crayon.png",         "6 best Crayon",                    "alternatives",   "Including a free competitive-intel tool.",                    "analook.com/alternatives"),
     ("alt-klue.png",           "6 best Klue",                      "alternatives",   "From free founder stack to enterprise battlecards.",          "analook.com/alternatives"),
     ("growth-audit.png",       "Full Growth",                      "Diagnostic",     "3 reports in 5 minutes · Gingiris Growth Framework.",         "analook.com/growth-audit"),
+    # ── Chinese-targeted (English glyphs only; Instrument Serif lacks CJK).
+    # When we add a CJK font (Noto Sans CN) to assets/fonts/, swap these
+    # back to native Chinese. For now we use bilingual treatment so the OG
+    # preview still works for Chinese audiences sharing the link.
+    ("zh-homepage.png",        "Analook for",                      "China-to-Global teams",  "60-second competitor teardown · AI · 15+ data sources.",      "analook.com/zh"),
+    ("zh-pricing.png",         "Pricing —",                        "中文",                    "Free 2/mo · Pro $19 · Team $79 · Single $5.",                 "analook.com/zh/pricing"),
+    # ── Blog OGs (MOFU posts) ──
+    ("blog-traffic-sources.png",   "How to find competitor",             "traffic sources",  "4 methods ranked by cost · DIY $0 to multi-source $29.",          "analook.com/blog"),
+    ("blog-comp-analysis-template.png", "Competitive analysis",          "10-step template", "90-minute template + free Google Sheet · 2026 edition.",          "analook.com/blog"),
+    ("blog-pricing-tracking.png",  "Track competitor",                   "pricing changes",  "5 methods · free Wayback workflow to autopilot digest.",          "analook.com/blog"),
+    ("blog-ph-tracking.png",       "Track competitor",                   "PH launches",      "4 launch signals worth alerting on · without drowning in noise.", "analook.com/blog"),
+    ("blog-yc-competitor-research.png", "Competitor research for",       "YC founders",      "Founder-stage workflow · 25-hour batch budget · the one question to be ready for.","analook.com/blog"),
+    ("blog-best-ci-tools.png",     "10 best competitive",                "intelligence tools","Tested 2026 edition · founder lens · price → fit decision tree.","analook.com/blog"),
 ]
 
 BG = (10, 10, 10)            # #0A0A0A

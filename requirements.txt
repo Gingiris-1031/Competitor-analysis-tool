@@ -12,3 +12,5 @@ supabase>=2.4.0
 pytrends>=4.9.2
 python-whois>=0.9.4
 mcp>=1.8
+# OG / Twitter card image generation (runtime + batch).
+Pillow>=10.4.0
