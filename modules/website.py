@@ -47,6 +47,13 @@ def _read_cache(domain: str) -> dict | None:
                 age_seconds = (datetime.now(_dt.now().astimezone().tzinfo) - created).total_seconds()
                 if age_seconds < _WAYBACK_CACHE_TTL:
                     result = _json.loads(row["data"]) if isinstance(row["data"], str) else row["data"]
+                    # 2026-06-18: cache-format bump — old entries lack the
+                    # `current_owner_since` / `ownership_gap_years` fields
+                    # added in the ownership-discontinuity fix. Force a
+                    # re-fetch when the cached result predates the schema
+                    # bump (signalled by a missing `_schema_v` marker).
+                    if (result or {}).get("_schema_v", 0) < 2:
+                        return None
                     # Warm disk cache
                     _write_disk_cache(domain, result)
                     return result
@@ -205,6 +212,7 @@ async def analyze_website(url: str) -> dict:
                 ownership_gap_years = gap_size
 
     result = {
+        "_schema_v": 2,  # bump on incompatible cache changes — see _read_cache
         "domain": domain,
         "first_seen": first_seen,
         "first_seen_raw": raw_first_seen,

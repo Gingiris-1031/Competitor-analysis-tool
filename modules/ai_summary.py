@@ -650,7 +650,33 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     pricing_insight = _safe(_build_pricing_insight, pricing)
     github_insight  = _safe(_build_github_insight, github_oss)
 
-    _lang_note = "" if (lang or "en").lower() == "zh" else "IMPORTANT: Write the ENTIRE report in English. All headings, analysis, and conclusions must be in English.\n\n"
+    # Stronger lang-lock — the previous one-line note was too weak when the
+    # Chinese system prompt body weighs ~5K tokens. Iris 2026-06-18 ran an
+    # EN audit and got mixed Chinese back. Now we wrap the Chinese prompt
+    # with English instructions on BOTH sides + an explicit translation
+    # directive, which empirically gets DeepSeek to ignore the Chinese
+    # persona and respond in English (same pattern that fixed audit-qa).
+    if (lang or "en").lower() == "zh":
+        _lang_note = ""
+        _lang_tail = ""
+    else:
+        _lang_note = (
+            "🌐 CRITICAL LANGUAGE RULE — READ BEFORE ANYTHING ELSE:\n"
+            "The Chinese system instructions below are written in Chinese for historical reasons, "
+            "but your ENTIRE response MUST be in fluent natural English. Treat the Chinese as a "
+            "TRANSLATION TARGET — read each Chinese section heading and instruction, then OUTPUT "
+            "the English equivalent. Do NOT echo any Chinese characters in your response.\n\n"
+            "Examples of required translation:\n"
+            "  '## 一、产品定位与目标用户' → '## 1. Product Positioning & ICP'\n"
+            "  '增长模式' → 'Growth Pattern'\n"
+            "  Verdict JSON values: write all values in English (e.g. growth_pattern='PLG product-driven').\n\n"
+        )
+        _lang_tail = (
+            "\n\n🌐 FINAL LANGUAGE REINFORCEMENT: This is your last reminder. Your ENTIRE output, "
+            "INCLUDING the JSON verdict at the end, must be in fluent natural English with no Chinese "
+            "characters whatsoever. If you find yourself about to write a Chinese phrase, translate it "
+            "to English first."
+        )
     prompt = f"""{_lang_note}你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
 以下是对竞品 **{product_name}** ({url}) 的系统化调研数据，来源包括 Wayback Machine 历史快照、Product Hunt 发布记录、DataForSEO 流量数据、社交媒体数据以及 Gingiris Playbook 智能匹配。
@@ -810,10 +836,10 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 {{"killer_move": "一句话描述竞品的核心杀手锏（15字以内）", "growth_pattern": "从以下选一个：开源社区驱动|PLG 产品驱动|内容 SEO 驱动|社交病毒传播|模板飞轮驱动|企业销售驱动", "replicability": "高|中|低", "one_line_verdict": "一句话战略判定（20字以内）"}}
 ```
 
-这个 JSON 会被程序自动提取，必须严格遵守格式。"""
+这个 JSON 会被程序自动提取，必须严格遵守格式。""" + _lang_tail
 
     _log = logging.getLogger(__name__)
-    _log.warning("generate_ai_summary: prompt built, len=%d chars, calling _call_llm", len(prompt))
+    _log.warning("generate_ai_summary: prompt built, len=%d chars, lang=%s, calling _call_llm", len(prompt), lang)
 
     result = await _call_llm(prompt)
 
