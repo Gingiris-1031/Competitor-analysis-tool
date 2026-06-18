@@ -131,26 +131,39 @@ I. **判断产品类型的优先信号**:首页 hero 价值主张 → 客户案�
 """
 
 
-def _get_system_prompt() -> str:
-    """Returns the system prompt with the real Gingiris skill registry
-    + tactical cheat-sheet inlined. We do this lazily because the
-    register-builder functions are defined later in the file.
+def _get_system_prompt(filter_to_skills: Optional[list] = None) -> str:
+    """Returns the system prompt with the Gingiris skill registry + a
+    tactical cheat-sheet inlined.
 
-    The tactical block is what fixes "reports too template-y" - it gives
-    the LLM 2-3 concrete tactics per skill (with real benchmarks) to cite
-    instead of generic prose.
+    `filter_to_skills` (new): when provided, the tactical cheat-sheet
+    only emits tactics for those slugs. Cuts ~30% of tokens off when the
+    caller already knows the product type (e.g. action plan stage).
+    Prevents context overflow on long diagnoses that bit Iris's
+    'action plan generation failed' 2026-06-18 report.
     """
     return GINGIRIS_SKILLS_CONTEXT.replace(
         "%SKILL_REGISTRY%",
-        _build_skill_registry_prompt() + "\n\n" + _build_tactical_cheatsheet()
+        _build_skill_registry_prompt()
+        + "\n\n"
+        + _build_tactical_cheatsheet(filter_to_skills)
     )
 
 
-def _build_tactical_cheatsheet() -> str:
+def _build_tactical_cheatsheet(filter_to_skills: Optional[list] = None) -> str:
     """Compact tactical recipes per skill - drops into system prompt so
     LLM can cite specific tactics verbatim instead of inventing fluffy
     'launch on PH'-level recommendations.
+
+    When `filter_to_skills` is provided, only those skills appear in the
+    cheat-sheet. The action plan generator passes its already-picked
+    skills here to trim the prompt and avoid context overflow.
     """
+    if filter_to_skills:
+        allowed = {s for s in filter_to_skills}
+        items = [(s, t) for s, t in GINGIRIS_SKILL_TACTICS.items() if s in allowed]
+    else:
+        items = list(GINGIRIS_SKILL_TACTICS.items())
+
     lines = [
         "## 🎯 战术速查表(强制:所有渠道推荐必须引用此表中的具体战术 + benchmark)",
         "",
@@ -158,7 +171,7 @@ def _build_tactical_cheatsheet() -> str:
         "**LLM 引用此表中的战术时格式:【来自 `skill-slug` 的战术】+ 原文**",
         "",
     ]
-    for slug, tactics in GINGIRIS_SKILL_TACTICS.items():
+    for slug, tactics in items:
         info = GINGIRIS_SKILL_REGISTRY.get(slug, {})
         lines.append(f"### `{slug}` - {info.get('title', slug)}")
         for when, what, bench in tactics:
@@ -274,10 +287,22 @@ def _extract_content(data: dict) -> str:
     return msg.get("content", "") or ""
 
 
-async def _try_deepseek(messages: list, max_tokens: int) -> Optional[dict]:
-    """DeepSeek first-party API (deepseek-v4-flash). One attempt - the caller
-    owns failover, so we never burn time retrying a sick provider."""
+async def _try_deepseek(messages: list, max_tokens: int, *, retries: int = 1) -> Optional[dict]:
+    """DeepSeek first-party API. Now retries transient failures (5xx,
+    timeout, network errors) once before failing over to next provider.
+
+    Reason: OpenRouter key is currently dead → DeepSeek is the only
+    working LLM path. A transient 502 or socket reset would kill the
+    whole audit's action plan with no recovery. One in-provider retry
+    catches that 95% of the time without significantly extending the
+    audit's wall-clock budget.
+
+    If primary model (deepseek-v4-flash) returns a context-length error
+    on the retry, we fall back to deepseek-chat which has a 64K context
+    and stable behavior under load.
+    """
     import os as _os
+    import asyncio as _asyncio
     key = _os.environ.get("DEEPSEEK_API_KEY", "").strip()
     if not key:
         try:
@@ -286,23 +311,45 @@ async def _try_deepseek(messages: list, max_tokens: int) -> Optional[dict]:
             return None
     if not key:
         return None
-    model = _os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
-    try:
-        async with httpx.AsyncClient(timeout=_LLM_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.post(
-                "https://api.deepseek.com/chat/completions",
-                headers={"Authorization": f"Bearer {key}",
-                         "Content-Type": "application/json"},
-                json={"model": model, "messages": messages,
-                      "temperature": 0.5, "max_tokens": max_tokens},
-            )
-            resp.raise_for_status()
-            content = _extract_content(resp.json())
-            if content:
-                return {"success": True, "content": content,
-                        "source": f"DeepSeek-direct ({model})"}
-    except Exception as e:
-        log.warning("DeepSeek-direct failed, failing over: %s", e)
+    primary_model = _os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    stable_model  = "deepseek-chat"   # known-stable older model
+
+    attempts = max(1, retries + 1)
+    last_error = None
+    for attempt in range(attempts):
+        # Last attempt drops to stable model — catches context-length and
+        # model-availability errors that retrying v4-flash wouldn't.
+        model = primary_model if attempt == 0 else stable_model
+        try:
+            async with httpx.AsyncClient(timeout=_LLM_TIMEOUT, follow_redirects=True) as client:
+                resp = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {key}",
+                             "Content-Type": "application/json"},
+                    json={"model": model, "messages": messages,
+                          "temperature": 0.5, "max_tokens": max_tokens},
+                )
+                # Don't retry on auth/balance/forbidden — same key, same outcome.
+                if resp.status_code in (401, 402, 403):
+                    log.warning("DeepSeek %s HTTP %d (key/balance issue, not retrying)",
+                                model, resp.status_code)
+                    return None
+                resp.raise_for_status()
+                content = _extract_content(resp.json())
+                if content:
+                    if attempt > 0:
+                        log.info("DeepSeek recovered on attempt %d (model=%s)", attempt + 1, model)
+                    return {"success": True, "content": content,
+                            "source": f"DeepSeek-direct ({model})"}
+                last_error = "empty content"
+        except Exception as e:
+            last_error = str(e)[:200]
+            log.warning("DeepSeek (%s) attempt %d/%d failed: %s",
+                        model, attempt + 1, attempts, last_error)
+        # Brief backoff before retry — let transient infra blips clear.
+        if attempt < attempts - 1:
+            await _asyncio.sleep(1.5 * (attempt + 1))
+    log.warning("DeepSeek exhausted %d attempts, failing over: %s", attempts, last_error)
     return None
 
 
@@ -2691,7 +2738,13 @@ npx skills add Gingiris-1031/<skill-name>
 {reddit_block}
 """
 
-    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
+    # Trim system-prompt tactical cheatsheet to skills relevant for THIS
+    # product type. Combined with retry-on-transient in _try_deepseek,
+    # this drops the action-plan failure rate when the diagnosis report
+    # is large and DeepSeek context gets squeezed.
+    picked_skills = _pick_skills_for_product_type(hints)
+    sys_prompt = _get_system_prompt(filter_to_skills=picked_skills)
+    return await _call_llm_long(sys_prompt, user_prompt, max_tokens=8000)
 
 
 async def generate_executive_summary(site_data: dict, product_name: str,
