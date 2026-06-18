@@ -2302,7 +2302,15 @@ async def get_share_info(job_id: str):
         return JSONResponse({"error": "Job not found"}, status_code=404)
 
     from urllib.parse import quote_plus
-    base_url = f"/report/{job_id}"
+    # Route by job type: growth-audit IDs (prefix `ga-`) live at
+    # /share/audit/{job_id}; classic analyze reports live at /report/{job_id}.
+    # The old code always returned /report/, which 404'd silently for growth
+    # audits (the report page loaded but the analyze API didn't have the job,
+    # so the user got an empty homepage). Detect the prefix and route right.
+    if job_id.startswith("ga-"):
+        base_url = f"/share/audit/{job_id}"
+    else:
+        base_url = f"/report/{job_id}"
     utm = f"utm_source=gingiris_tool&utm_medium=share&utm_campaign=competitive_analysis&utm_content={quote_plus(product_name)}"
     share_url = f"{base_url}?{utm}"
 
@@ -2317,6 +2325,15 @@ async def get_share_info(job_id: str):
 
 @app.get("/report/{job_id}")
 async def shared_report_page(job_id: str, request: Request):
+    # Growth-audit IDs (prefix `ga-`) belong at /share/audit/{job_id}, not
+    # here. Shared links from older Share buttons used this path and got
+    # the homepage (which silently 404'd when fetching /api/report/{ga-…}).
+    # Redirect with the query string preserved so the audit OG card +
+    # UTM tracking still work.
+    if job_id.startswith("ga-"):
+        from starlette.responses import RedirectResponse
+        qs = ("?" + request.url.query) if request.url.query else ""
+        return RedirectResponse(url=f"/share/audit/{job_id}{qs}", status_code=302)
     # Serve zh/index.html for ?lang=zh or Referer from /zh/
     lang = request.query_params.get("lang", "")
     referer = request.headers.get("referer", "")
@@ -2326,8 +2343,12 @@ async def shared_report_page(job_id: str, request: Request):
 
 
 @app.get("/zh/report/{job_id}")
-async def shared_report_page_zh(job_id: str):
+async def shared_report_page_zh(job_id: str, request: Request):
     """Chinese-shell report page — same data, zh/index.html renders it."""
+    if job_id.startswith("ga-"):
+        from starlette.responses import RedirectResponse
+        qs = ("?" + request.url.query) if request.url.query else ""
+        return RedirectResponse(url=f"/share/audit/{job_id}{qs}", status_code=302)
     return FileResponse("static/zh/index.html")
 
 
