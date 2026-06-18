@@ -171,10 +171,49 @@ async def analyze_website(url: str) -> dict:
     raw_first_seen = wayback_meta.get("first_seen", "N/A")
     first_seen = _refine_first_seen(raw_first_seen, snapshots)
 
+    # Detect domain ownership change — Wayback's first_seen can predate
+    # the CURRENT product by many years if a previous owner used the
+    # domain. Iris 2026-06-18: analook.com reported first_seen=2007 but
+    # she bought the domain in 2026-04. Look for a >2-year gap in the
+    # raw snapshot timeline; if found, the period AFTER the gap is the
+    # current operation window. Report that as "current_owner_since".
+    all_ts = wayback_meta.get("all_timestamps") or []
+    current_owner_since = None
+    ownership_gap_years = None
+    if len(all_ts) >= 2:
+        # Convert YYYYMMDD-style timestamps to year ints, sorted asc
+        years = []
+        for ts in all_ts:
+            t = str(ts)
+            if len(t) >= 4 and t[:4].isdigit():
+                years.append(int(t[:4]))
+        years.sort()
+        if years:
+            # Find the LAST gap >= 2 years between consecutive snapshots.
+            # The current owner is presumed to be the one operating after
+            # that final gap (most-recent continuous run of activity).
+            last_gap_year = None
+            gap_size = 0
+            for i in range(1, len(years)):
+                diff = years[i] - years[i - 1]
+                if diff >= 2:
+                    last_gap_year = years[i]
+                    gap_size = diff
+            if last_gap_year and last_gap_year > years[0]:
+                # The "current operation" likely started at this resumption.
+                current_owner_since = f"{last_gap_year}-01"
+                ownership_gap_years = gap_size
+
     result = {
         "domain": domain,
         "first_seen": first_seen,
         "first_seen_raw": raw_first_seen,
+        "current_owner_since": current_owner_since,
+        "ownership_gap_years": ownership_gap_years,
+        "ownership_note": (
+            f"Wayback 显示域名最早 {first_seen}，但有 {ownership_gap_years} 年快照空档,"
+            f"当前运营可能从 {current_owner_since} 起,不是 {first_seen}"
+        ) if current_owner_since else None,
         "total_snapshots": wayback_meta.get("total_count", 0),
         "deep_timeline": real_snapshots,
         "current_site": current,

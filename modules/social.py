@@ -151,7 +151,7 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
                         "note": "Twitter 分析超时"}
 
         twitter_task   = _twitter_with_timeout()
-        youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint)
+        youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint, domain=domain)
         reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
         github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint, domain=domain)
         instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
@@ -995,7 +995,7 @@ async def _deep_twitter(client: httpx.AsyncClient, brand: str, name: str) -> dic
     return result
 
 
-async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle_hint: str = None) -> dict:
+async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle_hint: str = None, domain: str = "") -> dict:
     """深度 YouTube 分析 — 优先 Apify apidojo/youtube-channel-scraper，fallback HTML"""
     result = {
         "platform": "YouTube",
@@ -1048,26 +1048,43 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
             return result
 
     # Strategy 2: HTML fallback (no subscriber count due to YouTube JS rendering)
+    #
+    # 2026-06-18 — Iris ran an audit on her own analook.com and found a fake
+    # @analook YouTube channel showed up as detected. Root cause: the only
+    # validation was "brand string present anywhere in page", but the
+    # channel HTML ALWAYS contains the handle text (which IS the brand
+    # string when brand=handle), so any unrelated @analook channel passes.
+    #
+    # Stronger fix: require the channel description / about page to mention
+    # the actual product DOMAIN (e.g. "analook.com"), not just the brand
+    # word. Or be referenced via handle_hint (authoritative signal from
+    # the product's own site). Otherwise the channel is treated as unrelated.
+    domain_clean = re.sub(r"^www\.", "", (domain or "").lower())
     for handle in handles:
         try:
             r = await client.get(f"https://www.youtube.com/@{handle}")
-            if r.status_code == 200 and "This page isn" not in r.text[:1000]:
-                # Validate: only accept if page title/meta contains brand or product name
-                # (avoids false-positives on common-word handles like @brand that belong to unrelated channels)
-                page_lower = r.text[:5000].lower()
-                brand_in_page = brand.lower() in page_lower or name.lower() in page_lower
-                is_hint = handle_hint and handle == handle_hint.lstrip("@")
-                if not brand_in_page and not is_hint:
-                    log.info("YouTube HTML @%s rejected: brand '%s' not found in page", handle, brand)
-                    continue
-                result["detected"] = True
-                result["handle"] = f"@{handle}"
-                result["url"] = f"https://www.youtube.com/@{handle}"
-                sub_m = re.search(r'"subscriberCountText".*?"([\d,.]+[KMB]?)\s*subscriber', r.text, re.I)
-                if sub_m:
-                    result["subscribers"] = sub_m.group(1)
-                result["note"] = "检测到频道（HTML 解析，数据有限）"
-                return result
+            if not (r.status_code == 200 and "This page isn" not in r.text[:1000]):
+                continue
+            page_lower = r.text[:50000].lower()
+            is_hint = handle_hint and handle == handle_hint.lstrip("@")
+            # Tier 1 (strongest): handle_hint came from website — trust unconditionally.
+            # Tier 2: the channel page mentions the actual product domain.
+            # Tier 3: REJECT — brand-only match is too weak when brand==handle.
+            domain_in_page = bool(domain_clean) and (domain_clean in page_lower)
+            if not is_hint and not domain_in_page:
+                log.info(
+                    "YouTube HTML @%s rejected: domain %r not found in page (brand-only match insufficient)",
+                    handle, domain_clean or "<none>",
+                )
+                continue
+            result["detected"] = True
+            result["handle"] = f"@{handle}"
+            result["url"] = f"https://www.youtube.com/@{handle}"
+            sub_m = re.search(r'"subscriberCountText".*?"([\d,.]+[KMB]?)\s*subscriber', r.text, re.I)
+            if sub_m:
+                result["subscribers"] = sub_m.group(1)
+            result["note"] = ("✅ 频道页确认链接到 " + domain_clean) if domain_in_page else "检测到频道（来自网站声明）"
+            return result
         except Exception:
             continue
 
@@ -1397,7 +1414,10 @@ async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> 
     handles = list(dict.fromkeys(handles))
 
     if not _get_apify_token():
-        result["url"] = f"https://www.tiktok.com/@{brand}"
+        # detected=False means we couldn't verify the account — leave url=None
+        # so the renderer doesn't link to a guessed URL that may belong to a
+        # totally unrelated TikTok user. Iris 2026-06-18: TikTok page on
+        # analook report linked to @analook but note said "not found".
         result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
         return result
 
@@ -1435,7 +1455,8 @@ async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> 
         log.info("TikTok data for @%s fetched via Apify", uid)
         return result
 
-    result["url"] = f"https://www.tiktok.com/@{brand}"
+    # No verified match — leave url=None so the share page doesn't link
+    # to a guessed URL. Iris 2026-06-18 false-positive fix.
     result["note"] = f"未找到匹配 TikTok 账号（尝试了 {', '.join(handles[:3])}）"
     return result
 
@@ -1460,7 +1481,7 @@ async def _deep_facebook_apify(brand: str, name: str, handle_hint: str = None) -
     handles = list(dict.fromkeys(handles))
 
     if not _get_apify_token():
-        result["url"] = f"https://www.facebook.com/{brand}"
+        # detected=False → leave url=None (no guessed URL)
         result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
         return result
 
@@ -1496,7 +1517,7 @@ async def _deep_facebook_apify(brand: str, name: str, handle_hint: str = None) -
         log.info("Facebook data for %s fetched via Apify", handle)
         return result
 
-    result["url"] = f"https://www.facebook.com/{brand}"
+    # No verified match — leave url=None (Iris 2026-06-18 false-positive fix)
     result["note"] = f"未找到匹配 Facebook 页面（尝试了 {', '.join(handles[:2])}）"
     return result
 
