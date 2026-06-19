@@ -1341,6 +1341,146 @@ async def admin_api_balances(request: Request):
     return result
 
 
+@app.get("/api/admin/user-metrics")
+async def admin_user_metrics(request: Request):
+    """Live weekly user metrics — registrations, activation, paid conversion.
+
+    Same logic as scripts/user_metrics.py but served as JSON over HTTP so
+    we don't need to ship SUPABASE_SERVICE_KEY around to anyone running
+    the script locally. Gated by AUTOPILOT_TICK_TOKEN.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    from datetime import datetime, timedelta, timezone
+    from collections import Counter
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Supabase not configured"}, status_code=503)
+
+    IRIS_EMAILS = {
+        "iris103195@gmail.com",
+        "gingiris1031@gmail.com",
+        "iris.wei@gingiris.com",
+    }
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+
+    def _parse(s):
+        if not s:
+            return None
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    # Pull data (supabase-py uses the service-role key under the hood)
+    users_resp = sb.auth.admin.list_users()
+    users = [
+        {"id": u.id, "email": u.email, "created_at": getattr(u, "created_at", None)}
+        for u in (users_resp or [])
+    ]
+    # created_at may be datetime obj — normalize to iso
+    for u in users:
+        if u["created_at"] and not isinstance(u["created_at"], str):
+            u["created_at"] = u["created_at"].isoformat()
+
+    profiles_resp = sb.table("profiles").select(
+        "id,email,plan_type,credits_balance,credits_used,created_at"
+    ).execute()
+    profiles = {p["id"]: p for p in (profiles_resp.data or [])}
+
+    reports_resp = sb.table("reports").select(
+        "id,user_id,url,product_name,created_at"
+    ).limit(2000).execute()
+    reports = reports_resp.data or []
+
+    external = [u for u in users if (u.get("email") or "").lower() not in IRIS_EMAILS]
+    total = len(external)
+
+    rpu = Counter()
+    last_per_user = {}
+    for r in reports:
+        uid = r.get("user_id")
+        if not uid:
+            continue
+        rpu[uid] += 1
+        ts = _parse(r.get("created_at", ""))
+        if ts and (uid not in last_per_user or ts > last_per_user[uid]):
+            last_per_user[uid] = ts
+
+    activated = [u for u in external if rpu.get(u["id"], 0) > 0]
+    active_this_week = [
+        u for u in external
+        if last_per_user.get(u["id"]) and last_per_user[u["id"]] >= week_ago
+    ]
+    paid = [u for u in external
+            if profiles.get(u["id"], {}).get("plan_type") in ("pro", "team", "autopilot", "autopilot_team")]
+    new_this_week = [u for u in external
+                     if _parse(u.get("created_at") or "") and _parse(u["created_at"]) >= week_ago]
+    external_reports = [
+        r for r in reports
+        if r.get("user_id")
+        and (profiles.get(r["user_id"], {}).get("email", "")).lower() not in IRIS_EMAILS
+    ]
+    reports_this_week = [
+        r for r in external_reports
+        if _parse(r.get("created_at") or "") and _parse(r["created_at"]) >= week_ago
+    ]
+    url_counter = Counter(
+        (r.get("url") or "")[:60] for r in external_reports if r.get("url")
+    )
+
+    act_pct = round(100 * len(activated) / total, 1) if total else 0
+    paid_pct = round(100 * len(paid) / total, 1) if total else 0
+    act_to_paid_pct = round(100 * len(paid) / max(len(activated), 1), 1)
+
+    return {
+        "checked_at": now.isoformat(),
+        "window_days": 7,
+        "totals": {
+            "external_users":     total,
+            "activated_users":    len(activated),
+            "activation_pct":     act_pct,
+            "active_this_week":   len(active_this_week),
+            "paid_users":         len(paid),
+            "paid_pct":           paid_pct,
+            "activated_to_paid_pct": act_to_paid_pct,
+            "external_reports":   len(external_reports),
+            "reports_this_week":  len(reports_this_week),
+            "new_signups_this_week": len(new_this_week),
+        },
+        "new_this_week": [
+            {
+                "email":      u.get("email"),
+                "created_at": (u.get("created_at") or "")[:10],
+                "reports":    rpu.get(u["id"], 0),
+            } for u in new_this_week
+        ],
+        "active_this_week": [
+            {
+                "email":       u.get("email"),
+                "last_report": last_per_user[u["id"]].strftime("%Y-%m-%d"),
+                "total_reports": rpu[u["id"]],
+            } for u in active_this_week
+        ],
+        "top_5_urls": [
+            {"url": url, "count": n} for url, n in url_counter.most_common(5)
+        ],
+        "paid_users": [
+            {
+                "email": u.get("email"),
+                "plan":  profiles.get(u["id"], {}).get("plan_type"),
+            } for u in paid
+        ],
+    }
+
+
 @app.post("/api/admin/autopilot/tick")
 async def autopilot_tick(request: Request):
     """Cron entry point — runs the autopilot worker for due subscriptions.
