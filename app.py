@@ -1379,16 +1379,58 @@ async def admin_user_metrics(request: Request):
         except Exception:
             return None
 
-    # Pull data (supabase-py uses the service-role key under the hood)
-    users_resp = sb.auth.admin.list_users()
-    users = [
-        {"id": u.id, "email": u.email, "created_at": getattr(u, "created_at", None)}
-        for u in (users_resp or [])
-    ]
+    # Pull users via direct REST (Iris 2026-06-19: supabase-py's
+    # list_users() defaulted to 50 per page and only fetched the first
+    # page → report showed 50 when reality is 100+). The /auth/v1/admin
+    # endpoint accepts per_page=1000 in one shot, matching what
+    # scripts/user_metrics.py does locally.
+    users = []
+    try:
+        import httpx as _httpx
+        _sb_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+        _sb_key = (os.environ.get("SUPABASE_SERVICE_KEY")
+                   or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+                   or "").strip()
+        if _sb_url and _sb_key:
+            _hdrs = {"apikey": _sb_key, "Authorization": f"Bearer {_sb_key}"}
+            async with _httpx.AsyncClient(timeout=20) as _c:
+                # per_page=1000 covers current scale; paginate just in case
+                for _page in range(1, 6):  # up to 5000 users
+                    _r = await _c.get(
+                        f"{_sb_url}/auth/v1/admin/users",
+                        params={"per_page": 1000, "page": _page},
+                        headers=_hdrs,
+                    )
+                    if _r.status_code != 200:
+                        log.warning("auth list_users HTTP %s on page %s: %s",
+                                    _r.status_code, _page, _r.text[:200])
+                        break
+                    _batch = (_r.json() or {}).get("users") or []
+                    if not _batch:
+                        break
+                    for u in _batch:
+                        users.append({
+                            "id": u.get("id"),
+                            "email": u.get("email"),
+                            "created_at": u.get("created_at"),
+                        })
+                    if len(_batch) < 1000:
+                        break
+    except Exception as e:
+        log.warning("user-metrics list_users via REST failed: %s — falling back to supabase-py", e)
+        for u in (sb.auth.admin.list_users() or []):
+            users.append({
+                "id": u.id,
+                "email": u.email,
+                "created_at": getattr(u, "created_at", None),
+            })
     # created_at may be datetime obj — normalize to iso
     for u in users:
         if u["created_at"] and not isinstance(u["created_at"], str):
-            u["created_at"] = u["created_at"].isoformat()
+            try:
+                u["created_at"] = u["created_at"].isoformat()
+            except Exception:
+                u["created_at"] = str(u["created_at"])
 
     profiles_resp = sb.table("profiles").select(
         "id,email,plan_type,credits_balance,credits_used,created_at"
