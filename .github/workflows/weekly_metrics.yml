@@ -27,21 +27,39 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python scripts/user_metrics.py > /tmp/report.md
-          echo "Report generated:"
+          echo "User metrics report generated:"
           echo "─────────────────"
           cat /tmp/report.md
           echo "─────────────────"
 
-      - name: Save report to repo
+      - name: Run attribution report
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # Non-fatal: a bad attribution run must NOT block the core weekly
+        # metrics from committing. Falls back to a placeholder on failure.
+        run: |
+          python scripts/attribution_report.py > /tmp/attribution.md \
+            || echo "⚠️ Attribution report failed — check this step's log." > /tmp/attribution.md
+          echo "Attribution report generated:"
+          echo "─────────────────"
+          cat /tmp/attribution.md
+          echo "─────────────────"
+
+      - name: Save report to repo
         run: |
           mkdir -p docs/weekly_metrics
           # Filename: YYYY-Www.md (ISO week)
           WEEK=$(date -u +"%Y-W%V")
           DEST="docs/weekly_metrics/${WEEK}.md"
+          # Combine both reports into one weekly file.
           cp /tmp/report.md "$DEST"
+          {
+            echo ""
+            echo "---"
+            echo ""
+            cat /tmp/attribution.md
+          } >> "$DEST"
           echo "Saved to $DEST"
 
       - name: Commit & push report
@@ -66,4 +84,12 @@ jobs:
             cat /tmp/report.md >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Metrics script failed — check the 'Run metrics' step above." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/attribution.md ]; then
+            cat /tmp/attribution.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Attribution report failed — check the 'Run attribution report' step above." >> $GITHUB_STEP_SUMMARY
           fi
