@@ -507,8 +507,9 @@ function renderSummaryCard(report) {
         <div class="text-xs text-gray-500 uppercase tracking-wider mb-3">核心指标</div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">月均流量</div>
+                <div class="text-xs text-gray-500 mb-1">有机搜索流量估算</div>
                 <div class="text-xl font-bold text-white">${trafficStr}</div>
+                <div class="text-xs text-gray-600 mt-0.5">via keyword rankings</div>
             </div>
             <div class="bg-gray-800/60 rounded-lg p-3">
                 <div class="text-xs text-gray-500 mb-1">Twitter 粉丝</div>

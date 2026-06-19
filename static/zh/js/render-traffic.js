@@ -58,7 +58,7 @@ function renderTraffic(tr) {
     if (rank.organic_traffic || bl.backlinks || seoM.organic_traffic_estimate) {
         html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">`;
         const metrics = [
-            ['有机流量/月', rank.organic_traffic || seoM.organic_traffic_estimate, 'text-blue-300'],
+            ['有机搜索流量估算', rank.organic_traffic || seoM.organic_traffic_estimate, 'text-blue-300'],
             ['排名关键词', rank.total_keywords, 'text-green-300'],
             ['Top 10 关键词', rank.keywords_top10, 'text-purple-300'],
             ['等效付费成本', rank.estimated_paid_cost ? '$'+rank.estimated_paid_cost.toLocaleString() : null, 'text-yellow-300'],
@@ -79,7 +79,7 @@ function renderTraffic(tr) {
     // Historical trend
     const histData = hist.history || [];
     if (histData.length > 0) {
-        html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 有机流量趋势</h4>`;
+        html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 有机搜索流量趋势 <span class="text-xs font-normal text-gray-500">(基于关键词排名估算，非总访问量)</span></h4>`;
         // Simple bar chart using divs
         const maxEtv = Math.max(...histData.map(h => h.organic_traffic || 0));
         html += `<div class="flex items-end gap-1 mb-2" style="height:128px">`;
@@ -105,7 +105,7 @@ function renderTraffic(tr) {
         // Data table
         html += `<details class="mt-3"><summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-200">查看月度数据</summary>
             <div class="mt-2 overflow-x-auto"><table class="w-full text-[10px]">
-                <thead><tr class="bg-gray-800 text-gray-400"><th class="px-2 py-1 text-left">月份</th><th class="px-2 py-1 text-right">有机流量</th><th class="px-2 py-1 text-right">关键词数</th><th class="px-2 py-1 text-right">Top10</th><th class="px-2 py-1 text-right">新增</th><th class="px-2 py-1 text-right">丢失</th></tr></thead>
+                <thead><tr class="bg-gray-800 text-gray-400"><th class="px-2 py-1 text-left">月份</th><th class="px-2 py-1 text-right">有机搜索流量估算</th><th class="px-2 py-1 text-right">关键词数</th><th class="px-2 py-1 text-right">Top10</th><th class="px-2 py-1 text-right">新增</th><th class="px-2 py-1 text-right">丢失</th></tr></thead>
                 <tbody>`;
         for (const h of histData.slice().reverse()) {
             html += `<tr class="border-t border-gray-800"><td class="px-2 py-1">${h.date}</td><td class="px-2 py-1 text-right font-mono">${(h.organic_traffic||0).toLocaleString()}</td><td class="px-2 py-1 text-right">${(h.keywords||0).toLocaleString()}</td><td class="px-2 py-1 text-right">${h.top10||0}</td><td class="px-2 py-1 text-right text-green-400">+${(h.new||0).toLocaleString()}</td><td class="px-2 py-1 text-right text-red-400">-${(h.lost||0).toLocaleString()}</td></tr>`;
