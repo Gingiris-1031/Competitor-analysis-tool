@@ -267,8 +267,25 @@
   function _switchAuthTab(tab) {
     document.getElementById('auth-tab-login')?.classList.toggle('hidden', tab !== 'login');
     document.getElementById('auth-tab-signup')?.classList.toggle('hidden', tab !== 'signup');
-    document.getElementById('auth-tab-btn-login')?.classList.toggle('text-blue-400', tab === 'login');
-    document.getElementById('auth-tab-btn-signup')?.classList.toggle('text-blue-400', tab === 'signup');
+    // Bug fix (Iris 2026-06-18, reported by @Fuuqius on X): the visible
+    // "active" indicator is the blue UNDERLINE — `border-b-2 border-blue-400
+    // -mb-px` in the HTML. Previously we only toggled `text-blue-400`
+    // (text color), so the underline stayed under the originally-active
+    // tab and the modal looked stuck on Login even though the Signup
+    // form was rendered. Now both the text color AND the underline trio
+    // get toggled together.
+    const _login  = document.getElementById('auth-tab-btn-login');
+    const _signup = document.getElementById('auth-tab-btn-signup');
+    const _ACTIVE = ['text-blue-400', 'border-b-2', 'border-blue-400', '-mb-px'];
+    const _INACTIVE = ['text-[color:var(--ink-muted)]'];
+    if (_login) {
+      _ACTIVE.forEach(c => _login.classList.toggle(c, tab === 'login'));
+      _INACTIVE.forEach(c => _login.classList.toggle(c, tab !== 'login'));
+    }
+    if (_signup) {
+      _ACTIVE.forEach(c => _signup.classList.toggle(c, tab === 'signup'));
+      _INACTIVE.forEach(c => _signup.classList.toggle(c, tab !== 'signup'));
+    }
   }
 
   function _setAuthError(msg) {
