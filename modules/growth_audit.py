@@ -275,7 +275,13 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
 # a sick endpoint. A generous READ timeout still lets a *healthy* provider
 # finish a long generation. Each provider gets ONE attempt; resilience comes
 # from failing over to the next path, not from retrying a struggling one.
-_LLM_TIMEOUT = httpx.Timeout(connect=10.0, read=150.0, write=10.0, pool=10.0)
+# 2026-06-20 (Iris reported broken action_plan on ga-e7f3ff2e/helio.im):
+# read timeout was 150s. action_plan asks for 8000 max_tokens; at typical
+# DeepSeek throughput of ~50 t/s that's 160s — right above the previous
+# limit. exec_summary at 4000 tokens (80s) survived; action_plan didn't
+# across all 3 fallback plans. Bumped to 300s so the longest generation
+# path has plenty of headroom even when an LLM is slow.
+_LLM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
 
 def _extract_content(data: dict) -> str:
