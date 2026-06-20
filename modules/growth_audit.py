@@ -2101,14 +2101,23 @@ def _build_reddit_context_for_llm(reddit_data: list) -> str:
         "",
     ]
     for sub in reddit_data:
-        lines.append(f"- r/{sub['name']} ({sub['subscribers']:,} subscribers): {sub.get('description','')[:140]}")
+        # 2026-06-20 Iris bug: SerpAPI-discovered Reddit subs leave
+        # subscribers=None (Reddit's own JSON API is 403-blocked from
+        # Fly IPs), so {None:,} raised TypeError, crashed the entire
+        # action_plan prompt build, and the audit silently stored an
+        # empty action_plan. Guard every numeric f-string.
+        subs = sub.get("subscribers")
+        subs_label = f"{subs:,} subscribers" if isinstance(subs, (int, float)) else "active community"
+        lines.append(f"- r/{sub.get('name','?')} ({subs_label}): {sub.get('description','')[:140]}")
         if sub.get("top_contributors"):
-            tcs = ", ".join(f"u/{c['author']}" for c in sub["top_contributors"][:3])
+            tcs = ", ".join(f"u/{c.get('author','?')}" for c in sub["top_contributors"][:3])
             lines.append(f"  Top contributors: {tcs}")
         if sub.get("top_posts"):
             lines.append("  Top post framing patterns:")
             for p in sub["top_posts"][:3]:
-                lines.append(f"  - \"{p['title']}\" ({p['score']}↑)")
+                score = p.get("score")
+                score_str = f"{score}" if isinstance(score, (int, float)) else "—"
+                lines.append(f"  - \"{p.get('title','(no title)')}\" ({score_str}↑)")
     lines.append("")
     lines.append("🚨 在 W3 Reddit 任务里**必须**引用上面的真实 sub 名 + "
                  "至少 1 个真实 top contributor 用户名 + "
@@ -2620,6 +2629,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str, lang: st
 {skills_block}
 """
 
+    user_prompt += _lang_tail(lang)
     return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
 
 
@@ -2750,6 +2760,7 @@ npx skills add Gingiris-1031/<skill-name>
     # is large and DeepSeek context gets squeezed.
     picked_skills = _pick_skills_for_product_type(hints)
     sys_prompt = _get_system_prompt(filter_to_skills=picked_skills)
+    user_prompt += _lang_tail(lang)
     return await _call_llm_long(sys_prompt, user_prompt, max_tokens=8000)
 
 
@@ -2818,6 +2829,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 - 不允许编新数字 / 新竞品 / 新案例。
 """
 
+    user_prompt += _lang_tail(lang)
     return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=4000)
 
 
@@ -2825,22 +2837,41 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 
 
 def _lang_instruction(lang: str) -> str:
-    """Return a forceful 'respond in <lang>' directive to prepend to LLM
-    user prompts. Fixes the 'EN users get Chinese reports' bug — the
-    Chinese system+user prompts otherwise drag the answer language back
-    to Chinese regardless of caller's intent.
-    """
+    """Strong English language lock for EN audits. Iris 2026-06-20:
+    a single English line at the top of a ~10K-token Chinese prompt
+    body wasn't enough — the LLM produced 85% Chinese diagnoses even
+    when lang='en'. Now uses the same head+tail wrap pattern that
+    fixed ai_summary.py (commit a6f4740): show translation examples
+    + ban Chinese characters in output. Use with _lang_tail()."""
     if (lang or "").lower().startswith("en"):
         return (
-            "🌐 LANGUAGE RULE (CRITICAL): The user is reading this report in English. "
-            "Your ENTIRE response — every heading, every bullet, every table cell — "
-            "must be in fluent natural English. Do NOT mix in any Chinese characters, "
-            "phrases, or em-dashes used in Chinese style. Translate any Chinese strings "
-            "from the input data into English when quoting them. Section headers in "
-            "English (e.g. 'Executive Summary', '30-Day Action Plan', 'Diagnosis', "
-            "'Channel Strategy'), NOT '执行摘要' / '30 天行动计划'.\n\n"
+            "🌐 CRITICAL LANGUAGE RULE — READ BEFORE ANYTHING ELSE:\n"
+            "The Chinese system instructions below are written in Chinese for historical reasons, "
+            "but your ENTIRE response MUST be in fluent natural English. Treat the Chinese as a "
+            "TRANSLATION TARGET — read each Chinese section heading and instruction, then OUTPUT "
+            "the English equivalent. Do NOT echo any Chinese characters in your response.\n\n"
+            "Examples of required translation:\n"
+            "  '## 一、产品定位与目标用户' → '## 1. Product Positioning & ICP'\n"
+            "  '执行摘要' → 'Executive Summary'\n"
+            "  '诊断报告' → 'Diagnosis Report'\n"
+            "  '30 天行动计划' → '30-Day Action Plan'\n"
+            "  '增长策略' → 'Growth Strategy'\n"
+            "  '渠道' → 'Channel'\n\n"
+            "If you find yourself about to write a Chinese phrase, translate it to English first.\n\n"
         )
     return ""  # zh / default — original prompts are Chinese
+
+
+def _lang_tail(lang: str) -> str:
+    """Final language reminder appended at the END of EN prompts."""
+    if (lang or "").lower().startswith("en"):
+        return (
+            "\n\n🌐 FINAL LANGUAGE REINFORCEMENT: This is your last reminder. Your ENTIRE "
+            "output, including ALL headings, bullets, table cells, and any inline citations, "
+            "must be in fluent natural English with no Chinese characters whatsoever. "
+            "Do not echo any Chinese phrase from the instructions above."
+        )
+    return ""
 
 
 async def run_growth_audit(
