@@ -1341,6 +1341,55 @@ async def admin_api_balances(request: Request):
     return result
 
 
+@app.get("/api/admin/recent-audits")
+async def admin_recent_audits(request: Request):
+    """Triage tool — list last N growth-audit rows with section presence/length
+    so we can see which audits had a broken action_plan. Gated by
+    AUTOPILOT_TICK_TOKEN.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    try:
+        limit_q = int(request.query_params.get("limit") or 10)
+    except Exception:
+        limit_q = 10
+    limit_q = max(1, min(limit_q, 50))
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "supabase not configured"}, status_code=503)
+    rs = sb.table("reports").select(
+        "id,product_name,url,status,created_at,report"
+    ).like("id", "ga-%").order("created_at", desc=True).limit(limit_q).execute()
+    rows = rs.data or []
+    out = []
+    for r in rows:
+        rep = r.get("report") or {}
+        if isinstance(rep, str):
+            try:
+                rep = _json.loads(rep)
+            except Exception:
+                rep = {}
+        reports = (rep or {}).get("reports") or {}
+        out.append({
+            "id":            r.get("id"),
+            "product_name":  r.get("product_name"),
+            "url":           r.get("url"),
+            "status":        r.get("status"),
+            "created_at":    r.get("created_at"),
+            "exec_len":      len((reports.get("executive_summary") or "")),
+            "diag_len":      len((reports.get("diagnosis_report") or "")),
+            "plan_len":      len((reports.get("action_plan") or "")),
+            "lang":          (rep or {}).get("lang"),
+            "sources":       (rep or {}).get("sources"),
+        })
+    return {"recent_audits": out}
+
+
 @app.get("/api/admin/user-metrics")
 async def admin_user_metrics(request: Request):
     """Live weekly user metrics — registrations, activation, paid conversion.
