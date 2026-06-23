@@ -301,6 +301,17 @@ async def _twitterapi_io(c: httpx.AsyncClient) -> dict:
         return {"provider": "TwitterAPI.io", "status": "error", "note": str(e)[:120]}
 
 
+async def _unifapi(c: httpx.AsyncClient) -> dict:
+    """Probe UnifAPI via the cheapest 200-returning call. Reuses
+    modules.unifapi.probe_balance() so the format matches all the
+    other entries."""
+    try:
+        from .unifapi import probe_balance
+        return await probe_balance()
+    except Exception as e:
+        return {"provider": "UnifAPI", "status": "error", "note": str(e)[:120]}
+
+
 async def _polar(c: httpx.AsyncClient) -> dict:
     tok = _key("POLAR_ACCESS_TOKEN")
     if not tok:
@@ -334,6 +345,7 @@ async def check_all() -> dict:
             _github(c),
             _producthunt(c),
             _twitterapi_io(c),
+            _unifapi(c),
             _polar(c),
             return_exceptions=True,
         )

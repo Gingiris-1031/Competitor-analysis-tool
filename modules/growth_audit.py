@@ -1590,6 +1590,11 @@ async def _discover_real_kols(categories: list, hints: dict, k: int = 6) -> list
     await _merge(_discover_kols_brave)
     await _merge(_discover_kols_serpapi)
     await _merge(_discover_kols_twitterapi)
+    # 2026-06-23: UnifAPI plan D — searches recent tweets for the
+    # category keyword and pulls the authors as KOL candidates. Runs
+    # only if the chain above didn't already fill the quota AND
+    # UNIFAPI_KEY is set. Cheap ($0.001/call) so we just try it.
+    await _merge(_discover_kols_unifapi)
 
     return results[:k]
 
@@ -1880,6 +1885,61 @@ async def _discover_kols_twitterapi(categories: list, hints: dict, k: int = 6) -
     return results[:k]
 
 
+async def _discover_kols_unifapi(categories: list, hints: dict, k: int = 6) -> list:
+    """UnifAPI X tweet-search fallback for KOL discovery.
+
+    Searches recent tweets matching the category keywords and surfaces
+    the authors. Costs ~$0.01 per call (1 credit/tweet). Runs only when
+    earlier backends (Brave / SerpAPI / TwitterAPI.io) couldn't fill the
+    quota — caller controls the 'k' budget so we don't double up.
+    """
+    try:
+        from . import unifapi as _u
+    except Exception:
+        return []
+    if not _u._has_key() or not categories:
+        return []
+
+    seen: set = set()
+    results: list = []
+    for cat in categories[:2]:
+        if len(results) >= k:
+            break
+        try:
+            tweets = await _u.search_x_recent_tweets(cat, max_results=10)
+        except Exception as e:
+            log.warning("UnifAPI tweet search failed for %s: %s", cat, e)
+            continue
+        for t in tweets[:10]:
+            if len(results) >= k:
+                break
+            author = t.get("author") or t.get("user") or {}
+            username = author.get("username") or t.get("author_username")
+            if not username:
+                continue
+            h = "@" + username
+            if h.lower() in seen:
+                continue
+            seen.add(h.lower())
+            followers = (
+                (author.get("public_metrics") or {}).get("followers_count")
+                or author.get("followers_count")
+                or 0
+            )
+            bio = author.get("description") or author.get("bio") or ""
+            results.append({
+                "handle":      h,
+                "platform":    "Twitter / X",
+                "bio_snippet": (f"{bio[:160]} · {followers:,} followers"
+                                if followers else bio[:220]),
+                "source_url":  f"https://twitter.com/{username}",
+                "found_via":   f"UnifAPI tweet search: {cat[:40]}",
+                "followers":   followers,
+            })
+    results.sort(key=lambda x: x.get("followers") or 0, reverse=True)
+    return results[:k]
+
+
 # ─── Reddit channel discovery (real subs + top posters) ──────────────────────
 #
 # Uses Reddit's public JSON API (oauth-free, free, no rate limit beyond ~60
@@ -2000,6 +2060,18 @@ async def _discover_reddit_channels(categories: list, hints: dict, k: int = 3) -
         key=lambda s: (-len(s["posts"]), -(sum((p.get("score") or 0) for p in s["posts"]))),
     )
 
+    # 2026-06-23 Iris fix — enrich each picked sub with UnifAPI's clean
+    # subreddit lookup so subscribers/active/description are real ints/
+    # strings, never None. The SerpAPI path can't get these (they're not
+    # in Google's snippet) so previously they stayed None and triggered
+    # the action_plan formatting crashes Iris saw 2 days running. Costs
+    # 1 UnifAPI credit per sub ($0.001) — negligible.
+    try:
+        from . import unifapi as _u
+        _has_unifapi = _u._has_key()
+    except Exception:
+        _has_unifapi = False
+
     final = []
     for sub in ranked[:k]:
         # Top 3 contributors by post count → total score
@@ -2012,12 +2084,27 @@ async def _discover_reddit_channels(categories: list, hints: dict, k: int = 3) -
         top_posts = sorted(
             sub["posts"], key=lambda p: -(p.get("score") or 0),
         )[:5]
+
+        # Enrichment: real subscriber count + description from UnifAPI.
+        subs_count = None
+        active_users = None
+        description = None
+        if _has_unifapi:
+            try:
+                meta = await _u.get_subreddit(sub["name"])
+                if meta:
+                    subs_count   = meta.get("subscribers_count")
+                    active_users = meta.get("active_count")
+                    description  = (meta.get("description") or "").strip() or None
+            except Exception as e:
+                log.warning("UnifAPI subreddit lookup failed for %s: %s", sub["name"], e)
+
         final.append({
             "name":             sub["name"],
             "url":              sub["url"],
-            "subscribers":      sub["subscribers"],  # unknown from SerpAPI
-            "active_users":     None,
-            "description":      None,
+            "subscribers":      subs_count,
+            "active_users":     active_users,
+            "description":      description,
             "top_posts":        top_posts,
             "top_contributors": top_contributors,
             "found_via":        sub["found_via"],
