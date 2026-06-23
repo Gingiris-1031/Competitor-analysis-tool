@@ -252,4 +252,9 @@
     <lastmod>2026-06-18</lastmod>
   </url>
 
+  <url><loc>https://www.analook.com/reports/index.html</loc><lastmod>2026-06-23</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.analook.com/reports/linear.html</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.analook.com/reports/cursor.html</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://www.analook.com/reports/vercel.html</loc><lastmod>2026-06-23</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
 </urlset>
