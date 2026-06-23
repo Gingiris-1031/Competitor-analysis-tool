@@ -2108,16 +2108,21 @@ def _build_reddit_context_for_llm(reddit_data: list) -> str:
         # empty action_plan. Guard every numeric f-string.
         subs = sub.get("subscribers")
         subs_label = f"{subs:,} subscribers" if isinstance(subs, (int, float)) else "active community"
-        lines.append(f"- r/{sub.get('name','?')} ({subs_label}): {sub.get('description','')[:140]}")
+        # Use `(x or '')[:N]` not `x.get(key, '')[:N]` — when key exists with
+        # value None, `.get` returns None and `None[:N]` raises TypeError.
+        # Same NoneType-subscriptable bug Iris saw on ga-9d6f8a44 2026-06-20.
+        desc = (sub.get("description") or "")[:140]
+        lines.append(f"- r/{sub.get('name') or '?'} ({subs_label}): {desc}")
         if sub.get("top_contributors"):
-            tcs = ", ".join(f"u/{c.get('author','?')}" for c in sub["top_contributors"][:3])
+            tcs = ", ".join(f"u/{c.get('author') or '?'}" for c in sub["top_contributors"][:3])
             lines.append(f"  Top contributors: {tcs}")
         if sub.get("top_posts"):
             lines.append("  Top post framing patterns:")
             for p in sub["top_posts"][:3]:
                 score = p.get("score")
                 score_str = f"{score}" if isinstance(score, (int, float)) else "—"
-                lines.append(f"  - \"{p.get('title','(no title)')}\" ({score_str}↑)")
+                title = (p.get("title") or "(no title)")[:120]
+                lines.append(f"  - \"{title}\" ({score_str}↑)")
     lines.append("")
     lines.append("🚨 在 W3 Reddit 任务里**必须**引用上面的真实 sub 名 + "
                  "至少 1 个真实 top contributor 用户名 + "
@@ -2656,7 +2661,22 @@ async def generate_action_plan(
     hints = detect_product_type(site_data)
     product_type = hints.get("product_type", "Unknown / 需用户确认")
     skills_block = _build_injected_skills_block(product_type)
-    reddit_block = _build_reddit_context_for_llm(reddit_data or [])
+    # 2026-06-20: defensive wrap — Iris saw action_plan silently fail
+    # twice in a row because of None handling in the Reddit context
+    # builder (SerpAPI returns sparse data, subscribers/description/
+    # title can each be None). The LLM call itself was healthy; the
+    # bug was crashing the prompt-build BEFORE the LLM was hit. Now
+    # any further None-handling regression downgrades gracefully:
+    # we skip the Reddit block and the action_plan still gets generated
+    # via the LLM, just without the per-sub injection. Skills + tactics
+    # cheatsheet are still in the system prompt regardless.
+    try:
+        reddit_block = _build_reddit_context_for_llm(reddit_data or [])
+    except Exception as _e:
+        import traceback as _tb
+        log.error("Reddit context build failed (skipping injection): %s\n%s",
+                  _e, _tb.format_exc()[:1000])
+        reddit_block = ""
 
     user_prompt = f"""{_lang_instruction(lang)}基于以下两段输入,为 **{product_name}** 制定 30 天行动计划。
 
@@ -3075,7 +3095,18 @@ async def run_growth_audit(
         _update("action_plan", "done")
     else:
         _update("action_plan", "failed")
-        log.error("Action Plan generation failed: %s", plan_result)
+        # Emit traceback when plan_result is an Exception so the next
+        # failure tells us EXACTLY which line + module — short-circuits
+        # the "guess from the str(e)" debugging loop Iris and I burned
+        # half an hour on 2026-06-20.
+        if isinstance(plan_result, Exception):
+            import traceback as _tb
+            log.error(
+                "Action Plan generation failed: %s\n%s",
+                plan_result, _tb.format_exception(type(plan_result), plan_result, plan_result.__traceback__),
+            )
+        else:
+            log.error("Action Plan generation failed: %s", plan_result)
 
     return {
         "product_name": product_name,
