@@ -1617,20 +1617,21 @@ async def _run_growth_audit(job_id: str, url: str, product_name: str = None, lan
             _growth_audit_jobs[job_id]["reports"] = result.get("reports", {})
             _growth_audit_jobs[job_id]["site_data_summary"] = result.get("site_data_summary")
 
-            # Save to Supabase if user authenticated
+            # Save to Supabase — always persist so share links survive server restarts.
+            # Unauthenticated audits are saved with user_id=None and is_public=True.
             user_id = _growth_audit_jobs[job_id].get("user_id")
-            if user_id:
-                try:
-                    await save_report_to_db(
-                        job_id=job_id,
-                        user_id=user_id,
-                        url=url,
-                        product_name=result.get("product_name", ""),
-                        report=result,
-                        markdown=_json.dumps(result.get("reports", {}), ensure_ascii=False)[:50000],
-                    )
-                except Exception as e:
-                    log.error("Failed to save growth audit to DB: %s", e)
+            try:
+                await save_report_to_db(
+                    job_id=job_id,
+                    user_id=user_id,
+                    url=url,
+                    product_name=result.get("product_name", ""),
+                    report=result,
+                    markdown=_json.dumps(result.get("reports", {}), ensure_ascii=False)[:50000],
+                    is_public=True,
+                )
+            except Exception as e:
+                log.error("Failed to save growth audit to DB: %s", e)
 
     except Exception as e:
         log.error("Growth audit failed for %s: %s", url, e)
