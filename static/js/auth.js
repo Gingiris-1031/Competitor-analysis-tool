@@ -206,6 +206,10 @@
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
             Sign in with GitHub
           </button>
+          <button id="auth-magiclink-btn" class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white font-medium py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 mt-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+            Email me a magic link
+          </button>
           <p class="text-center text-xs text-gray-600 mt-4">By signing in you agree to our <a href="#" class="text-gray-500 hover:text-gray-300">Terms of Service</a> and <a href="#" class="text-gray-500 hover:text-gray-300">Privacy Policy</a></p>
         </div>
       </div>`;
@@ -246,6 +250,20 @@
     document.getElementById('auth-github-btn')?.addEventListener('click', async () => {
       const { error } = await sb.auth.signInWithOAuth({ provider: 'github', options: { redirectTo: window.location.origin } });
       if (error) _setAuthError(error.message);
+    });
+    document.getElementById('auth-magiclink-btn')?.addEventListener('click', async () => {
+      _clearAuthError();
+      const email = (document.getElementById('auth-email')?.value
+                  || document.getElementById('auth-signup-email')?.value || '').trim();
+      if (!email) return _setAuthError('Enter your email above, then click "Email me a magic link"');
+      _setLoading(true);
+      const { error } = await sb.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin, shouldCreateUser: true },
+      });
+      _setLoading(false);
+      if (error) return _setAuthError(error.message);
+      _setAuthError(`✅ Check ${email} — magic link sent. Click it to sign in.`);
     });
   }
 
@@ -299,7 +317,7 @@
   }
 
   function _setLoading(loading) {
-    ['auth-login-btn', 'auth-signup-btn', 'auth-google-btn', 'auth-github-btn'].forEach(id => {
+    ['auth-login-btn', 'auth-signup-btn', 'auth-google-btn', 'auth-github-btn', 'auth-magiclink-btn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.disabled = loading;
     });
@@ -356,6 +374,23 @@
         options: { redirectTo: 'https://www.analook.com' },
       });
       if (error) _setAuthError(error.message);
+    });
+
+    // Email magic-link (Supabase OTP) — frictionless option for users who
+    // don't want a password and don't have / want to use OAuth providers.
+    document.getElementById('auth-magiclink-btn')?.addEventListener('click', async () => {
+      _clearAuthError();
+      const email = (document.getElementById('auth-email')?.value
+                  || document.getElementById('auth-signup-email')?.value || '').trim();
+      if (!email) return _setAuthError('请先填邮箱再点击「邮件登录」');
+      _setLoading(true);
+      const { error } = await sb.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: 'https://www.analook.com', shouldCreateUser: true },
+      });
+      _setLoading(false);
+      if (error) return _setAuthError(error.message);
+      _setAuthError(`✅ 已发送到 ${email}，请到邮箱点击魔法链接登录`);
     });
 
     // GitHub OAuth
