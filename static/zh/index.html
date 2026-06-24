@@ -529,6 +529,15 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                 使用 GitHub 账号登录
             </button>
 
+            <!-- Email magic link (Supabase OTP) -->
+            <button id="auth-magiclink-btn"
+                    class="w-full bg-gray-800 hover:bg-gray-700 border border-[color:var(--border)] text-white font-medium py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50 mt-2">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 8l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/>
+                </svg>
+                邮件登录（魔法链接）
+            </button>
+
             <p class="text-center text-xs text-[color:var(--ink-faint)] mt-4">
                 登录即表示同意 <a href="#" class="text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">服务条款</a> 与 <a href="#" class="text-[color:var(--ink-faint)] hover:text-[color:var(--ink)]">隐私政策</a>
             </p>
@@ -675,7 +684,6 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                     <ul class="space-y-2 text-xs text-[color:var(--ink-faint)]">
                         <li><a href="https://gingiris.com" class="hover:text-[color:var(--ink)]">Gingiris</a></li>
                         <li><a href="https://x.com/WeiYipei" class="hover:text-[color:var(--ink)]">Twitter / X</a></li>
-                        <li><a href="https://t.me/analookgroup" class="hover:text-[color:var(--ink)]" target="_blank" rel="noopener">Telegram 用户群</a></li>
                         <li><a href="/terms.html" class="hover:text-[color:var(--ink)]">服务条款</a></li>
                         <li><a href="/privacy.html" class="hover:text-[color:var(--ink)]">隐私政策</a></li>
                     </ul>
