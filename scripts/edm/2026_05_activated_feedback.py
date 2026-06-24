@@ -207,6 +207,16 @@ def render_html(fn, report_count, last_url, last_product, unsub):
     </table>
   </td></tr>
 
+  <tr><td class="card" style="padding:8px 40px 0 40px">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f3ede0;border:1px solid #e8dfca;border-radius:10px">
+      <tr><td style="padding:16px 22px;font-size:14px;line-height:1.6;color:#3d3424">
+        &#128226; <strong>New: Analook user community on Telegram.</strong>
+        Real users sharing audit findings, swapping feedback, getting answers from me directly.
+        <a href="https://t.me/analookgroup" style="color:#8a4a1d;text-decoration:underline;font-weight:600" target="_blank">t.me/analookgroup &rarr;</a>
+      </td></tr>
+    </table>
+  </td></tr>
+
   <tr><td class="card" style="padding:28px 40px 32px 40px">
     <div style="font-family:'Instrument Serif',Georgia,serif;font-size:22px;font-style:italic;color:#1f1b16">— Iris</div>
     <div style="font-size:13px;color:#6b5f4f;margin-top:2px">Founder, Analook &nbsp;·&nbsp; <a href="https://gingiris.com" style="color:#6b5f4f">gingiris.com</a> &nbsp;·&nbsp; ex&#8209;COO, AFFiNE (60K&nbsp;stars)</div>
