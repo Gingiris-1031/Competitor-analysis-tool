@@ -178,20 +178,26 @@ async def _tinyfish(c: httpx.AsyncClient) -> dict:
     key = _key("TINYFISH_API_KEY")
     if not key:
         return _missing("TinyFish")
-    # Try a tiny fetch to confirm liveness. TinyFish doesn't publish a balance
-    # endpoint we know of; this just confirms the key still works.
+    # TinyFish has no balance endpoint and no /health on the fetch host.
+    # Probe by submitting the cheapest possible fetch (example.com markdown).
+    # Auth header is X-API-Key, not Authorization Bearer.
     try:
-        r = await c.get(
-            "https://api.tinyfish.io/v1/health",
-            headers={"Authorization": f"Bearer {key}"},
+        r = await c.post(
+            "https://api.fetch.tinyfish.ai",
+            headers={"X-API-Key": key, "Content-Type": "application/json"},
+            json={"urls": ["https://example.com"], "format": "markdown"},
         )
-        if r.status_code in (200, 204):
-            return {"provider": "TinyFish", "status": "ok", "note": "Key valid. Balance not exposed via API; check tinyfish.io dashboard."}
+        if r.status_code == 200:
+            return {"provider": "TinyFish", "status": "ok",
+                    "note": "Key valid. Balance not exposed via API; check tinyfish.ai dashboard."}
         if r.status_code == 401:
             return {"provider": "TinyFish", "status": "error", "note": "Key invalid (401)"}
         if r.status_code == 402:
             return {"provider": "TinyFish", "status": "exhausted", "note": "Out of credits (402)"}
-        return {"provider": "TinyFish", "status": "unknown", "note": f"HTTP {r.status_code}: {r.text[:120]}"}
+        if r.status_code == 429:
+            return {"provider": "TinyFish", "status": "rate_limited", "note": "Rate limited (429)"}
+        return {"provider": "TinyFish", "status": "unknown",
+                "note": f"HTTP {r.status_code}: {r.text[:120]}"}
     except Exception as e:
         return {"provider": "TinyFish", "status": "error", "note": str(e)[:120]}
 
