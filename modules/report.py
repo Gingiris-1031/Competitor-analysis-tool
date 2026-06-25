@@ -187,13 +187,35 @@ def _generate_summary(name: str, website: dict, social: dict, traffic: dict, pro
 
 
 def report_to_markdown(report: dict) -> str:
+    """Render the structured report dict as Markdown.
+
+    Iris 2026-06-25: localized end-to-end so the Export-MD output matches
+    the user's chosen language. The lang is read from report["meta"]["lang"]
+    (set by generate_report). Falls back to 'zh' when missing.
+    """
     meta = report["meta"]
     s = report["sections"]
-    
-    md = f"""# 竞品调研报告：{meta['product_name']}
+    lang = (meta.get("lang") or "zh").lower()
 
-> 生成时间：{meta['generated_at'][:19]}  
-> 目标网址：{meta['url']}  
+    if lang.startswith("en"):
+        md = f"""# Competitor Research Report: {meta['product_name']}
+
+> Generated at: {meta['generated_at'][:19]}
+> Target URL: {meta['url']}
+> Version: {meta['version']}
+
+---
+
+## 1. Website Evolution Analysis 🔍
+
+> 🔍 **Wayback Machine exclusive data** — deep evolution analysis across multi-year historical snapshots
+
+"""
+    else:
+        md = f"""# 竞品调研报告：{meta['product_name']}
+
+> 生成时间：{meta['generated_at'][:19]}
+> 目标网址：{meta['url']}
 > 版本：{meta['version']}
 
 ---
@@ -204,9 +226,9 @@ def report_to_markdown(report: dict) -> str:
 
 """
     ws = s["website_analysis"]
-    md += f"**域名**：{ws['domain']}  \n"
-    md += f"**首次出现**：{ws['first_seen']}  \n"
-    md += f"**历史快照数**：{ws['total_snapshots']}  \n\n"
+    md += _T(lang, f"**Domain**: {ws['domain']}  \n", f"**域名**：{ws['domain']}  \n")
+    md += _T(lang, f"**First seen**: {ws['first_seen']}  \n", f"**首次出现**：{ws['first_seen']}  \n")
+    md += _T(lang, f"**Total snapshots**: {ws['total_snapshots']}  \n\n", f"**历史快照数**：{ws['total_snapshots']}  \n\n")
 
     # Timeline table
     timeline = ws.get("deep_timeline", [])
@@ -214,45 +236,45 @@ def report_to_markdown(report: dict) -> str:
     if timeline or current:
         all_points = [t for t in timeline if not t.get("error") and t.get("date")] + ([current] if current and "error" not in current else [])
         if all_points:
-            md += "### 官网演变时间线\n\n"
-            md += "| 维度 |"
+            md += _T(lang, "### Website Evolution Timeline\n\n", "### 官网演变时间线\n\n")
+            md += _T(lang, "| Dimension |", "| 维度 |")
             for p in all_points:
-                label = "当前" if p.get("is_current") else p.get("date", "")
+                label = _T(lang, "Current", "当前") if p.get("is_current") else p.get("date", "")
                 md += f" {label} |"
             md += "\n|------|" + "------|" * len(all_points) + "\n"
-            
+
             # Slogan row
             md += "| Slogan |"
             for p in all_points:
                 md += f" {p.get('slogan', 'N/A')[:40]} |"
             md += "\n"
-            
+
             # Structure row
-            md += "| 官网结构 |"
+            md += _T(lang, "| Site Structure |", "| 官网结构 |")
             for p in all_points:
                 parts = p.get("structure_summary", [])[:5]
                 md += f" {'; '.join(parts)[:60]} |"
             md += "\n"
-            
+
             # Features row
-            md += "| 功能检测 |"
+            md += _T(lang, "| Detected Features |", "| 功能检测 |")
             for p in all_points:
                 f = p.get("features", {})
                 tags = [k for k, v in f.items() if v]
                 md += f" {', '.join(tags)[:50]} |"
             md += "\n"
-            
+
             # Social links row
-            md += "| 社媒外链 |"
+            md += _T(lang, "| Social Outlinks |", "| 社媒外链 |")
             for p in all_points:
                 sl = list(p.get("social_links", {}).keys())
-                md += f" {', '.join(sl) if sl else '无'} |"
+                md += f" {', '.join(sl) if sl else _T(lang, 'none', '无')} |"
             md += "\n\n"
-    
+
     # Key changes
     changes = ws.get("key_changes", [])
     if changes:
-        md += "### 关键变化记录\n\n"
+        md += _T(lang, "### Key Change Log\n\n", "### 关键变化记录\n\n")
         for c in changes:
             md += f"**{c['from_date']} → {c['to_date']}**\n"
             for item in c["changes"]:
@@ -260,13 +282,16 @@ def report_to_markdown(report: dict) -> str:
             md += "\n"
 
     # Social Media
-    md += "## 2. 社交媒体渠道分析\n\n"
-    md += "> 多平台渠道检测与传播指标分析\n\n"
+    md += _T(lang,
+        "## 2. Social Media Channel Analysis\n\n> Multi-platform channel detection and propagation metrics\n\n",
+        "## 2. 社交媒体渠道分析\n\n> 多平台渠道检测与传播指标分析\n\n")
     sm = s["social_media"]
     channels = sm.get("channels", {})
-    
-    md += "### 渠道检测\n\n"
-    md += "| 平台 | 状态 | 链接 | 详情 |\n|------|------|------|------|\n"
+
+    md += _T(lang, "### Channel Detection\n\n", "### 渠道检测\n\n")
+    md += _T(lang,
+        "| Platform | Status | Link | Details |\n|------|------|------|------|\n",
+        "| 平台 | 状态 | 链接 | 详情 |\n|------|------|------|------|\n")
     for name, ch in channels.items():
         status = "✅" if ch.get("detected") else ("🔍" if ch.get("detected") is None else "❌")
         url = ch.get("url", "")
@@ -277,32 +302,44 @@ def report_to_markdown(report: dict) -> str:
         if ch.get("subreddit_members"): details.append(f"{ch['subreddit_members']} members")
         md += f"| {ch.get('platform', name)} | {status} | {url} | {', '.join(details) or ch.get('note', '')} |\n"
     md += "\n"
-    
+
     # Reddit top posts
     reddit = channels.get("reddit", {})
     if reddit.get("top_posts"):
-        md += "### Reddit 热门讨论\n\n"
-        md += "| 标题 | Subreddit | ⬆ | 💬 | 作者 |\n|------|-----------|---|---|------|\n"
+        md += _T(lang, "### Hot Reddit Discussions\n\n", "### Reddit 热门讨论\n\n")
+        md += _T(lang,
+            "| Title | Subreddit | ⬆ | 💬 | Author |\n|------|-----------|---|---|------|\n",
+            "| 标题 | Subreddit | ⬆ | 💬 | 作者 |\n|------|-----------|---|---|------|\n")
         for post in reddit["top_posts"][:8]:
             md += f"| {post['title'][:50]} | r/{post['subreddit']} | {post['upvotes']} | {post['comments']} | u/{post['author']} |\n"
         md += "\n"
-    
+
     # Propagation metrics
     pm = sm.get("propagation_metrics", {})
     if pm:
-        md += "### 传播指标总览\n\n"
-        md += "| 指标 | 数值 | 备注 |\n|------|------|------|\n"
-        md += f"| 总参与人数 | {pm.get('total_participants', 0)} | 已采集渠道的去重统计 |\n"
-        md += f"| 总互动量 | {pm.get('total_engagement', 0)} | Upvotes + Comments + Stars |\n"
-        md += f"| 数据来源 | {', '.join(pm.get('data_sources', []))} | |\n"
+        md += _T(lang, "### Propagation Metrics Overview\n\n", "### 传播指标总览\n\n")
+        md += _T(lang,
+            "| Metric | Value | Note |\n|------|------|------|\n",
+            "| 指标 | 数值 | 备注 |\n|------|------|------|\n")
+        md += _T(lang,
+            f"| Total participants | {pm.get('total_participants', 0)} | Deduplicated across collected channels |\n",
+            f"| 总参与人数 | {pm.get('total_participants', 0)} | 已采集渠道的去重统计 |\n")
+        md += _T(lang,
+            f"| Total engagement | {pm.get('total_engagement', 0)} | Upvotes + Comments + Stars |\n",
+            f"| 总互动量 | {pm.get('total_engagement', 0)} | Upvotes + Comments + Stars |\n")
+        md += _T(lang,
+            f"| Data sources | {', '.join(pm.get('data_sources', []))} | |\n",
+            f"| 数据来源 | {', '.join(pm.get('data_sources', []))} | |\n")
         if pm.get("note"):
             md += f"\n> {pm['note']}\n\n"
 
     # Traffic
-    md += "## 3. 流量与 SEO 分析\n\n"
+    md += _T(lang, "## 3. Traffic & SEO Analysis\n\n", "## 3. 流量与 SEO 分析\n\n")
     tr = s["traffic_analysis"]
     if tr.get("need_topup"):
-        md += "> ⚠️ Caravo 余额不足。充值: https://www.caravo.ai/dashboard\n\n"
+        md += _T(lang,
+            "> ⚠️ Caravo balance insufficient. Top up at: https://www.caravo.ai/dashboard\n\n",
+            "> ⚠️ Caravo 余额不足。充值: https://www.caravo.ai/dashboard\n\n")
     else:
         rank = tr.get("domain_rank", {})
         bl = tr.get("backlinks", {})
@@ -312,34 +349,55 @@ def report_to_markdown(report: dict) -> str:
 
         has_data = rank.get("organic_traffic") or bl.get("backlinks")
         if has_data:
-            md += "数据来源: DataForSEO\n\n"
+            md += _T(lang, "Data source: DataForSEO\n\n", "数据来源: DataForSEO\n\n")
 
             # Core metrics
-            md += "### 核心指标\n\n"
-            md += "| 指标 | 数值 |\n|------|------|\n"
+            md += _T(lang, "### Core Metrics\n\n", "### 核心指标\n\n")
+            md += _T(lang, "| Metric | Value |\n|------|------|\n", "| 指标 | 数值 |\n|------|------|\n")
+            kw_cols = _T(lang,
+                "| Keyword | Rank | Search Volume | CPC | Competition |\n|--------|------|----------|-----|--------|\n",
+                "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n")
             if rank.get("organic_traffic") is not None:
-                md += f"| 有机流量/月 | {rank['organic_traffic']:,} |\n"
+                md += _T(lang,
+                    f"| Organic traffic / month | {rank['organic_traffic']:,} |\n",
+                    f"| 有机流量/月 | {rank['organic_traffic']:,} |\n")
             if rank.get("total_keywords") is not None:
-                md += f"| 排名关键词 | {rank['total_keywords']:,} |\n"
+                md += _T(lang,
+                    f"| Ranked keywords | {rank['total_keywords']:,} |\n",
+                    f"| 排名关键词 | {rank['total_keywords']:,} |\n")
             if rank.get("keywords_top10") is not None:
-                md += f"| Top 10 关键词 | {rank['keywords_top10']:,} |\n"
+                md += _T(lang,
+                    f"| Top 10 keywords | {rank['keywords_top10']:,} |\n",
+                    f"| Top 10 关键词 | {rank['keywords_top10']:,} |\n")
             if rank.get("estimated_paid_cost") is not None:
-                md += f"| 等效付费成本 | ${rank['estimated_paid_cost']:,}/月 |\n"
+                md += _T(lang,
+                    f"| Equivalent paid cost | ${rank['estimated_paid_cost']:,}/month |\n",
+                    f"| 等效付费成本 | ${rank['estimated_paid_cost']:,}/月 |\n")
             if bl.get("backlinks") is not None:
-                md += f"| 反向链接 | {bl['backlinks']:,} |\n"
+                md += _T(lang,
+                    f"| Backlinks | {bl['backlinks']:,} |\n",
+                    f"| 反向链接 | {bl['backlinks']:,} |\n")
             if bl.get("referring_domains") is not None:
-                md += f"| 引用域名 | {bl['referring_domains']:,} |\n"
+                md += _T(lang,
+                    f"| Referring domains | {bl['referring_domains']:,} |\n",
+                    f"| 引用域名 | {bl['referring_domains']:,} |\n")
             if bl.get("domain_rank") is not None:
-                md += f"| 域名排名 | {bl['domain_rank']} |\n"
+                md += _T(lang,
+                    f"| Domain rank | {bl['domain_rank']} |\n",
+                    f"| 域名排名 | {bl['domain_rank']} |\n")
             if bl.get("referring_ips") is not None:
-                md += f"| 引用 IP | {bl['referring_ips']:,} |\n"
+                md += _T(lang,
+                    f"| Referring IPs | {bl['referring_ips']:,} |\n",
+                    f"| 引用 IP | {bl['referring_ips']:,} |\n")
             md += "\n"
 
             # Historical trend
             hist_data = hist.get("history", [])
             if hist_data:
-                md += "### 有机流量趋势\n\n"
-                md += "| 月份 | 有机流量 | 关键词数 | Top10 | 新增 | 丢失 |\n"
+                md += _T(lang, "### Organic Traffic Trend\n\n", "### 有机流量趋势\n\n")
+                md += _T(lang,
+                    "| Month | Organic Traffic | Keywords | Top10 | New | Lost |\n",
+                    "| 月份 | 有机流量 | 关键词数 | Top10 | 新增 | 丢失 |\n")
                 md += "|------|----------|----------|-------|------|------|\n"
                 for h in hist_data:
                     md += f"| {h['date']} | {h.get('organic_traffic', 0):,} | {h.get('keywords', 0):,} | {h.get('top10', 0)} | +{h.get('new', 0):,} | -{h.get('lost', 0):,} |\n"
@@ -347,21 +405,21 @@ def report_to_markdown(report: dict) -> str:
 
             # Growth phases
             if growth.get("phases"):
-                md += "### 增长阶段分析\n\n"
+                md += _T(lang, "### Growth Phases\n\n", "### 增长阶段分析\n\n")
                 for p in growth["phases"]:
-                    md += f"**{p['name']}**（{p['period']}）\n"
+                    md += f"**{p['name']}** ({p['period']})\n"
                     md += f"- {p['description']}\n\n"
 
             # Milestones
             if growth.get("milestones"):
-                md += "### 关键里程碑\n\n"
+                md += _T(lang, "### Key Milestones\n\n", "### 关键里程碑\n\n")
                 for m in growth["milestones"]:
                     md += f"- {m}\n"
                 md += "\n"
 
             # Growth insights
             if growth.get("insights"):
-                md += "### 增长洞察\n\n"
+                md += _T(lang, "### Growth Insights\n\n", "### 增长洞察\n\n")
                 for i in growth["insights"]:
                     md += f"- {i}\n"
                 md += "\n"
@@ -372,39 +430,53 @@ def report_to_markdown(report: dict) -> str:
             legacy_kw = kw.get("keywords", [])
 
             if branded_kw:
-                md += f"### 品牌词排名（{kw.get('branded_count', len(branded_kw))} 个）\n\n"
-                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                count = kw.get('branded_count', len(branded_kw))
+                md += _T(lang,
+                    f"### Branded Keyword Rankings ({count})\n\n",
+                    f"### 品牌词排名（{count} 个）\n\n")
+                md += kw_cols
                 for k_item in branded_kw:
                     md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
                 md += "\n"
 
             if non_branded_kw:
-                md += f"### 非品牌词 · 首页高曝光（{kw.get('non_branded_count', len(non_branded_kw))} 个，按搜索量排序）\n\n"
-                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                count = kw.get('non_branded_count', len(non_branded_kw))
+                md += _T(lang,
+                    f"### Non-branded Keywords · High-exposure homepage ({count}, sorted by volume)\n\n",
+                    f"### 非品牌词 · 首页高曝光（{count} 个，按搜索量排序）\n\n")
+                md += kw_cols
                 for k_item in non_branded_kw:
                     md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
                 md += "\n"
 
             gap_kw = kw.get("gap_keywords", [])
             if gap_kw:
-                md += f"### 关键词缺口机会（竞争对手可切入的低竞争词，共 {kw.get('gap_keyword_count', len(gap_kw))} 个）\n\n"
-                md += "| 关键词 | 当前排名 | 月搜索量 | 竞争度 | 机会评级 |\n|--------|----------|----------|--------|------------|\n"
+                count = kw.get('gap_keyword_count', len(gap_kw))
+                md += _T(lang,
+                    f"### Keyword Gap Opportunities (low-competition entries, {count} total)\n\n",
+                    f"### 关键词缺口机会（竞争对手可切入的低竞争词，共 {count} 个）\n\n")
+                md += _T(lang,
+                    "| Keyword | Rank | Search Volume | Competition | Opportunity |\n|--------|----------|----------|--------|------------|\n",
+                    "| 关键词 | 当前排名 | 月搜索量 | 竞争度 | 机会评级 |\n|--------|----------|----------|--------|------------|\n")
                 for k_item in gap_kw:
                     pos = k_item.get('position', 99)
                     vol = k_item.get('search_volume', 0)
                     comp = k_item.get('competition', '')
                     if pos > 10 and comp in ('LOW', ''):
-                        opp = '🟢 高'
+                        opp = _T(lang, '🟢 High', '🟢 高')
                     elif pos > 5 or comp == 'MEDIUM':
-                        opp = '🟡 中'
+                        opp = _T(lang, '🟡 Medium', '🟡 中')
                     else:
-                        opp = '🔴 低'
+                        opp = _T(lang, '🔴 Low', '🔴 低')
                     md += f"| {k_item['keyword']} | #{pos} | {vol:,} | {comp or '—'} | {opp} |\n"
                 md += "\n"
 
             elif not branded_kw and legacy_kw:
-                md += f"### Top 排名关键词（共 {kw.get('total', 0):,} 个）\n\n"
-                md += "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n"
+                total = kw.get('total', 0)
+                md += _T(lang,
+                    f"### Top Ranked Keywords ({total:,} total)\n\n",
+                    f"### Top 排名关键词（共 {total:,} 个）\n\n")
+                md += kw_cols
                 for k_item in legacy_kw:
                     md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
                 md += "\n"
@@ -413,44 +485,54 @@ def report_to_markdown(report: dict) -> str:
             if rank.get("error") and not rank.get("organic_traffic"):
                 md += f"> ⚠️ {rank['error']}\n\n"
         else:
-            md += f"> {'⚠️ ' + tr.get('error', '') if tr.get('error') else '暂无流量数据'}\n\n"
+            empty_note = _T(lang, "No traffic data available", "暂无流量数据")
+            md += f"> {'⚠️ ' + tr.get('error', '') if tr.get('error') else empty_note}\n\n"
 
     # Growth Analysis
     ga = s.get("growth_analysis", {})
     if ga and not ga.get("error"):
-        md += "## 4. 增长深度分析\n\n"
-        md += "> 📊 多渠道交叉增长分析 — 渠道拆解 · 0→1 故事线 · 多波 Launch\n\n"
+        md += _T(lang,
+            "## 4. Deep Growth Analysis\n\n> 📊 Cross-channel growth analysis — channel breakdown · 0→1 storyline · multi-wave launches\n\n",
+            "## 4. 增长深度分析\n\n> 📊 多渠道交叉增长分析 — 渠道拆解 · 0→1 故事线 · 多波 Launch\n\n")
 
         # --- Channel Breakdown ---
         cb = ga.get("channel_breakdown", {})
         if cb:
             active = cb.get("active_channels", [])
             dominant = cb.get("dominant_channel", "")
-            md += "### 4.1 增长渠道拆解\n\n"
+            md += _T(lang, "### 4.1 Growth Channel Breakdown\n\n", "### 4.1 增长渠道拆解\n\n")
             if active:
-                md += f"**活跃渠道**：{', '.join(active)}\n\n"
+                md += _T(lang, f"**Active channels**: {', '.join(active)}\n\n", f"**活跃渠道**：{', '.join(active)}\n\n")
             if dominant:
                 dominant_label = cb.get("channel_metrics", {}).get(dominant, {}).get("platform", dominant)
-                md += f"**主导渠道**：{dominant_label}\n\n"
+                md += _T(lang, f"**Dominant channel**: {dominant_label}\n\n", f"**主导渠道**：{dominant_label}\n\n")
 
             # Channel metrics table
             cm = cb.get("channel_metrics", {})
             if cm:
-                md += "#### 各渠道关键指标\n\n"
-                md += "| 渠道 | 核心指标 | 数值 |\n|------|---------|------|\n"
+                md += _T(lang, "#### Key Metrics by Channel\n\n", "#### 各渠道关键指标\n\n")
+                md += _T(lang,
+                    "| Channel | Metric | Value |\n|------|---------|------|\n",
+                    "| 渠道 | 核心指标 | 数值 |\n|------|---------|------|\n")
+                lbl_top_tweet  = _T(lang, "Top Tweet Likes", "Top 推文 Likes")
+                lbl_avg_eng    = _T(lang, "Avg engagement", "平均互动")
+                lbl_mentions   = _T(lang, "Mentions",  "提及次数")
+                lbl_sub_mem    = _T(lang, "Subreddit members", "Subreddit 成员")
+                lbl_mo_traffic = _T(lang, "Monthly traffic", "月均流量")
+                lbl_ranked_kw  = _T(lang, "Ranked keywords", "排名关键词")
                 for ch_key, ch_data in cm.items():
                     platform = ch_data.get("platform", ch_key)
                     metrics_pairs = []
                     if ch_data.get("followers"): metrics_pairs.append(("Followers", f"{ch_data['followers']:,}"))
                     if ch_data.get("total_tweets"): metrics_pairs.append(("Tweets", f"{ch_data['total_tweets']:,}"))
-                    if ch_data.get("top_tweet_likes"): metrics_pairs.append(("Top 推文 Likes", f"{ch_data['top_tweet_likes']:,}"))
-                    if ch_data.get("avg_engagement"): metrics_pairs.append(("平均互动", f"{ch_data['avg_engagement']:,}"))
+                    if ch_data.get("top_tweet_likes"): metrics_pairs.append((lbl_top_tweet, f"{ch_data['top_tweet_likes']:,}"))
+                    if ch_data.get("avg_engagement"): metrics_pairs.append((lbl_avg_eng, f"{ch_data['avg_engagement']:,}"))
                     if ch_data.get("stars_total"): metrics_pairs.append(("Stars", f"{ch_data['stars_total']:,}"))
                     if ch_data.get("top_repo_stars"): metrics_pairs.append(("Top Repo Stars", f"{ch_data['top_repo_stars']:,}"))
-                    if ch_data.get("total_mentions"): metrics_pairs.append(("提及次数", f"{ch_data['total_mentions']:,}"))
-                    if ch_data.get("subreddit_members"): metrics_pairs.append(("Subreddit 成员", f"{ch_data['subreddit_members']:,}"))
-                    if ch_data.get("monthly_traffic"): metrics_pairs.append(("月均流量", f"{ch_data['monthly_traffic']:,}"))
-                    if ch_data.get("total_keywords"): metrics_pairs.append(("排名关键词", f"{ch_data['total_keywords']:,}"))
+                    if ch_data.get("total_mentions"): metrics_pairs.append((lbl_mentions, f"{ch_data['total_mentions']:,}"))
+                    if ch_data.get("subreddit_members"): metrics_pairs.append((lbl_sub_mem, f"{ch_data['subreddit_members']:,}"))
+                    if ch_data.get("monthly_traffic"): metrics_pairs.append((lbl_mo_traffic, f"{ch_data['monthly_traffic']:,}"))
+                    if ch_data.get("total_keywords"): metrics_pairs.append((lbl_ranked_kw, f"{ch_data['total_keywords']:,}"))
                     for label, val in metrics_pairs[:2]:
                         md += f"| {platform} | {label} | {val} |\n"
                 md += "\n"
@@ -459,9 +541,15 @@ def report_to_markdown(report: dict) -> str:
             tw_metrics = cm.get("twitter", {})
             content_cats = tw_metrics.get("content_categories", {})
             if content_cats:
-                md += "#### Twitter 内容分类统计\n\n"
-                md += "| 类型 | 推文数 |\n|------|--------|\n"
-                cat_labels = {"launch": "发布/上线", "product_update": "产品更新", "community": "社区/互动", "tutorial": "教程/干货", "kol_collab": "KOL 合作", "other": "其他"}
+                md += _T(lang, "#### Twitter Content Categories\n\n", "#### Twitter 内容分类统计\n\n")
+                md += _T(lang, "| Category | Tweets |\n|------|--------|\n", "| 类型 | 推文数 |\n|------|--------|\n")
+                if lang.startswith("en"):
+                    cat_labels = {"launch": "Launch / Release", "product_update": "Product Update",
+                                  "community": "Community / Engagement", "tutorial": "Tutorial / How-to",
+                                  "kol_collab": "KOL Collab", "other": "Other"}
+                else:
+                    cat_labels = {"launch": "发布/上线", "product_update": "产品更新", "community": "社区/互动",
+                                  "tutorial": "教程/干货", "kol_collab": "KOL 合作", "other": "其他"}
                 for cat, count in sorted(content_cats.items(), key=lambda x: x[1], reverse=True):
                     md += f"| {cat_labels.get(cat, cat)} | {count} |\n"
                 md += "\n"
@@ -469,8 +557,10 @@ def report_to_markdown(report: dict) -> str:
             # Top content
             top_content = cb.get("top_content", [])
             if top_content:
-                md += "#### Top 内容表现（跨平台）\n\n"
-                md += "| 平台 | 内容摘要 | Likes/Upvotes | 其他指标 |\n|------|---------|--------------|----------|\n"
+                md += _T(lang, "#### Top Cross-platform Content\n\n", "#### Top 内容表现（跨平台）\n\n")
+                md += _T(lang,
+                    "| Platform | Content excerpt | Likes/Upvotes | Other |\n|------|---------|--------------|----------|\n",
+                    "| 平台 | 内容摘要 | Likes/Upvotes | 其他指标 |\n|------|---------|--------------|----------|\n")
                 for c in top_content[:5]:
                     platform = c.get("platform", "")
                     text = c.get("text", "")[:60].replace("|", "｜")
@@ -485,22 +575,35 @@ def report_to_markdown(report: dict) -> str:
         # --- 0→1 Story ---
         z2o = ga.get("zero_to_one_story", {})
         if z2o:
-            md += "### 4.2 0→1 成长故事线\n\n"
+            md += _T(lang, "### 4.2 0→1 Growth Storyline\n\n", "### 4.2 0→1 成长故事线\n\n")
             first_seen = z2o.get("first_seen", "N/A")
             current_traffic = z2o.get("current_traffic", 0)
             growth_multiple = z2o.get("growth_multiple")
-            md += f"**域名首次出现**：{first_seen}  \n"
+            md += _T(lang, f"**Domain first seen**: {first_seen}  \n", f"**域名首次出现**：{first_seen}  \n")
             if current_traffic:
-                md += f"**当前月均有机流量**：{current_traffic:,}  \n"
+                md += _T(lang,
+                    f"**Current monthly organic traffic**: {current_traffic:,}  \n",
+                    f"**当前月均有机流量**：{current_traffic:,}  \n")
             if growth_multiple:
-                md += f"**流量增长倍数**：{growth_multiple}x  \n"
+                md += _T(lang,
+                    f"**Traffic growth multiple**: {growth_multiple}x  \n",
+                    f"**流量增长倍数**：{growth_multiple}x  \n")
             md += "\n"
 
             timeline = z2o.get("timeline", [])
             if timeline:
-                md += "#### 关键事件时间线\n\n"
-                md += "| 日期 | 类型 | 事件 | 来源 |\n|------|------|------|------|\n"
-                type_labels = {"milestone": "🏁 里程碑", "launch": "🚀 发布", "traffic_spike": "📈 流量激增", "seo_milestone": "🔑 SEO 里程碑", "website_change": "🔄 官网变化"}
+                md += _T(lang, "#### Key Event Timeline\n\n", "#### 关键事件时间线\n\n")
+                md += _T(lang,
+                    "| Date | Type | Event | Source |\n|------|------|------|------|\n",
+                    "| 日期 | 类型 | 事件 | 来源 |\n|------|------|------|------|\n")
+                if lang.startswith("en"):
+                    type_labels = {"milestone": "🏁 Milestone", "launch": "🚀 Launch",
+                                   "traffic_spike": "📈 Traffic Spike", "seo_milestone": "🔑 SEO Milestone",
+                                   "website_change": "🔄 Site Change"}
+                else:
+                    type_labels = {"milestone": "🏁 里程碑", "launch": "🚀 发布",
+                                   "traffic_spike": "📈 流量激增", "seo_milestone": "🔑 SEO 里程碑",
+                                   "website_change": "🔄 官网变化"}
                 for e in timeline:
                     date = e.get("date", "")[:10] if e.get("date") else "—"
                     etype = type_labels.get(e.get("type", ""), e.get("type", ""))
@@ -511,27 +614,38 @@ def report_to_markdown(report: dict) -> str:
 
             inflections = z2o.get("key_inflection_points", [])
             if inflections:
-                md += "#### 关键拐点\n\n"
+                md += _T(lang, "#### Key Inflection Points\n\n", "#### 关键拐点\n\n")
                 for ip in inflections:
-                    md += f"- **{ip.get('date', '')}** 流量从 {ip.get('traffic_before', 0):,} 增至 {ip.get('traffic_after', 0):,}（+{ip.get('growth_pct', 0)}%）\n"
+                    md += _T(lang,
+                        f"- **{ip.get('date', '')}** traffic from {ip.get('traffic_before', 0):,} to {ip.get('traffic_after', 0):,} (+{ip.get('growth_pct', 0)}%)\n",
+                        f"- **{ip.get('date', '')}** 流量从 {ip.get('traffic_before', 0):,} 增至 {ip.get('traffic_after', 0):,}（+{ip.get('growth_pct', 0)}%）\n")
                 md += "\n"
 
         # --- Launch Waves ---
         lw = ga.get("launch_waves", {})
         if lw and lw.get("total_waves", 0) > 0:
-            md += "### 4.3 多波 Launch 分析\n\n"
-            md += f"**总 Launch 波次**：{lw['total_waves']}  \n"
+            md += _T(lang, "### 4.3 Multi-wave Launch Analysis\n\n", "### 4.3 多波 Launch 分析\n\n")
+            md += _T(lang,
+                f"**Total launch waves**: {lw['total_waves']}  \n",
+                f"**总 Launch 波次**：{lw['total_waves']}  \n")
             if lw.get("launch_cadence"):
-                md += f"**Launch 节奏**：{lw['launch_cadence']}  \n"
+                md += _T(lang,
+                    f"**Launch cadence**: {lw['launch_cadence']}  \n",
+                    f"**Launch 节奏**：{lw['launch_cadence']}  \n")
             md += "\n"
 
             for wave in lw.get("launches", []):
-                md += f"#### Wave {wave['wave_number']}：{wave.get('date_range', '')}\n\n"
-                md += f"**渠道**：{', '.join(wave.get('channels', []))}  \n"
+                md += f"#### Wave {wave['wave_number']}: {wave.get('date_range', '')}\n\n"
+                md += _T(lang,
+                    f"**Channels**: {', '.join(wave.get('channels', []))}  \n",
+                    f"**渠道**：{', '.join(wave.get('channels', []))}  \n")
                 impact = wave.get("total_impact", {})
-                if impact.get("ph_votes"): md += f"**PH Votes**：{impact['ph_votes']:,}  \n"
-                if impact.get("twitter_likes"): md += f"**Twitter Likes**：{impact['twitter_likes']:,}  \n"
-                if impact.get("traffic_peak"): md += f"**流量峰值**：{impact['traffic_peak']:,}/月  \n"
+                if impact.get("ph_votes"): md += f"**PH Votes**: {impact['ph_votes']:,}  \n"
+                if impact.get("twitter_likes"): md += f"**Twitter Likes**: {impact['twitter_likes']:,}  \n"
+                if impact.get("traffic_peak"):
+                    md += _T(lang,
+                        f"**Traffic peak**: {impact['traffic_peak']:,}/month  \n",
+                        f"**流量峰值**：{impact['traffic_peak']:,}/月  \n")
                 md += "\n"
                 for ev in wave.get("events", []):
                     date = ev.get("date", "")[:10] if ev.get("date") else "—"
@@ -543,29 +657,38 @@ def report_to_markdown(report: dict) -> str:
     # Traffic Peaks
     tp = s.get("traffic_peaks", {})
     if tp and not tp.get("error") and tp.get("summary"):
-        md += "## 5. Google Trends 流量峰值分析\n\n"
-        md += "> 📊 **多源交叉归因分析** — Google Trends 热度数据 × PH/HN/Twitter 事件归因\n\n"
+        md += _T(lang,
+            "## 5. Google Trends Peak Analysis\n\n> 📊 **Cross-source attribution analysis** — Google Trends interest × PH/HN/Twitter event attribution\n\n",
+            "## 5. Google Trends 流量峰值分析\n\n> 📊 **多源交叉归因分析** — Google Trends 热度数据 × PH/HN/Twitter 事件归因\n\n")
         tps = tp["summary"]
-        md += f"**查询词**：{tps.get('primary_query', '')}  \n"
-        md += f"**数据周数**：{tps.get('total_weeks', 0)}  \n"
-        md += f"**峰值搜索热度**：{tps.get('max_interest', 0)}（{tps.get('max_interest_date', '')}）  \n"
-        md += f"**平均热度**：{tps.get('avg_interest', 0)}  \n"
-        md += f"**近期趋势**：{tps.get('recent_trend', 'N/A')}  \n"
-        md += f"**当前阶段**：{tps.get('current_phase', 'N/A')}  \n"
-        md += f"**检测到峰值数**：{tps.get('total_peaks_detected', 0)}（已关联 {tps.get('matched_peaks', 0)} 个，未匹配 {tps.get('unmatched_peaks', 0)} 个）  \n\n"
+        md += _T(lang, f"**Query**: {tps.get('primary_query', '')}  \n", f"**查询词**：{tps.get('primary_query', '')}  \n")
+        md += _T(lang, f"**Weeks of data**: {tps.get('total_weeks', 0)}  \n", f"**数据周数**：{tps.get('total_weeks', 0)}  \n")
+        md += _T(lang,
+            f"**Peak search interest**: {tps.get('max_interest', 0)} ({tps.get('max_interest_date', '')})  \n",
+            f"**峰值搜索热度**：{tps.get('max_interest', 0)}（{tps.get('max_interest_date', '')}）  \n")
+        md += _T(lang, f"**Average interest**: {tps.get('avg_interest', 0)}  \n", f"**平均热度**：{tps.get('avg_interest', 0)}  \n")
+        md += _T(lang, f"**Recent trend**: {tps.get('recent_trend', 'N/A')}  \n", f"**近期趋势**：{tps.get('recent_trend', 'N/A')}  \n")
+        md += _T(lang, f"**Current phase**: {tps.get('current_phase', 'N/A')}  \n", f"**当前阶段**：{tps.get('current_phase', 'N/A')}  \n")
+        md += _T(lang,
+            f"**Peaks detected**: {tps.get('total_peaks_detected', 0)} ({tps.get('matched_peaks', 0)} attributed, {tps.get('unmatched_peaks', 0)} unmatched)  \n\n",
+            f"**检测到峰值数**：{tps.get('total_peaks_detected', 0)}（已关联 {tps.get('matched_peaks', 0)} 个，未匹配 {tps.get('unmatched_peaks', 0)} 个）  \n\n")
 
         # Growth phases with insights
         phases = tp.get("growth_phases", [])
         if phases:
-            md += "### 增长阶段划分\n\n"
+            md += _T(lang, "### Growth Phase Segmentation\n\n", "### 增长阶段划分\n\n")
+            week_word = _T(lang, "wks", "周")
+            avg_word = _T(lang, "avg", "均值")
+            active_word = _T(lang, "Active channels", "活跃渠道")
+            peak_word = _T(lang, "peak events", "峰值事件")
             for ph in phases:
                 channels = ph.get("active_channels", [])
                 ch_str = " · ".join(channels) if channels else "—"
                 peak_count = ph.get("peak_count", 0)
-                md += f"**{ph['phase']}** ({ph['start_date']} → {ph['end_date']}, {ph['week_count']}周, 均值 {ph['avg_value']})  \n"
-                md += f"活跃渠道: {ch_str}"
+                md += f"**{ph['phase']}** ({ph['start_date']} → {ph['end_date']}, {ph['week_count']}{week_word}, {avg_word} {ph['avg_value']})  \n"
+                md += f"{active_word}: {ch_str}"
                 if peak_count:
-                    md += f" | 峰值事件: {peak_count}个"
+                    md += _T(lang, f" | {peak_word}: {peak_count}", f" | 峰值事件: {peak_count}个")
                 md += "  \n"
                 for insight in ph.get("insights", []):
                     md += f"- {insight}\n"
@@ -574,20 +697,27 @@ def report_to_markdown(report: dict) -> str:
         # Detected peaks — with attribution
         peaks = tp.get("detected_peaks", [])
         if peaks:
-            md += "### 检测到的峰值事件\n\n"
+            md += _T(lang, "### Detected Peak Events\n\n", "### 检测到的峰值事件\n\n")
             for i, pk in enumerate(peaks, 1):
                 status = pk.get("status", "unmatched")
                 attr = pk.get("attribution", {})
 
                 # Status badge
                 if status == "attributed":
-                    status_badge = f"**归因**: {attr.get('primary_channel', '?')}（{'高可信度' if attr.get('confidence') == 'high' else '中等可信度'}）"
+                    conf_label = (_T(lang, "high confidence", "高可信度")
+                                  if attr.get('confidence') == 'high'
+                                  else _T(lang, "medium confidence", "中等可信度"))
+                    status_badge = _T(lang,
+                        f"**Attribution**: {attr.get('primary_channel', '?')} ({conf_label})",
+                        f"**归因**: {attr.get('primary_channel', '?')}（{conf_label}）")
                 elif status == "ph_matched":
-                    status_badge = "**归因**: Product Hunt 发布"
+                    status_badge = _T(lang, "**Attribution**: Product Hunt launch", "**归因**: Product Hunt 发布")
                 else:
-                    status_badge = "**归因**: 未找到明确来源"
+                    status_badge = _T(lang, "**Attribution**: no clear source found", "**归因**: 未找到明确来源")
 
-                md += f"### 峰值事件 #{i}: {pk.get('peak_date_label', '')} （热度: {pk.get('peak_value', 0)}/100）\n\n"
+                md += _T(lang,
+                    f"### Peak Event #{i}: {pk.get('peak_date_label', '')} (interest: {pk.get('peak_value', 0)}/100)\n\n",
+                    f"### 峰值事件 #{i}: {pk.get('peak_date_label', '')} （热度: {pk.get('peak_value', 0)}/100）\n\n")
                 md += f"{status_badge}\n\n"
 
                 # Show attribution sources
@@ -599,7 +729,9 @@ def report_to_markdown(report: dict) -> str:
                             "Twitter/X": "🐦",
                             "Reddit": "💬",
                         }.get(src["channel"], "🔗")
-                        md += f"**{channel_icon} {src['channel']}**（impact score: {src['impact_score']}）\n"
+                        md += _T(lang,
+                            f"**{channel_icon} {src['channel']}** (impact score: {src['impact_score']})\n",
+                            f"**{channel_icon} {src['channel']}**（impact score: {src['impact_score']}）\n")
                         for ev in src["events"][:3]:
                             title = ev.get("title", "")[:80]
                             if src["channel"] == "Hacker News":
@@ -630,31 +762,41 @@ def report_to_markdown(report: dict) -> str:
                     launches = pk.get("matched_launches", [])
                     for m in launches:
                         delta = m.get("delta_days", 0)
-                        delta_str = f"峰值晚于 Launch {delta} 天" if delta >= 0 else f"峰值早于 Launch {abs(delta)} 天"
-                        md += f"- 🏆 {m.get('label', '')} （{delta_str}）\n"
+                        if lang.startswith("en"):
+                            delta_str = (f"peak {delta} days after launch" if delta >= 0
+                                         else f"peak {abs(delta)} days before launch")
+                        else:
+                            delta_str = (f"峰值晚于 Launch {delta} 天" if delta >= 0
+                                         else f"峰值早于 Launch {abs(delta)} 天")
+                        md += f"- 🏆 {m.get('label', '')} ({delta_str})\n"
                     md += "\n"
                 else:
-                    md += f"> {attr.get('summary', pk.get('hypothesis', '未找到明确来源'))}\n\n"
+                    fallback = _T(lang, "no clear source found", "未找到明确来源")
+                    md += f"> {attr.get('summary', pk.get('hypothesis', fallback))}\n\n"
 
         # Unmatched peaks summary
         unmatched = tp.get("unmatched_peaks", [])
         if unmatched:
-            md += "### 疑似未记录的 Launch 事件\n\n"
+            md += _T(lang, "### Suspected Unrecorded Launch Events\n\n", "### 疑似未记录的 Launch 事件\n\n")
             for pk in unmatched:
                 attr = pk.get("attribution", {})
                 summary = attr.get("summary") or pk.get("hypothesis", "")
-                md += f"- **{pk.get('peak_date_label', '')}** 热度峰值 {pk.get('peak_value', 0)}：{summary}\n"
+                md += _T(lang,
+                    f"- **{pk.get('peak_date_label', '')}** interest peak {pk.get('peak_value', 0)}: {summary}\n",
+                    f"- **{pk.get('peak_date_label', '')}** 热度峰值 {pk.get('peak_value', 0)}：{summary}\n")
             md += "\n"
 
     # Propagation Analysis
     prop = s.get("propagation", {})
     if prop and not prop.get("error") and prop.get("data_mode") not in (None, "empty"):
-        md += "## 6. 传播深度分析\n\n"
+        md += _T(lang, "## 6. Propagation Deep Dive\n\n", "## 6. 传播深度分析\n\n")
 
         root = prop.get("root_post", {})
         if root.get("text"):
-            md += f"**Launch 帖**：{root['text'][:150]}  \n"
-            md += f"**互动数据**：❤️{root.get('likes',0):,} 🔄{root.get('retweets',0):,} 💬{root.get('replies',0):,} 👁{root.get('views',0):,}  \n\n"
+            md += _T(lang, f"**Launch post**: {root['text'][:150]}  \n", f"**Launch 帖**：{root['text'][:150]}  \n")
+            md += _T(lang,
+                f"**Engagement**: ❤️{root.get('likes',0):,} 🔄{root.get('retweets',0):,} 💬{root.get('replies',0):,} 👁{root.get('views',0):,}  \n\n",
+                f"**互动数据**：❤️{root.get('likes',0):,} 🔄{root.get('retweets',0):,} 💬{root.get('replies',0):,} 👁{root.get('views',0):,}  \n\n")
 
         # Approximate analysis (降级模式)
         approx = prop.get("approximate_analysis")
@@ -662,26 +804,36 @@ def report_to_markdown(report: dict) -> str:
             md += f"> {approx.get('note', '')}  \n\n"
             agg = approx.get("aggregate_metrics", {})
             if agg:
-                md += "### 聚合指标（近似）\n\n"
-                md += f"- 总 Retweets：{agg.get('total_retweets', 0):,}\n"
-                md += f"- 总 Likes：{agg.get('total_likes', 0):,}\n"
-                md += f"- 总 Views：{agg.get('total_views', 0):,}\n"
-                md += f"- 平均互动/推文：{agg.get('avg_engagement_per_tweet', 0)}\n\n"
+                md += _T(lang, "### Aggregate Metrics (approximate)\n\n", "### 聚合指标（近似）\n\n")
+                md += _T(lang, f"- Total retweets: {agg.get('total_retweets', 0):,}\n", f"- 总 Retweets：{agg.get('total_retweets', 0):,}\n")
+                md += _T(lang, f"- Total likes: {agg.get('total_likes', 0):,}\n", f"- 总 Likes：{agg.get('total_likes', 0):,}\n")
+                md += _T(lang, f"- Total views: {agg.get('total_views', 0):,}\n", f"- 总 Views：{agg.get('total_views', 0):,}\n")
+                md += _T(lang,
+                    f"- Avg engagement / tweet: {agg.get('avg_engagement_per_tweet', 0)}\n\n",
+                    f"- 平均互动/推文：{agg.get('avg_engagement_per_tweet', 0)}\n\n")
             est = approx.get("propagation_estimate", {})
             if est.get("estimated_reach"):
-                md += f"**预估触达人数**：{est['estimated_reach']:,}  \n"
+                md += _T(lang,
+                    f"**Estimated reach**: {est['estimated_reach']:,}  \n",
+                    f"**预估触达人数**：{est['estimated_reach']:,}  \n")
             if est.get("viral_coefficient"):
-                md += f"**病毒系数（RT/推文）**：{est['viral_coefficient']}  \n\n"
+                md += _T(lang,
+                    f"**Viral coefficient (RT/tweet)**: {est['viral_coefficient']}  \n\n",
+                    f"**病毒系数（RT/推文）**：{est['viral_coefficient']}  \n\n")
         else:
             # Full mode: KOL + four-stage
             inf = prop.get("influencer_analysis", {})
             if inf.get("total_kols", 0) > 0:
-                md += f"**KOL 参与数（10K+ 粉丝）**：{inf['total_kols']}  \n\n"
+                md += _T(lang,
+                    f"**KOL participants (10K+ followers)**: {inf['total_kols']}  \n\n",
+                    f"**KOL 参与数（10K+ 粉丝）**：{inf['total_kols']}  \n\n")
 
                 top_inf = inf.get("top_influencers", [])
                 if top_inf:
-                    md += "### Top 影响者\n\n"
-                    md += "| 账号 | 粉丝 | 类型 | 参与时间 |\n|------|------|------|----------|\n"
+                    md += _T(lang, "### Top Influencers\n\n", "### Top 影响者\n\n")
+                    md += _T(lang,
+                        "| Handle | Followers | Type | Joined at |\n|------|------|------|----------|\n",
+                        "| 账号 | 粉丝 | 类型 | 参与时间 |\n|------|------|------|----------|\n")
                     for u in top_inf[:8]:
                         hours = f"{u.get('hours_after_launch', '?')}h" if u.get('hours_after_launch') is not None else "N/A"
                         md += f"| @{u['screen_name']} | {u.get('followers',0):,} | {u.get('user_type','')} | {hours} |\n"
@@ -690,8 +842,10 @@ def report_to_markdown(report: dict) -> str:
             # Four stage
             stages = prop.get("four_stage_timeline", {})
             if stages:
-                md += "### 四阶段传播模型\n\n"
-                md += "| 阶段 | 标签 | 参与人数 |\n|------|------|----------|\n"
+                md += _T(lang, "### Four-stage Propagation Model\n\n", "### 四阶段传播模型\n\n")
+                md += _T(lang,
+                    "| Stage | Label | Participants |\n|------|------|----------|\n",
+                    "| 阶段 | 标签 | 参与人数 |\n|------|------|----------|\n")
                 for stage_key, stage_data in stages.items():
                     md += f"| {stage_key} | {stage_data.get('label','')} | {stage_data.get('count',0)} |\n"
                 md += "\n"
@@ -699,48 +853,55 @@ def report_to_markdown(report: dict) -> str:
             # Propagation rhythm
             rhythm = prop.get("propagation_rhythm", {})
             if rhythm:
-                md += "### 传播节奏\n\n"
-                md += "| 时间窗口 | 参与人数 | 粉丝触达 |\n|----------|----------|----------|\n"
+                md += _T(lang, "### Propagation Rhythm\n\n", "### 传播节奏\n\n")
+                md += _T(lang,
+                    "| Time window | Participants | Follower reach |\n|----------|----------|----------|\n",
+                    "| 时间窗口 | 参与人数 | 粉丝触达 |\n|----------|----------|----------|\n")
                 for bk, bv in rhythm.items():
                     md += f"| {bv.get('label', bk)} | {bv.get('count', 0)} | {bv.get('total_followers_reached', 0):,} |\n"
                 md += "\n"
 
     # Summary
-    md += "## 7. 综合评估\n\n"
+    md += _T(lang, "## 7. Overall Assessment\n\n", "## 7. 综合评估\n\n")
     for f in s["summary"]["findings"]:
         md += f"- {f}\n"
 
     # Growth Strategy
     gs = s.get("growth_strategy", {})
     if gs and not gs.get("error") and gs.get("primary"):
-        md += "\n## 8. 定制增长策略（Gingiris Playbook 推荐）\n\n"
-        md += "> 💡 **Gingiris Playbook 独家推荐** — 基于 Wayback 历史 + PH Launch + 社交传播的交叉分析自动匹配\n\n"
+        md += _T(lang,
+            "\n## 8. Custom Growth Strategy (Gingiris Playbook recommendation)\n\n> 💡 **Gingiris Playbook exclusive recommendation** — auto-matched from the cross analysis of Wayback history + PH launches + social propagation\n\n",
+            "\n## 8. 定制增长策略（Gingiris Playbook 推荐）\n\n> 💡 **Gingiris Playbook 独家推荐** — 基于 Wayback 历史 + PH Launch + 社交传播的交叉分析自动匹配\n\n")
         primary = gs["primary"]
         secondary = gs.get("secondary", [])
         gt = gs.get("growth_tools")
 
-        md += f"### {primary.get('emoji', '📘')} 主推：{primary.get('label', '')}\n\n"
+        md += _T(lang,
+            f"### {primary.get('emoji', '📘')} Primary: {primary.get('label', '')}\n\n",
+            f"### {primary.get('emoji', '📘')} 主推：{primary.get('label', '')}\n\n")
         md += f"> 👉 [{primary.get('label', '')}]({primary.get('url', '')})\n\n"
         md += f"{primary.get('description', '')}\n\n"
 
         reasons = primary.get("reasons", [])
         if reasons:
-            md += "**匹配原因**\n\n"
+            md += _T(lang, "**Why it matches**\n\n", "**匹配原因**\n\n")
             for r in reasons:
                 md += f"- ✓ {r}\n"
             md += "\n"
 
         tips = primary.get("custom_tips", [])
         if tips:
-            md += "**🎯 定制建议（基于竞品数据）**\n\n"
+            md += _T(lang,
+                "**🎯 Custom recommendations (based on the competitor data)**\n\n",
+                "**🎯 定制建议（基于竞品数据）**\n\n")
             for i, tip in enumerate(tips, 1):
                 md += f"{i}. {tip}\n"
             md += "\n"
 
         if secondary:
-            md += "### 辅助 Playbook\n\n"
+            md += _T(lang, "### Supporting Playbooks\n\n", "### 辅助 Playbook\n\n")
             for s_pb in secondary:
-                md += f"- {s_pb.get('emoji', '')} **{s_pb.get('label', '')}**：{s_pb.get('url', '')}\n"
+                md += f"- {s_pb.get('emoji', '')} **{s_pb.get('label', '')}**: {s_pb.get('url', '')}\n"
                 if s_pb.get("reasons"):
                     md += f"  - {s_pb['reasons'][0]}\n"
                 if s_pb.get("custom_tips"):
@@ -748,11 +909,15 @@ def report_to_markdown(report: dict) -> str:
             md += "\n"
 
         if gt:
-            md += f"### {gt.get('emoji', '🛠️')} 配套工具库\n\n"
+            md += _T(lang,
+                f"### {gt.get('emoji', '🛠️')} Companion Toolkit\n\n",
+                f"### {gt.get('emoji', '🛠️')} 配套工具库\n\n")
             md += f"> [{gt.get('label', '')}]({gt.get('url', '')})  \n"
             md += f"> {gt.get('description', '')}\n\n"
 
-    md += "\n---\n*报告由竞品调研工具自动生成，部分数据需手动验证。*\n"
+    md += _T(lang,
+        "\n---\n*Report auto-generated by the Analook competitor research tool; some data points need human verification.*\n",
+        "\n---\n*报告由竞品调研工具自动生成，部分数据需手动验证。*\n")
     return md
 
 
