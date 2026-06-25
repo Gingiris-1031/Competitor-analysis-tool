@@ -3,24 +3,34 @@ from datetime import datetime
 import json
 
 
-def generate_report(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict = None, ai_summary: dict = None, growth_deep: dict = None, traffic_peaks: dict = None, propagation: dict = None, growth_strategy: dict = None) -> dict:
+def _T(lang: str, en: str, zh: str) -> str:
+    """Tiny lang switcher — returns English when lang starts with 'en',
+    Chinese otherwise. Used by generate_report and its formatters so the
+    UI section titles and the auto-generated findings list match the
+    chosen report language (Iris 2026-06-25, TAAFT-style leakage audit).
+    """
+    return en if (lang or "").lower().startswith("en") else zh
+
+
+def generate_report(product_name: str, url: str, website: dict, social: dict, traffic: dict, producthunt: dict = None, ai_summary: dict = None, growth_deep: dict = None, traffic_peaks: dict = None, propagation: dict = None, growth_strategy: dict = None, lang: str = "zh") -> dict:
     report = {
         "meta": {
             "product_name": product_name,
             "url": url,
             "generated_at": datetime.now().isoformat(),
             "version": "MVP v0.5",
+            "lang": lang,
         },
         "sections": {
-            "website_analysis": _format_website(website),
-            "social_media": _format_social(social),
-            "traffic_analysis": _format_traffic(traffic),
+            "website_analysis": _format_website(website, lang=lang),
+            "social_media": _format_social(social, lang=lang),
+            "traffic_analysis": _format_traffic(traffic, lang=lang),
             "producthunt": producthunt or {},
             "ai_insights": ai_summary or {},
             "growth_analysis": growth_deep or {},
             "traffic_peaks": traffic_peaks or {},
             "propagation": propagation or {},
-            "summary": _generate_summary(product_name, website, social, traffic, producthunt),
+            "summary": _generate_summary(product_name, website, social, traffic, producthunt, lang=lang),
             "growth_strategy": growth_strategy or {},
         },
     }
@@ -29,10 +39,10 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
     return report
 
 
-def _format_website(data: dict) -> dict:
+def _format_website(data: dict, lang: str = "zh") -> dict:
     current = data.get("current_site", {})
     return {
-        "title": "官网演变分析",
+        "title": _T(lang, "Website Evolution Analysis", "官网演变分析"),
         "domain": data.get("domain", ""),
         "first_seen": data.get("first_seen", "N/A"),
         "total_snapshots": data.get("total_snapshots", 0),
@@ -42,9 +52,9 @@ def _format_website(data: dict) -> dict:
     }
 
 
-def _format_social(data: dict) -> dict:
+def _format_social(data: dict, lang: str = "zh") -> dict:
     return {
-        "title": "社交媒体渠道分析",
+        "title": _T(lang, "Social Media Channels", "社交媒体渠道分析"),
         "brand": data.get("brand", ""),
         "channels": data.get("channels", {}),
         "propagation_metrics": data.get("propagation_metrics", {}),
@@ -52,7 +62,7 @@ def _format_social(data: dict) -> dict:
     }
 
 
-def _format_traffic(data: dict) -> dict:
+def _format_traffic(data: dict, lang: str = "zh") -> dict:
     # DataForSEO returns backlinks as a nested dict
     # ({cost, backlinks: N, referring_domains, domain_rank, referring_ips, ...}).
     # SRT / flat callers return it as a scalar int. seo_metrics must expose
@@ -80,7 +90,7 @@ def _format_traffic(data: dict) -> dict:
         seo_metrics["referring_domains"] = _rd_count
 
     result = {
-        "title": "流量与 SEO 分析",
+        "title": _T(lang, "Traffic & SEO Analysis", "流量与 SEO 分析"),
         "source": "DataForSEO + SEO Review Tools",
         "domain_rank": data.get("domain_rank", {}),
         "backlinks": data.get("backlinks", {}),
@@ -95,58 +105,83 @@ def _format_traffic(data: dict) -> dict:
     return result
 
 
-def _generate_summary(name: str, website: dict, social: dict, traffic: dict, producthunt: dict = None) -> dict:
+def _generate_summary(name: str, website: dict, social: dict, traffic: dict, producthunt: dict = None, lang: str = "zh") -> dict:
     findings = []
     cs = website.get("current_site", {})
     features = cs.get("features", {})
-    
+
     if features.get("pricing"):
-        findings.append(f"✅ {name} 已有定价页面，产品已商业化")
+        findings.append(_T(lang,
+            f"✅ {name} has a pricing page — product is monetized",
+            f"✅ {name} 已有定价页面，产品已商业化"))
     if features.get("blog"):
-        findings.append("✅ 有博客/内容板块，内容营销已启动")
+        findings.append(_T(lang,
+            "✅ Has a blog / content section — content marketing in motion",
+            "✅ 有博客/内容板块，内容营销已启动"))
     if features.get("docs"):
-        findings.append("✅ 有文档站点，开发者体验完善")
+        findings.append(_T(lang,
+            "✅ Has a docs site — developer experience is taken seriously",
+            "✅ 有文档站点，开发者体验完善"))
     if features.get("trial") or features.get("demo"):
-        findings.append("✅ 有免费试用/Demo 入口")
+        findings.append(_T(lang,
+            "✅ Has a free trial / demo entry point",
+            "✅ 有免费试用/Demo 入口"))
     if features.get("logos"):
-        findings.append("✅ 有企业客户 Logo 墙，B2B 信任背书")
+        findings.append(_T(lang,
+            "✅ Customer logo wall present — B2B trust signal",
+            "✅ 有企业客户 Logo 墙，B2B 信任背书"))
     if not features.get("changelog"):
-        findings.append("⚠️ 未检测到 Changelog，建议关注产品迭代节奏")
-    
+        findings.append(_T(lang,
+            "⚠️ No changelog detected — keep an eye on shipping cadence",
+            "⚠️ 未检测到 Changelog，建议关注产品迭代节奏"))
+
     # Social
     channels = social.get("channels", {})
     detected = [k for k, v in channels.items() if v.get("detected")]
     manual_check = [k for k, v in channels.items() if v.get("detected") is None]
     not_found = [k for k, v in channels.items() if v.get("detected") is False]
-    
+
     if detected:
-        findings.append(f"📱 已确认渠道: {', '.join(detected)}")
+        findings.append(_T(lang,
+            f"📱 Confirmed channels: {', '.join(detected)}",
+            f"📱 已确认渠道: {', '.join(detected)}"))
     if not_found:
-        findings.append(f"❌ 未检测到: {', '.join(not_found)}")
+        findings.append(_T(lang,
+            f"❌ Not detected: {', '.join(not_found)}",
+            f"❌ 未检测到: {', '.join(not_found)}"))
     if manual_check:
-        findings.append(f"🔍 需手动确认: {', '.join(manual_check)}")
-    
+        findings.append(_T(lang,
+            f"🔍 Needs manual check: {', '.join(manual_check)}",
+            f"🔍 需手动确认: {', '.join(manual_check)}"))
+
     # Key changes
     changes = website.get("key_changes", [])
     if changes:
         latest = changes[-1] if changes else None
         if latest:
-            findings.append(f"📊 最近变化 ({latest['from_date']} → {latest['to_date']}): " + "; ".join(latest["changes"][:3]))
-    
+            change_list = "; ".join(latest["changes"][:3])
+            findings.append(_T(lang,
+                f"📊 Recent change ({latest['from_date']} → {latest['to_date']}): {change_list}",
+                f"📊 最近变化 ({latest['from_date']} → {latest['to_date']}): {change_list}"))
+
     # Product Hunt
     ph = producthunt or {}
     if ph.get("found"):
         findings.append(f"🏆 Product Hunt: {ph['launch_date']} launch, ⬆{ph['votes']} votes, 💬{ph['comments']} comments")
         if ph.get("reviews_rating"):
-            findings.append(f"⭐ PH 评分: {ph['reviews_rating']:.1f} ({ph.get('reviews_count', 0)} reviews)")
+            findings.append(_T(lang,
+                f"⭐ PH rating: {ph['reviews_rating']:.1f} ({ph.get('reviews_count', 0)} reviews)",
+                f"⭐ PH 评分: {ph['reviews_rating']:.1f} ({ph.get('reviews_count', 0)} reviews)"))
 
     # Social links on website
     social_on_site = cs.get("social_links", {})
     if social_on_site:
-        findings.append(f"🔗 官网社媒链接: {', '.join(social_on_site.keys())}")
-    
+        findings.append(_T(lang,
+            f"🔗 Social links on site: {', '.join(social_on_site.keys())}",
+            f"🔗 官网社媒链接: {', '.join(social_on_site.keys())}"))
+
     return {
-        "title": "综合评估",
+        "title": _T(lang, "Overall Assessment", "综合评估"),
         "findings": findings,
     }
 
