@@ -703,12 +703,24 @@ async def start_text_analysis(req: TextAnalyzeRequest, bg: BackgroundTasks, requ
 
     job_id = str(uuid.uuid4())[:8]
     name = (req.product_name or "产品").strip()
+    # Detect lang the same way /api/growth-audit does.
+    _req_lang = (getattr(req, "lang", "") or "").strip().lower()
+    if not _req_lang:
+        _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
+        if "/zh/" in _ref:
+            _req_lang = "zh"
+        else:
+            _al = (request.headers.get("accept-language") or "").lower()
+            _req_lang = "en" if _al.startswith("en") else "zh"
+    if _req_lang not in ("en", "zh"):
+        _req_lang = "zh"
     jobs[job_id] = {
         "status": "running",
         "product_name": name,
         "url": "—",
         "mode": "text",
         "user_id": user["id"] if user else None,
+        "lang": _req_lang,
         "cancelled": False,
         "progress": {
             "website": "done",
@@ -752,12 +764,20 @@ async def start_pdf_analysis(
     if not text.strip():
         return JSONResponse({"error": "PDF 内容为空，无法解析"}, status_code=400)
 
+    # Detect lang from Referer / Accept-Language for the PDF flow (no body lang).
+    _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
+    if "/zh/" in _ref:
+        _req_lang = "zh"
+    else:
+        _al = (request.headers.get("accept-language") or "").lower()
+        _req_lang = "en" if _al.startswith("en") else "zh"
     jobs[job_id] = {
         "status": "running",
         "product_name": name,
         "url": "—",
         "mode": "pdf",
         "user_id": user["id"] if user else None,
+        "lang": _req_lang,
         "cancelled": False,
         "progress": {
             "website": "done",
@@ -1676,19 +1696,29 @@ async def _run_analysis_with_timeout(job_id: str):
                 url = job["url"]
                 try:
                     from modules.report import generate_report, report_to_markdown
+                    _lang = (job.get("lang") or "zh").lower()
+                    _timeout_note = (
+                        "⏱️ Analysis timed out; this module did not complete."
+                        if _lang.startswith("en")
+                        else "⏱️ 分析超时，此模块未能完成。"
+                    )
                     report = generate_report(
                         product_name, url,
                         job["results"].get("website", {}),
                         job["results"].get("social", {}),
                         job["results"].get("traffic", {}),
                         job["results"].get("producthunt", {}),
-                        job["results"].get("ai_summary", {"success": False, "content": "⏱️ 分析超时，此模块未能完成。", "source": "timeout"}),
+                        job["results"].get("ai_summary", {"success": False, "content": _timeout_note, "source": "timeout"}),
+                        lang=_lang,
                     )
                     job["report"] = report
                     job["markdown"] = report_to_markdown(report)
                 except Exception:
                     job["report"] = {"meta": {"product_name": product_name, "url": url, "note": "partial"}, "sections": job["results"]}
-                    job["markdown"] = f"# {product_name} 竞品调研报告（部分）\n\n> 分析超时，以下为已完成模块的数据。\n"
+                    if (job.get("lang") or "").lower().startswith("en"):
+                        job["markdown"] = f"# {product_name} Competitor Research Report (Partial)\n\n> Analysis timed out; the data below is for the modules that completed.\n"
+                    else:
+                        job["markdown"] = f"# {product_name} 竞品调研报告（部分）\n\n> 分析超时，以下为已完成模块的数据。\n"
             _persist_report(job_id, job)
 
 
@@ -2096,6 +2126,7 @@ async def _run_analysis(job_id: str):
     # ================================================================
     job["progress"]["report"] = "running"
     try:
+        _lang = (job.get("lang") or "zh").lower()
         report = generate_report(
             product_name, url,
             job["results"].get("website", {}),
@@ -2106,6 +2137,7 @@ async def _run_analysis(job_id: str):
             growth_deep=job["results"].get("growth_analysis", {}),
             traffic_peaks=job["results"].get("traffic_peaks", {}),
             propagation=job["results"].get("propagation", {}),
+            lang=_lang,
         )
 
         growth_strategy = job["results"].get("growth_strategy", {})
@@ -2124,7 +2156,10 @@ async def _run_analysis(job_id: str):
         try:
             job["markdown"] = report_to_markdown(report)
         except Exception:
-            job["markdown"] = f"# {product_name} 竞品调研报告\n\n> Markdown 导出出错，请查看在线报告。\n"
+            if _lang.startswith("en"):
+                job["markdown"] = f"# {product_name} Competitor Research Report\n\n> Markdown export failed; view the online report instead.\n"
+            else:
+                job["markdown"] = f"# {product_name} 竞品调研报告\n\n> Markdown 导出出错，请查看在线报告。\n"
         job["progress"]["report"] = "done"
     except Exception as e:
         job["progress"]["report"] = "error"
@@ -2143,7 +2178,7 @@ async def _run_text_analysis(job_id: str, text: str):
     product_name = job["product_name"]
     job["progress"]["report"] = "running"
     try:
-        ai = await generate_ai_summary_from_text(product_name, text)
+        ai = await generate_ai_summary_from_text(product_name, text, lang=(job.get("lang") or "zh"))
         job["results"]["ai_summary"] = ai
 
         report = {
