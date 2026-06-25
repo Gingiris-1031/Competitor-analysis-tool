@@ -2112,7 +2112,20 @@ async def _discover_reddit_channels(categories: list, hints: dict, k: int = 3) -
     return final
 
 
-def _render_reddit_section(reddit_data: list, hints: dict) -> str:
+def _T(lang: str, en: str, zh: str) -> str:
+    """Tiny inline translator — returns English when lang starts with 'en',
+    Chinese otherwise. Used by all section-render functions below so the
+    appended Skills/Reddit/KOL/Matrix blocks match the LLM-flow language.
+
+    Iris 2026-06-25: TAAFT rejected the site for CJK leakage on EN pages.
+    The static pages were the obvious issue, but the dynamic audit reports
+    were appending these sections in Chinese regardless of EN/ZH flow,
+    causing TAAFT-style leakage inside the report body too.
+    """
+    return en if (lang or "").lower().startswith("en") else zh
+
+
+def _render_reddit_section(reddit_data: list, hints: dict, lang: str = "zh") -> str:
     """Format the Reddit channel data as a Markdown section. Skips
     rendering for clearly sales-led products where Reddit isn't a
     primary channel (matches existing _strip_forbidden_channel_tasks
@@ -2122,10 +2135,16 @@ def _render_reddit_section(reddit_data: list, hints: dict) -> str:
         return ""
     lines = [
         "",
-        "## 📣 推荐 Reddit 渠道（真实 sub + top contributor，近 30 天数据）",
+        _T(lang,
+           "## 📣 Recommended Reddit Channels (real subs + top contributors, last 30 days)",
+           "## 📣 推荐 Reddit 渠道（真实 sub + top contributor，近 30 天数据）"),
         "",
-        "下面 sub 是用 Reddit 公开 JSON API 实时抓的，订阅数 / 月度 top 帖 / "
-        "活跃 contributor 都来自 reddit.com 当前数据。直接点链接看人和帖。",
+        _T(lang,
+           "The subs below were pulled live from Reddit's public JSON API. Subscriber counts, "
+           "monthly top posts, and active contributors all reflect current reddit.com data. "
+           "Click through to see the people and the posts directly.",
+           "下面 sub 是用 Reddit 公开 JSON API 实时抓的，订阅数 / 月度 top 帖 / "
+           "活跃 contributor 都来自 reddit.com 当前数据。直接点链接看人和帖。"),
         "",
     ]
     for sub in reddit_data:
@@ -2144,9 +2163,13 @@ def _render_reddit_section(reddit_data: list, hints: dict) -> str:
             lines.append(f"> {sub['description']}")
             lines.append("")
         if sub.get("top_posts"):
-            lines.append("**Top 帖（Google 索引近期高质量讨论）：**")
+            lines.append(_T(lang,
+                "**Top posts (recent high-quality discussions, Google-indexed):**",
+                "**Top 帖（Google 索引近期高质量讨论）：**"))
             lines.append("")
-            lines.append("| 标题 | ↑Score | 作者 |")
+            lines.append(_T(lang,
+                "| Title | ↑Score | Author |",
+                "| 标题 | ↑Score | 作者 |"))
             lines.append("| --- | --- | --- |")
             for p in sub["top_posts"]:
                 title = (p["title"] or "?").replace("|", "\\|")
@@ -2163,20 +2186,27 @@ def _render_reddit_section(reddit_data: list, hints: dict) -> str:
         if sub.get("top_contributors"):
             tc_strs = []
             for c in sub["top_contributors"]:
+                post_word = _T(lang, "posts", "帖")
                 tc_strs.append(
                     f"[u/{c['author']}](https://reddit.com/user/{c['author']}) "
-                    f"({c['posts_in_sample']} 帖, {c['total_score']:,}↑)"
+                    f"({c['posts_in_sample']} {post_word}, {c['total_score']:,}↑)"
                 )
-            lines.append("**Top 30 天 contributor**：" + " · ".join(tc_strs))
+            label = _T(lang, "**Top 30-day contributors**: ", "**Top 30 天 contributor**：")
+            lines.append(label + " · ".join(tc_strs))
             lines.append("")
-    lines.append("**怎么用**：先看 top 帖标题的 framing pattern → 模仿写自己的；"
-                 "DM top contributor 提议合作前先在他们近 5 个帖底下留**有质量评论**养感情。"
-                 "参照 `gingiris-reddit-marketing` 的 20-day karma warmup SOP。")
+    lines.append(_T(lang,
+        "**How to use**: first study the framing patterns in the top-post titles → mirror them "
+        "when you write your own. Before DM-ing top contributors with a collab pitch, leave "
+        "**high-quality comments** on their last 5 posts to build rapport. See the 20-day karma "
+        "warmup SOP in `gingiris-reddit-marketing`.",
+        "**怎么用**：先看 top 帖标题的 framing pattern → 模仿写自己的；"
+        "DM top contributor 提议合作前先在他们近 5 个帖底下留**有质量评论**养感情。"
+        "参照 `gingiris-reddit-marketing` 的 20-day karma warmup SOP。"))
     lines.append("")
     return "\n".join(lines)
 
 
-def _build_reddit_context_for_llm(reddit_data: list) -> str:
+def _build_reddit_context_for_llm(reddit_data: list, lang: str = "zh") -> str:
     """Compact context block fed into the Action Plan LLM prompt so it
     can cite real subs + real top posters in W3 task descriptions.
     """
@@ -2184,7 +2214,10 @@ def _build_reddit_context_for_llm(reddit_data: list) -> str:
         return ""
     lines = [
         "",
-        "# REDDIT_REAL_CHANNELS (此段为程序抓取的真实 Reddit 数据，必须直接引用 sub 名和 contributor 名)",
+        _T(lang,
+           "# REDDIT_REAL_CHANNELS (this block is real Reddit data scraped by the program; "
+           "you MUST cite these exact sub names and contributor handles in the W3 Reddit tasks)",
+           "# REDDIT_REAL_CHANNELS (此段为程序抓取的真实 Reddit 数据，必须直接引用 sub 名和 contributor 名)"),
         "",
     ]
     for sub in reddit_data:
@@ -2211,33 +2244,52 @@ def _build_reddit_context_for_llm(reddit_data: list) -> str:
                 title = (p.get("title") or "(no title)")[:120]
                 lines.append(f"  - \"{title}\" ({score_str}↑)")
     lines.append("")
-    lines.append("🚨 在 W3 Reddit 任务里**必须**引用上面的真实 sub 名 + "
-                 "至少 1 个真实 top contributor 用户名 + "
-                 "至少 1 个真实 top 帖的 framing 模式作为参考。")
+    lines.append(_T(lang,
+        "🚨 In the W3 Reddit tasks you MUST cite the exact sub names listed above + "
+        "at least 1 real top-contributor handle + at least 1 real top-post framing pattern "
+        "as a reference. Do not invent sub names or handles.",
+        "🚨 在 W3 Reddit 任务里**必须**引用上面的真实 sub 名 + "
+        "至少 1 个真实 top contributor 用户名 + "
+        "至少 1 个真实 top 帖的 framing 模式作为参考。"))
     lines.append("")
     return "\n".join(lines)
 
 
-def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
+def _render_real_kol_section(kols: list, hints: dict, categories: list, lang: str = "zh") -> str:
     """Format the KOL candidates as a Markdown section to embed in Action Plan."""
     if not kols:
         return ""
-    incentive = (
-        "**B2B 适用 incentive**:免费 POC + 联合发布行业案例研究(不要给"
-        "\"3 个月免费 Pro\",对 enterprise 买家无吸引力)。"
-        if hints.get("is_sales_led") else
-        "**适用 incentive**:3 个月免费 Pro 计划 + 独家 API key + 一次 1:1 onboarding,"
-        "邀请撰写真实评测或制作教程视频。"
-    )
-    cats_str = "、".join(categories[:3]) if categories else "你的产品"
+    if hints.get("is_sales_led"):
+        incentive = _T(lang,
+            "**B2B incentive**: free PoC + co-published industry case study "
+            "(don't offer \"3 months free Pro\" — it doesn't move enterprise buyers).",
+            "**B2B 适用 incentive**:免费 POC + 联合发布行业案例研究(不要给"
+            "\"3 个月免费 Pro\",对 enterprise 买家无吸引力)。")
+    else:
+        incentive = _T(lang,
+            "**Incentive that fits**: 3 months free Pro plan + exclusive API key + a 1:1 "
+            "onboarding session, in exchange for an honest review or a tutorial video.",
+            "**适用 incentive**:3 个月免费 Pro 计划 + 独家 API key + 一次 1:1 onboarding,"
+            "邀请撰写真实评测或制作教程视频。")
+    cats_sep = _T(lang, ", ", "、")
+    fallback_cat = _T(lang, "your product", "你的产品")
+    cats_str = cats_sep.join(categories[:3]) if categories else fallback_cat
     lines = [
         "",
-        "## 🎯 真实 KOL 候选名单(程序刚抓取,可立即外联)",
+        _T(lang,
+           "## 🎯 Real KOL candidates (live-scraped, ready to reach out)",
+           "## 🎯 真实 KOL 候选名单(程序刚抓取,可立即外联)"),
         "",
-        f"基于 **{cats_str}** 类目,从 Brave Search 实时抓取 {len(kols)} "
-        f"位活跃发布者。**这些是真实账号 - 不是 LLM 编的**,可立即过滤 / 邀约。",
+        _T(lang,
+           f"Based on the **{cats_str}** categories, we live-scraped {len(kols)} active "
+           f"publishers via Brave Search. **These are real accounts — not LLM-invented** — "
+           f"and can be filtered / reached out to immediately.",
+           f"基于 **{cats_str}** 类目,从 Brave Search 实时抓取 {len(kols)} "
+           f"位活跃发布者。**这些是真实账号 - 不是 LLM 编的**,可立即过滤 / 邀约。"),
         "",
-        "| # | 平台 | Handle | Bio 片段 |",
+        _T(lang,
+           "| # | Platform | Handle | Bio excerpt |",
+           "| # | 平台 | Handle | Bio 片段 |"),
         "| - | - | - | - |",
     ]
     for i, k in enumerate(kols, 1):
@@ -2248,7 +2300,9 @@ def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
         lines.append(f"| {i} | {k['platform']} | {link} | {bio} |")
     lines.extend([
         "",
-        "### 外联模板(点击 handle 进行人工筛选后使用)",
+        _T(lang,
+           "### Outreach template (use after a manual filter pass on the handles)",
+           "### 外联模板(点击 handle 进行人工筛选后使用)"),
         "",
         incentive,
         "",
@@ -2256,7 +2310,7 @@ def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
         "Hi [first name],",
         "",
         "I'm Iris from [Your product]. I've been following your work on "
-        f"{cats_str.split('、')[0]}, particularly your recent post on [SPECIFIC POST].",
+        f"{cats_str.split(cats_sep)[0]}, particularly your recent post on [SPECIFIC POST].",
         "",
         "Quick context: we're [1-line value prop]. We've shipped to "
         "[2-3 known customers if any].",
@@ -2272,9 +2326,14 @@ def _render_real_kol_section(kols: list, hints: dict, categories: list) -> str:
         "Open to a 15-min chat next week?",
         "```",
         "",
-        "**注意**:以上是 Brave Search 在 Twitter/LinkedIn 公开页找到的发布者。"
-        "**真实 fit / 影响力需人工核实**:粉丝数、近期发布频率、bio 与产品契合度。"
-        "本表是去除『找 KOL』工作量,**不是 endorsement**。",
+        _T(lang,
+           "**Note**: the publishers above were found on public Twitter/LinkedIn pages via "
+           "Brave Search. **Real fit and reach must be human-verified**: follower counts, "
+           "recent posting cadence, bio-to-product fit. This table removes the find-the-KOL "
+           "grunt work — it is **not an endorsement**.",
+           "**注意**:以上是 Brave Search 在 Twitter/LinkedIn 公开页找到的发布者。"
+           "**真实 fit / 影响力需人工核实**:粉丝数、近期发布频率、bio 与产品契合度。"
+           "本表是去除『找 KOL』工作量,**不是 endorsement**。"),
     ])
     return "\n".join(lines)
 
@@ -2362,7 +2421,7 @@ def _pick_skills_for_product_type(hints: dict) -> list:
 # ─── Deterministic Action Matrix ──────────────────────────────────────────────
 
 
-def _render_action_matrix(hints: dict, level: int = 2) -> str:
+def _render_action_matrix(hints: dict, level: int = 2, lang: str = "zh") -> str:
     """Render a Week-by-Week × Channel × Tactic matrix grounded in real
     skill tactics. Forces multi-channel coverage - fixes Iris's
     'reports too SEO-only' complaint.
@@ -2374,12 +2433,20 @@ def _render_action_matrix(hints: dict, level: int = 2) -> str:
     h = "#" * level
     sub_h = "#" * (level + 1)
     lines = [
-        f"{h} 🎯 30 天 Channel × Tactic 执行矩阵",
+        _T(lang,
+           f"{h} 🎯 30-Day Channel × Tactic Execution Matrix",
+           f"{h} 🎯 30 天 Channel × Tactic 执行矩阵"),
         "",
-        "下面是把每个 finding 落到 **具体渠道 × 具体战术** 的可执行表。每条都引自上方"
-        "匹配 skill 的真实战术 SOP(不是 LLM 拍脑袋),带 benchmark 数据可对照。",
+        _T(lang,
+           "Below is the table that maps each finding to a **specific channel × specific tactic** "
+           "you can act on. Every row is drawn from the real tactical SOP of a matched skill (not "
+           "LLM guesswork), with benchmark data attached for ground-truth comparison.",
+           "下面是把每个 finding 落到 **具体渠道 × 具体战术** 的可执行表。每条都引自上方"
+           "匹配 skill 的真实战术 SOP(不是 LLM 拍脑袋),带 benchmark 数据可对照。"),
         "",
-        "| Week | 渠道 | 具体战术 | 来源 Skill | Benchmark |",
+        _T(lang,
+           "| Week | Channel | Tactic | Source Skill | Benchmark |",
+           "| Week | 渠道 | 具体战术 | 来源 Skill | Benchmark |"),
         "| --- | --- | --- | --- | --- |",
     ]
 
@@ -2426,17 +2493,31 @@ def _render_action_matrix(hints: dict, level: int = 2) -> str:
     lines.extend(matrix_rows)
     lines.extend([
         "",
-        f"{sub_h} 📌 如何使用这张矩阵",
+        _T(lang,
+           f"{sub_h} 📌 How to use this matrix",
+           f"{sub_h} 📌 如何使用这张矩阵"),
         "",
-        "1. **按周倒入日历** - 把每行的 \"Week + 渠道 + 战术\" 直接当成 calendar event 排进去",
-        "2. **每周 retro** - week 末对照 Benchmark 列查实际数据;落后 50% 砍掉换下一周战术",
-        "3. **不要全部一次开** - 同一周最多并行 3 个渠道,否则没人盯得过来",
-        "4. **改 channel 不改 skill** - 渠道选完再装对应 skill 当 agent 上下文,让 AI 帮你执行细节",
+        _T(lang,
+           "1. **Drop into calendar by week** — each row's \"Week + Channel + Tactic\" "
+           "can go straight into your calendar as an event.",
+           "1. **按周倒入日历** - 把每行的 \"Week + 渠道 + 战术\" 直接当成 calendar event 排进去"),
+        _T(lang,
+           "2. **Weekly retro** — at end-of-week, check actuals against the Benchmark column. "
+           "If you're below 50% of benchmark, cut that tactic and pick the next one.",
+           "2. **每周 retro** - week 末对照 Benchmark 列查实际数据;落后 50% 砍掉换下一周战术"),
+        _T(lang,
+           "3. **Don't open them all at once** — max 3 channels in parallel per week, "
+           "otherwise nobody can actually keep track.",
+           "3. **不要全部一次开** - 同一周最多并行 3 个渠道,否则没人盯得过来"),
+        _T(lang,
+           "4. **Switch channels, not skills** — once you've picked the channel, install the "
+           "corresponding skill as agent context and let AI handle the execution details.",
+           "4. **改 channel 不改 skill** - 渠道选完再装对应 skill 当 agent 上下文,让 AI 帮你执行细节"),
     ])
     return "\n".join(lines)
 
 
-def _render_playbook_section(hints: dict, level: int = 2) -> str:
+def _render_playbook_section(hints: dict, level: int = 2, lang: str = "zh") -> str:
     """Render the canonical 'Gingiris Playbook' section, using REAL skills only.
 
     `level` controls heading depth (2 = ## , 3 = ###). The section is a
@@ -2446,15 +2527,25 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
     skills = _pick_skills_for_product_type(hints)
     h = "#" * level
     sub_h = "#" * (level + 1)
+    product_type = hints.get('product_type', _T(lang, 'Unknown', '未知'))
     lines = [
-        f"{h} 📚 匹配的 Gingiris Skills(由产品类型自动匹配)",
+        _T(lang,
+           f"{h} 📚 Matched Gingiris Skills (auto-matched by product type)",
+           f"{h} 📚 匹配的 Gingiris Skills(由产品类型自动匹配)"),
         "",
-        f"基于程序判定的产品类型 **{hints.get('product_type', '未知')}**,"
-        f"为你匹配以下来自 [Hugging Face @Gingiris](https://huggingface.co/Gingiris) "
-        f"的真实 skill datasets(43 个发布中)。每个 skill 都已经在线上验证过;"
-        f"下方安装命令可直接执行。",
+        _T(lang,
+           f"Based on the programmatically detected product type **{product_type}**, "
+           f"we matched the following real skill datasets from "
+           f"[Hugging Face @Gingiris](https://huggingface.co/Gingiris) (43 published). "
+           f"Each skill is production-verified; the install commands below run as-is.",
+           f"基于程序判定的产品类型 **{product_type}**,"
+           f"为你匹配以下来自 [Hugging Face @Gingiris](https://huggingface.co/Gingiris) "
+           f"的真实 skill datasets(43 个发布中)。每个 skill 都已经在线上验证过;"
+           f"下方安装命令可直接执行。"),
         "",
-        "| Skill | 适用场景 | HuggingFace |",
+        _T(lang,
+           "| Skill | Best for | HuggingFace |",
+           "| Skill | 适用场景 | HuggingFace |"),
         "| --- | --- | --- |",
     ]
     for slug in skills:
@@ -2471,12 +2562,19 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
     batch_slugs = " ".join(skills)
     lines.extend([
         "",
-        f"{sub_h} 📦 安装",
+        _T(lang,
+           f"{sub_h} 📦 Install",
+           f"{sub_h} 📦 安装"),
         "",
-        "Skills 是 SKILL.md 文件,可在 Claude Code / Cursor / Gemini CLI 等 "
-        "AI agent IDE 里使用。下面 `<SLUG>` 替换成上方表格里的 slug 即可。",
+        _T(lang,
+           "Skills are SKILL.md files; they work in Claude Code / Cursor / Gemini CLI and "
+           "other AI-agent IDEs. Replace `<SLUG>` with one from the table above.",
+           "Skills 是 SKILL.md 文件,可在 Claude Code / Cursor / Gemini CLI 等 "
+           "AI agent IDE 里使用。下面 `<SLUG>` 替换成上方表格里的 slug 即可。"),
         "",
-        "**方法 A - 一键批量装全部(推荐)**",
+        _T(lang,
+           "**Method A — install all at once (recommended)**",
+           "**方法 A - 一键批量装全部(推荐)**"),
         "",
         "```bash",
         "mkdir -p ~/.claude/skills",
@@ -2484,22 +2582,35 @@ def _render_playbook_section(hints: dict, level: int = 2) -> str:
         '  git clone "https://huggingface.co/datasets/Gingiris/$s" \\',
         '    "$HOME/.claude/skills/$s"',
         "done",
-        "# 重启 Claude Code 即生效",
+        _T(lang,
+           "# restart Claude Code and they activate",
+           "# 重启 Claude Code 即生效"),
         "```",
         "",
-        "**方法 B - 单装 1 个**",
+        _T(lang,
+           "**Method B — install a single skill**",
+           "**方法 B - 单装 1 个**"),
         "",
         "```bash",
         "git clone https://huggingface.co/datasets/Gingiris/<SLUG> \\",
         "  ~/.claude/skills/<SLUG>",
         "```",
         "",
-        "**方法 C - 其他 IDE / 浏览器读**",
+        _T(lang,
+           "**Method C — other IDEs / read in browser**",
+           "**方法 C - 其他 IDE / 浏览器读**"),
         "",
-        "- Cursor / Gemini CLI: `huggingface-cli download Gingiris/<SLUG> --repo-type dataset --local-dir ./.cursor/rules/<SLUG>`(先 `pip install -U huggingface_hub`)",
-        "- 在线读: <https://huggingface.co/datasets/Gingiris/><SLUG> 或 <https://gingiris.tools/skills>",
+        _T(lang,
+           "- Cursor / Gemini CLI: `huggingface-cli download Gingiris/<SLUG> --repo-type dataset --local-dir ./.cursor/rules/<SLUG>` (first `pip install -U huggingface_hub`)",
+           "- Cursor / Gemini CLI: `huggingface-cli download Gingiris/<SLUG> --repo-type dataset --local-dir ./.cursor/rules/<SLUG>`(先 `pip install -U huggingface_hub`)"),
+        _T(lang,
+           "- Read online: <https://huggingface.co/datasets/Gingiris/><SLUG> or <https://gingiris.tools/skills>",
+           "- 在线读: <https://huggingface.co/datasets/Gingiris/><SLUG> 或 <https://gingiris.tools/skills>"),
         "",
-        "**触发**:装好后在 AI agent 对话里描述场景(例如 \"我们要做 launch\"),agent 自动加载对应 skill 作上下文。",
+        _T(lang,
+           "**Trigger**: after install, describe the scenario in your AI-agent chat "
+           "(e.g. \"we're prepping a launch\") and the agent auto-loads the matching skill as context.",
+           "**触发**:装好后在 AI agent 对话里描述场景(例如 \"我们要做 launch\"),agent 自动加载对应 skill 作上下文。"),
     ])
     return "\n".join(lines)
 
@@ -2523,7 +2634,7 @@ _PLAYBOOK_SECTION_PATTERNS = [
 ]
 
 
-def _replace_playbook_section(md: str, hints: dict, *, heading_level: int = 2) -> str:
+def _replace_playbook_section(md: str, hints: dict, *, heading_level: int = 2, lang: str = "zh") -> str:
     """Find any LLM-generated Gingiris Playbook / Skills section and replace
     it wholesale with the deterministic version built from the real registry.
 
@@ -2535,7 +2646,7 @@ def _replace_playbook_section(md: str, hints: dict, *, heading_level: int = 2) -
     """
     if not md:
         return md
-    replacement = _render_playbook_section(hints, level=heading_level)
+    replacement = _render_playbook_section(hints, level=heading_level, lang=lang)
     replaced = False
     out = md
     # IMPORTANT: run ALL patterns sequentially (don't break on first match).
@@ -2758,7 +2869,7 @@ async def generate_action_plan(
     # via the LLM, just without the per-sub injection. Skills + tactics
     # cheatsheet are still in the system prompt regardless.
     try:
-        reddit_block = _build_reddit_context_for_llm(reddit_data or [])
+        reddit_block = _build_reddit_context_for_llm(reddit_data or [], lang=lang)
     except Exception as _e:
         import traceback as _tb
         log.error("Reddit context build failed (skipping injection): %s\n%s",
@@ -2957,14 +3068,28 @@ def _lang_instruction(lang: str) -> str:
             "but your ENTIRE response MUST be in fluent natural English. Treat the Chinese as a "
             "TRANSLATION TARGET — read each Chinese section heading and instruction, then OUTPUT "
             "the English equivalent. Do NOT echo any Chinese characters in your response.\n\n"
+            "🚫 SPECIFIC ANTI-PATTERN — DO NOT QUOTE CHINESE VERBATIM:\n"
+            "It's tempting to copy Chinese phrases from the instructions, examples, or skill SOPs "
+            "and wrap them in quotes (\"The system notes: '可能 /pricing.html 存在'\"). "
+            "Iris 2026-06-25 verified this leak is the #1 cause of CJK characters showing up in "
+            "EN reports — even when the surrounding prose is otherwise correct English. "
+            "RULE: if a Chinese phrase appears in the prompt that you want to cite or paraphrase, "
+            "TRANSLATE it to English inside your quote. Never wrap Chinese text in quotation marks "
+            "and pass it through.\n"
+            "  WRONG:  The system notes: \"可能 /pricing.html 存在但 /pricing 无扩展名版本未配置\"\n"
+            "  RIGHT:  The system notes: \"/pricing.html may exist but /pricing (no extension) is not configured\"\n\n"
             "Examples of required translation:\n"
             "  '## 一、产品定位与目标用户' → '## 1. Product Positioning & ICP'\n"
             "  '执行摘要' → 'Executive Summary'\n"
             "  '诊断报告' → 'Diagnosis Report'\n"
             "  '30 天行动计划' → '30-Day Action Plan'\n"
             "  '增长策略' → 'Growth Strategy'\n"
-            "  '渠道' → 'Channel'\n\n"
-            "If you find yourself about to write a Chinese phrase, translate it to English first.\n\n"
+            "  '渠道' → 'Channel'\n"
+            "  '匹配的 Gingiris Skills' → 'Matched Gingiris Skills'\n"
+            "  '推荐 Reddit 渠道' → 'Recommended Reddit Channels'\n\n"
+            "If you find yourself about to write a Chinese phrase, translate it to English first. "
+            "If you find yourself about to quote Chinese in your output, translate the quoted "
+            "content to English first.\n\n"
         )
     return ""  # zh / default — original prompts are Chinese
 
@@ -2976,7 +3101,12 @@ def _lang_tail(lang: str) -> str:
             "\n\n🌐 FINAL LANGUAGE REINFORCEMENT: This is your last reminder. Your ENTIRE "
             "output, including ALL headings, bullets, table cells, and any inline citations, "
             "must be in fluent natural English with no Chinese characters whatsoever. "
-            "Do not echo any Chinese phrase from the instructions above."
+            "Do not echo any Chinese phrase from the instructions above, even inside quotation "
+            "marks or code blocks (translate the inner content to English first). If you are "
+            "about to write a sentence that contains 中文 of any kind, STOP, translate the "
+            "Chinese fragment to English, and then continue. The output is being scanned by an "
+            "automated reviewer that will reject any Chinese character (including 一-鿿, "
+            "Chinese punctuation, and fullwidth forms like ＋)."
         )
     return ""
 
@@ -3022,7 +3152,9 @@ async def run_growth_audit(
     site_data = await fetch_site_with_tinyfish(url)
     if site_data.get("error"):
         _update("fetch", "failed")
-        return {"error": f"网站抓取失败: {site_data['error']}"}
+        return {"error": _T(lang,
+            f"Site fetch failed: {site_data['error']}",
+            f"网站抓取失败: {site_data['error']}")}
     _update("fetch", "done")
 
     # Step 2: Sequential pipeline - Diagnosis → Action Plan → Executive Summary.
@@ -3055,7 +3187,7 @@ async def run_growth_audit(
         # built from the real 40-skill registry.
         hints_for_diag = detect_product_type(site_data)
         diag_md = _scrub_absence_phrases(diag_result["content"])
-        diag_md = _replace_playbook_section(diag_md, hints_for_diag, heading_level=2)
+        diag_md = _replace_playbook_section(diag_md, hints_for_diag, heading_level=2, lang=lang)
         reports["diagnosis_report"] = diag_md
         sources["diag"] = diag_result.get("source", "?")
         _emit("diagnosis_report", diag_md)  # stream it now - ~50% mark
@@ -3070,7 +3202,9 @@ async def run_growth_audit(
             "url": url,
             "reports": reports,
             "source": sources,
-            "error": "Diagnosis 阶段失败,已中止 pipeline(防止下游报告 hallucinate)",
+            "error": _T(lang,
+                "Diagnosis stage failed; pipeline aborted to prevent downstream reports from hallucinating.",
+                "Diagnosis 阶段失败,已中止 pipeline(防止下游报告 hallucinate)"),
         }
 
     # Phase 2 - UX FIX: Action Plan + Executive Summary run in PARALLEL.
@@ -3123,7 +3257,7 @@ async def run_growth_audit(
         exec_result = e
     if isinstance(exec_result, dict) and exec_result.get("success"):
         exec_md = _scrub_absence_phrases(exec_result["content"])
-        exec_md = _replace_playbook_section(exec_md, hints, heading_level=2)
+        exec_md = _replace_playbook_section(exec_md, hints, heading_level=2, lang=lang)
         reports["executive_summary"] = exec_md
         sources["exec"] = exec_result.get("source", "?")
         _emit("executive_summary", exec_md)
@@ -3131,6 +3265,16 @@ async def run_growth_audit(
     else:
         _update("executive_summary", "failed")
         log.error("Executive Summary generation failed: %s", exec_result)
+
+    # The anchor for "Gingiris Skills" section depends on lang — the EN
+    # variant uses an English heading, the ZH variant uses the historical
+    # Chinese heading. Use _find_skills_anchor() so the matrix/reddit/kol
+    # sections insert BEFORE it regardless of language.
+    def _find_skills_anchor(md: str) -> str:
+        for a in ("## 📚 Matched Gingiris Skills", "## 📚 匹配的 Gingiris Skills"):
+            if a in md:
+                return a
+        return ""
 
     # ── Process Action Plan (longer - finishes last) ─────────────────────
     try:
@@ -3140,16 +3284,16 @@ async def run_growth_audit(
     if isinstance(plan_result, dict) and plan_result.get("success"):
         plan_md = _scrub_absence_phrases(plan_result["content"])
         plan_md = _strip_forbidden_channel_tasks(plan_md, hints)
-        plan_md = _replace_playbook_section(plan_md, hints, heading_level=2)
+        plan_md = _replace_playbook_section(plan_md, hints, heading_level=2, lang=lang)
         # Inject the deterministic Week × Channel × Tactic matrix RIGHT
         # BEFORE the Gingiris Skills section. This is the fix for Iris's
         # "reports too SEO-only / channels too limited" complaint -
         # programmatically forces multi-channel coverage drawn from real
         # skill tactics with real benchmarks, instead of trusting the LLM
         # to remember to span Reddit/Twitter/KOL/UGC/etc.
-        matrix_md = _render_action_matrix(hints, level=2)
-        anchor = "## 📚 匹配的 Gingiris Skills"
-        if anchor in plan_md:
+        matrix_md = _render_action_matrix(hints, level=2, lang=lang)
+        anchor = _find_skills_anchor(plan_md)
+        if anchor:
             plan_md = plan_md.replace(anchor, matrix_md + "\n\n" + anchor, 1)
         else:
             plan_md = plan_md.rstrip() + "\n\n" + matrix_md + "\n"
@@ -3162,17 +3306,17 @@ async def run_growth_audit(
             log.warning("KOL discovery aborted: %s", e)
             kols = []
         # Render the real Reddit channel section using data already in hand.
-        reddit_section = _render_reddit_section(reddit_data, hints)
+        reddit_section = _render_reddit_section(reddit_data, hints, lang=lang)
         if reddit_section:
-            anchor = "## 📚 匹配的 Gingiris Skills"
-            if anchor in plan_md:
+            anchor = _find_skills_anchor(plan_md)
+            if anchor:
                 plan_md = plan_md.replace(anchor, reddit_section + "\n\n" + anchor, 1)
             else:
                 plan_md = plan_md.rstrip() + "\n" + reddit_section + "\n"
-        kol_section = _render_real_kol_section(kols, hints, categories)
+        kol_section = _render_real_kol_section(kols, hints, categories, lang=lang)
         if kol_section:
-            anchor = "## 📚 匹配的 Gingiris Skills"
-            if anchor in plan_md:
+            anchor = _find_skills_anchor(plan_md)
+            if anchor:
                 plan_md = plan_md.replace(anchor, kol_section + "\n\n" + anchor, 1)
             else:
                 plan_md = plan_md.rstrip() + "\n" + kol_section + "\n"
