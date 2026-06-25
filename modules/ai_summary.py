@@ -31,6 +31,17 @@ import re
 log = logging.getLogger(__name__)
 
 
+def _T(lang: str, en: str, zh: str) -> str:
+    """Tiny lang switcher — returns English when lang starts with 'en',
+    Chinese otherwise. Iris 2026-06-25: used by every _build_*_insight
+    helper so the prompt-context data blocks fed to the LLM match the
+    chosen report language. Belt-and-suspenders for the DO-NOT-QUOTE rule
+    in _lang_note — if the data block is already in English on EN flow,
+    there's nothing Chinese for the LLM to accidentally echo verbatim.
+    """
+    return en if (lang or "").lower().startswith("en") else zh
+
+
 # ─── Pass 1: Facts extraction ────────────────────────────────────────────────
 # Pulls a STRUCTURED facts dict from the raw data modules. Each value carries
 # an explicit `source` field so Pass 2's prose can render a confidence badge
@@ -622,7 +633,9 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
         try:
             return fn(*args, **kwargs)
         except Exception as e:
-            return f"[数据解析错误: {str(e)[:80]}]"
+            return _T(lang,
+                f"[Data parsing error: {str(e)[:80]}]",
+                f"[数据解析错误: {str(e)[:80]}]")
 
     # ── Pass 1: deterministic fact extraction (no LLM, no hallucination)
     facts = _safe(_extract_facts, product_name, url, website, social, traffic,
@@ -641,14 +654,14 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
         log.info("Pass-1.5 cross-source signals detected: %d (kinds: %s)",
                  len(conflicts), [c["kind"] for c in conflicts])
 
-    context        = _safe(_build_context, product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks)
-    wayback_insight = _safe(_build_wayback_insight, website)
-    ph_insight     = _safe(_build_ph_insight, producthunt)
-    playbook_insight = _safe(_build_playbook_insight, growth_strategy)
-    social_insight = _safe(_build_social_insight, social)
-    growth_insight = _safe(_build_growth_insight, growth_analysis, traffic_peaks)
-    pricing_insight = _safe(_build_pricing_insight, pricing)
-    github_insight  = _safe(_build_github_insight, github_oss)
+    context        = _safe(_build_context, product_name, url, website, social, traffic, producthunt, growth_analysis, traffic_peaks, lang=lang)
+    wayback_insight = _safe(_build_wayback_insight, website, lang=lang)
+    ph_insight     = _safe(_build_ph_insight, producthunt, lang=lang)
+    playbook_insight = _safe(_build_playbook_insight, growth_strategy, lang=lang)
+    social_insight = _safe(_build_social_insight, social, lang=lang)
+    growth_insight = _safe(_build_growth_insight, growth_analysis, traffic_peaks, lang=lang)
+    pricing_insight = _safe(_build_pricing_insight, pricing, lang=lang)
+    github_insight  = _safe(_build_github_insight, github_oss, lang=lang)
 
     # Stronger lang-lock — the previous one-line note was too weak when the
     # Chinese system prompt body weighs ~5K tokens. Iris 2026-06-18 ran an
@@ -1048,7 +1061,7 @@ Voice: like a strategic advisor — direct, no fluff. Each section under 150 wor
     return result
 
 
-def _build_wayback_insight(website: dict) -> str:
+def _build_wayback_insight(website: dict, lang: str = "zh") -> str:
     ws = website or {}
     parts = []
     timeline = ws.get("deep_timeline", [])
@@ -1057,15 +1070,17 @@ def _build_wayback_insight(website: dict) -> str:
     first_seen = ws.get("first_seen", "N/A")
 
     if not valid and not changes:
-        return "Wayback Machine 无历史快照数据。"
+        return _T(lang, "Wayback Machine: no historical snapshot data.", "Wayback Machine 无历史快照数据。")
 
-    parts.append(f"- 首次收录：**{first_seen}**，分析快照：**{len(valid)}** 个")
+    parts.append(_T(lang,
+        f"- First indexed: **{first_seen}**, snapshots analyzed: **{len(valid)}**",
+        f"- 首次收录：**{first_seen}**，分析快照：**{len(valid)}** 个"))
 
     slogans = [(t.get("date", ""), t.get("slogan", "")) for t in valid if t.get("slogan")]
     if len(slogans) >= 2:
-        parts.append("- Slogan 演变轨迹：")
+        parts.append(_T(lang, "- Slogan evolution:", "- Slogan 演变轨迹："))
         for date, slogan in slogans:
-            parts.append(f"  · {date}: 「{slogan[:80]}」")
+            parts.append(f"  · {date}: \"{slogan[:80]}\"")
 
     if len(valid) >= 2:
         first_f = set(k for k, v in valid[0].get("features", {}).items() if v)
@@ -1073,28 +1088,38 @@ def _build_wayback_insight(website: dict) -> str:
         added = last_f - first_f
         removed = first_f - last_f
         if added:
-            parts.append(f"- 新增功能模块（{valid[0].get('date','?')}→{valid[-1].get('date','?')}）：{', '.join(added)}")
+            parts.append(_T(lang,
+                f"- Added feature modules ({valid[0].get('date','?')}→{valid[-1].get('date','?')}): {', '.join(added)}",
+                f"- 新增功能模块（{valid[0].get('date','?')}→{valid[-1].get('date','?')}）：{', '.join(added)}"))
         if removed:
-            parts.append(f"- 移除功能模块：{', '.join(removed)}")
+            parts.append(_T(lang,
+                f"- Removed feature modules: {', '.join(removed)}",
+                f"- 移除功能模块：{', '.join(removed)}"))
 
     if len(valid) >= 2:
         first_struct = valid[0].get("structure_summary", [])
         last_struct = valid[-1].get("structure_summary", [])
         if first_struct and last_struct:
-            parts.append(f"- 页面结构演变：{valid[0].get('date','?')} 共 {len(first_struct)} 个模块 → {valid[-1].get('date','?')} 共 {len(last_struct)} 个模块")
+            parts.append(_T(lang,
+                f"- Page structure evolution: {valid[0].get('date','?')} had {len(first_struct)} modules → {valid[-1].get('date','?')} has {len(last_struct)} modules",
+                f"- 页面结构演变：{valid[0].get('date','?')} 共 {len(first_struct)} 个模块 → {valid[-1].get('date','?')} 共 {len(last_struct)} 个模块"))
 
     if changes:
-        parts.append(f"- 关键变化节点（{len(changes)} 次）：")
+        parts.append(_T(lang,
+            f"- Key change milestones ({len(changes)}):",
+            f"- 关键变化节点（{len(changes)} 次）："))
         for c in changes[:6]:
             parts.append(f"  · {c['from_date']}→{c['to_date']}: {'; '.join(c['changes'][:4])}")
 
     return "\n".join(parts)
 
 
-def _build_ph_insight(producthunt: dict) -> str:
+def _build_ph_insight(producthunt: dict, lang: str = "zh") -> str:
     ph = producthunt or {}
     if not ph.get("found"):
-        return "该产品未在 Product Hunt 上发布，无 PH 数据。"
+        return _T(lang,
+            "This product has not launched on Product Hunt; no PH data available.",
+            "该产品未在 Product Hunt 上发布，无 PH 数据。")
 
     parts = []
     launch_count = 1 + len(ph.get("other_launches", []))
@@ -1103,51 +1128,68 @@ def _build_ph_insight(producthunt: dict) -> str:
     rating = ph.get("reviews_rating", 0)
     reviews_count = ph.get("reviews_count", 0)
 
-    parts.append(f"- **{launch_count}** 次发布，最高 **{votes:,} votes**，**{comments:,} comments**")
+    parts.append(_T(lang,
+        f"- **{launch_count}** launch(es), peak **{votes:,} votes**, **{comments:,} comments**",
+        f"- **{launch_count}** 次发布，最高 **{votes:,} votes**，**{comments:,} comments**"))
     if rating:
-        parts.append(f"- 用户评分 **{rating:.1f}**（{reviews_count} 条评价）")
+        parts.append(_T(lang,
+            f"- User rating **{rating:.1f}** ({reviews_count} reviews)",
+            f"- 用户评分 **{rating:.1f}**（{reviews_count} 条评价）"))
     if ph.get("tagline"):
-        parts.append(f"- 主 Launch Tagline：「{ph['tagline']}」")
+        parts.append(_T(lang,
+            f"- Primary Launch Tagline: \"{ph['tagline']}\"",
+            f"- 主 Launch Tagline：「{ph['tagline']}」"))
     if ph.get("launch_date"):
-        parts.append(f"- 首次发布时间：{ph['launch_date']}")
+        parts.append(_T(lang,
+            f"- First launch date: {ph['launch_date']}",
+            f"- 首次发布时间：{ph['launch_date']}"))
 
     other = ph.get("other_launches", [])
     if other:
         all_launches = [{"name": ph.get("name", ""), "votes": votes, "launch_date": ph.get("launch_date", ""), "tagline": ph.get("tagline", "")}]
         all_launches.extend(other)
         all_launches.sort(key=lambda x: x.get("launch_date", ""))
-        parts.append(f"- 多波 Launch 详情：")
+        parts.append(_T(lang, "- Multi-wave launch breakdown:", "- 多波 Launch 详情："))
+        nth_word = _T(lang, "Launch", "第")
         for i, l in enumerate(all_launches, 1):
-            tag = f"「{l.get('tagline', '')[:60]}」" if l.get("tagline") else ""
-            parts.append(f"  · 第{i}次 ({l.get('launch_date', '?')}): ⬆{l.get('votes', 0):,} {tag}")
+            tag = f"\"{l.get('tagline', '')[:60]}\"" if l.get("tagline") else ""
+            label = (f"{nth_word} #{i}" if lang.startswith("en") else f"{nth_word}{i}次")
+            parts.append(f"  · {label} ({l.get('launch_date', '?')}): ⬆{l.get('votes', 0):,} {tag}")
 
     if ph.get("top_comments"):
-        parts.append("- 高赞用户评论（反映真实市场声音）：")
+        parts.append(_T(lang,
+            "- Top-voted user comments (real market voice):",
+            "- 高赞用户评论（反映真实市场声音）："))
         for c in ph["top_comments"][:3]:
             parts.append(f"  · {c.get('body', '')[:100]}")
 
     return "\n".join(parts)
 
 
-def _build_social_insight(social: dict) -> str:
+def _build_social_insight(social: dict, lang: str = "zh") -> str:
     sm = social or {}
     channels = sm.get("channels", {})
     parts = []
+    sep = ": " if lang.startswith("en") else "："
+    followers_w  = _T(lang, "followers", "粉丝")
+    members_w    = _T(lang, "members", "成员")
+    subs_w       = _T(lang, "subscribers", "订阅")
+    hot_label    = _T(lang, "Top post: ", "热帖：")
 
     for platform, v in channels.items():
         if not v.get("detected"):
             continue
         line = f"- **{v.get('platform', platform)}** {v.get('handle', '')}"
         if v.get("followers"):
-            line += f"：{v['followers']:,} 粉丝"
+            line += f"{sep}{v['followers']:,} {followers_w}"
         if v.get("stars_total"):
-            line += f"：{v['stars_total']:,} stars"
+            line += f"{sep}{v['stars_total']:,} stars"
         if v.get("subreddit_members"):
-            line += f"：{v['subreddit_members']:,} 成员"
+            line += f"{sep}{v['subreddit_members']:,} {members_w}"
         if v.get("subscribers"):
-            line += f"：{v['subscribers']:,} 订阅"
+            line += f"{sep}{v['subscribers']:,} {subs_w}"
         if v.get("note"):
-            line += f"（{v['note'][:60]}）"
+            line += (f" ({v['note'][:60]})" if lang.startswith("en") else f"（{v['note'][:60]}）")
         parts.append(line)
 
         top = v.get("top_tweets") or v.get("top_posts", [])
@@ -1159,108 +1201,140 @@ def _build_social_insight(social: dict) -> str:
                 retweets = tw.get("retweets", 0)
                 views = tw.get("views", 0)
                 if txt:
-                    parts.append(f"  · 热帖：「{txt}」❤{likes:,} 🔁{retweets:,}" + (f" 👁{views:,}" if views else ""))
+                    parts.append(f"  · {hot_label}\"{txt}\" ❤{likes:,} 🔁{retweets:,}" + (f" 👁{views:,}" if views else ""))
 
     pm = sm.get("propagation_metrics", {})
     if pm.get("total_participants"):
-        parts.append(f"- 传播规模：{pm['total_participants']:,} 参与者，{pm.get('total_engagement', 0):,} 总互动")
+        parts.append(_T(lang,
+            f"- Propagation scale: {pm['total_participants']:,} participants, {pm.get('total_engagement', 0):,} total engagement",
+            f"- 传播规模：{pm['total_participants']:,} 参与者，{pm.get('total_engagement', 0):,} 总互动"))
 
-    return "\n".join(parts) if parts else "社交媒体数据不足。"
+    return "\n".join(parts) if parts else _T(lang, "Insufficient social media data.", "社交媒体数据不足。")
 
 
-def _build_growth_insight(growth_analysis: dict, traffic_peaks: dict) -> str:
+def _build_growth_insight(growth_analysis: dict, traffic_peaks: dict, lang: str = "zh") -> str:
     parts = []
     ga = growth_analysis or {}
     tp = traffic_peaks or {}
+    followers_w = _T(lang, "followers", "粉丝")
 
     story = ga.get("zero_to_one_story", {})
     if story.get("milestones"):
-        parts.append("**0→1 关键里程碑：**")
+        parts.append(_T(lang, "**0→1 Key milestones:**", "**0→1 关键里程碑：**"))
         for m in story["milestones"][:6]:
             date = m.get("date", "")
             event = m.get("event", "")
             impact = m.get("traffic_impact", "")
-            parts.append(f"  · {date}: {event}" + (f"（{impact}）" if impact else ""))
+            tail = (f" ({impact})" if impact and lang.startswith("en") else (f"（{impact}）" if impact else ""))
+            parts.append(f"  · {date}: {event}{tail}")
 
     channels = ga.get("channel_breakdown", [])
     if channels:
-        parts.append("**渠道拆解：**")
+        parts.append(_T(lang, "**Channel breakdown:**", "**渠道拆解：**"))
         for ch in channels[:5]:
             pct = ch.get("percentage", 0)
             name = ch.get("channel", "")
             followers = ch.get("followers", 0)
-            parts.append(f"  · {name}: {pct}%" + (f"，{followers:,} 粉丝" if followers else ""))
+            tail = (f", {followers:,} {followers_w}" if followers and lang.startswith("en") else (f"，{followers:,} {followers_w}" if followers else ""))
+            parts.append(f"  · {name}: {pct}%{tail}")
 
     peaks = tp.get("peaks") if isinstance(tp, dict) else None
     if isinstance(peaks, list) and peaks:
-        parts.append("**流量爆发节点：**")
+        parts.append(_T(lang, "**Traffic spike moments:**", "**流量爆发节点：**"))
         for p in peaks[:4]:
             if not isinstance(p, dict): continue
             date = p.get("date", "")
             cause = p.get("cause", "")
             multiplier = p.get("traffic_multiplier", 0)
-            parts.append(f"  · {date}: {cause}" + (f"（流量 x{multiplier}）" if multiplier else ""))
+            tail = (f" (traffic x{multiplier})" if multiplier and lang.startswith("en") else (f"（流量 x{multiplier}）" if multiplier else ""))
+            parts.append(f"  · {date}: {cause}{tail}")
 
-    return "\n".join(parts) if parts else "增长分析数据不足。"
+    return "\n".join(parts) if parts else _T(lang, "Insufficient growth analysis data.", "增长分析数据不足。")
 
 
-def _build_playbook_insight(growth_strategy: dict) -> str:
+def _build_playbook_insight(growth_strategy: dict, lang: str = "zh") -> str:
     gs = growth_strategy or {}
     primary = gs.get("primary")
     if not primary:
-        return "Playbook 匹配数据不足。"
+        return _T(lang, "Insufficient data to match a Playbook.", "Playbook 匹配数据不足。")
 
-    parts = [f"- **主推 Playbook**: {primary.get('emoji','')} {primary.get('label','')}（匹配得分 {primary.get('score',0)}/4）"]
-    parts.append(f"  描述: {primary.get('description','')}")
+    parts = [_T(lang,
+        f"- **Primary Playbook**: {primary.get('emoji','')} {primary.get('label','')} (match score {primary.get('score',0)}/4)",
+        f"- **主推 Playbook**: {primary.get('emoji','')} {primary.get('label','')}（匹配得分 {primary.get('score',0)}/4）")]
+    parts.append(_T(lang, f"  Description: {primary.get('description','')}", f"  描述: {primary.get('description','')}"))
     if primary.get("url"):
-        parts.append(f"  链接: {primary['url']}")
+        parts.append(_T(lang, f"  Link: {primary['url']}", f"  链接: {primary['url']}"))
     if primary.get("reasons"):
-        parts.append("  匹配原因: " + " / ".join(primary["reasons"][:3]))
+        parts.append(_T(lang, "  Why it matches: ", "  匹配原因: ") + " / ".join(primary["reasons"][:3]))
     if primary.get("custom_tips"):
-        parts.append("  定制建议:")
+        parts.append(_T(lang, "  Custom tips:", "  定制建议:"))
         for tip in primary["custom_tips"][:3]:
             parts.append(f"    · {tip}")
     for s in (gs.get("secondary") or [])[:2]:
-        parts.append(f"- **辅助**: {s.get('emoji','')} {s.get('label','')}（得分 {s.get('score',0)}/4）")
+        parts.append(_T(lang,
+            f"- **Supporting**: {s.get('emoji','')} {s.get('label','')} (score {s.get('score',0)}/4)",
+            f"- **辅助**: {s.get('emoji','')} {s.get('label','')}（得分 {s.get('score',0)}/4）"))
     return "\n".join(parts)
 
 
-def _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis=None, traffic_peaks=None) -> str:
+def _build_context(product_name, url, website, social, traffic, producthunt, growth_analysis=None, traffic_peaks=None, lang: str = "zh") -> str:
     parts = []
     ws = website or {}
     cur = ws.get("current_site", {}) or ws.get("current", {})
 
-    parts.append(f"**产品**: {product_name} | **URL**: {url}")
-    parts.append(f"**域名首次出现**: {ws.get('first_seen', 'N/A')} | **历史快照数**: {ws.get('total_snapshots', 0)}")
+    parts.append(_T(lang,
+        f"**Product**: {product_name} | **URL**: {url}",
+        f"**产品**: {product_name} | **URL**: {url}"))
+    parts.append(_T(lang,
+        f"**Domain first seen**: {ws.get('first_seen', 'N/A')} | **Snapshots**: {ws.get('total_snapshots', 0)}",
+        f"**域名首次出现**: {ws.get('first_seen', 'N/A')} | **历史快照数**: {ws.get('total_snapshots', 0)}"))
     if cur.get("slogan"):
-        parts.append(f"**当前 Slogan**: {cur['slogan']}")
+        parts.append(_T(lang,
+            f"**Current Slogan**: {cur['slogan']}",
+            f"**当前 Slogan**: {cur['slogan']}"))
     if cur.get("meta_description"):
         parts.append(f"**Meta Description**: {cur['meta_description'][:200]}")
 
     features = cur.get("features", {})
     active = [k for k, v in features.items() if v]
     if active:
-        parts.append(f"**官网已有功能**: {', '.join(active)}")
+        parts.append(_T(lang,
+            f"**Site features present**: {', '.join(active)}",
+            f"**官网已有功能**: {', '.join(active)}"))
 
     struct = cur.get("structure_summary", [])
     if struct:
-        parts.append(f"**页面结构**: {' → '.join(struct[:8])}")
+        parts.append(_T(lang,
+            f"**Page structure**: {' → '.join(struct[:8])}",
+            f"**页面结构**: {' → '.join(struct[:8])}"))
 
     tr = traffic or {}
     rank = tr.get("domain_rank", {})
     if rank.get("organic_traffic"):
-        parts.append(f"\n**月均有机流量**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}")
-        parts.append(f"**Top1 关键词**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}")
-        parts.append(f"**等效付费广告成本**: ${rank.get('estimated_paid_cost',0):,}/月")
+        parts.append(_T(lang,
+            f"\n**Monthly organic traffic**: {rank['organic_traffic']:,} | **Keywords**: {rank.get('total_keywords',0):,}",
+            f"\n**月均有机流量**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}"))
+        parts.append(_T(lang,
+            f"**Top1 keywords**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}",
+            f"**Top1 关键词**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}"))
+        parts.append(_T(lang,
+            f"**Equivalent paid ad cost**: ${rank.get('estimated_paid_cost',0):,}/month",
+            f"**等效付费广告成本**: ${rank.get('estimated_paid_cost',0):,}/月"))
     bl = tr.get("backlinks", {})
     if bl.get("backlinks"):
-        parts.append(f"**反链**: {bl['backlinks']:,} | **引用域名**: {bl.get('referring_domains',0):,} | **DR**: {bl.get('domain_rank',0)}")
+        parts.append(_T(lang,
+            f"**Backlinks**: {bl['backlinks']:,} | **Referring domains**: {bl.get('referring_domains',0):,} | **DR**: {bl.get('domain_rank',0)}",
+            f"**反链**: {bl['backlinks']:,} | **引用域名**: {bl.get('referring_domains',0):,} | **DR**: {bl.get('domain_rank',0)}"))
 
     hist = tr.get("historical", {}).get("history", [])
     if hist:
-        parts.append("**流量历史趋势**（近 6 个月）:")
+        parts.append(_T(lang,
+            "**Traffic history trend** (last 6 months):",
+            "**流量历史趋势**（近 6 个月）:"))
         for h in hist[-6:]:
-            parts.append(f"  {h['date']}: {h.get('organic_traffic',0):,} 有机 / {h.get('keywords',0):,} 关键词")
+            parts.append(_T(lang,
+                f"  {h['date']}: {h.get('organic_traffic',0):,} organic / {h.get('keywords',0):,} keywords",
+                f"  {h['date']}: {h.get('organic_traffic',0):,} 有机 / {h.get('keywords',0):,} 关键词"))
 
     kw = tr.get("top_keywords", {})
     if isinstance(kw, dict):
@@ -1269,32 +1343,43 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
         branded = kw.get("branded_keywords") or []
         gap = kw.get("gap_keywords") or []
         kw_list = kw.get("keywords") or []
+        pos_w = _T(lang, "pos", "位置")
+        vol_w = _T(lang, "volume", "月搜索量")
+        comp_w = _T(lang, "competition", "竞争度")
 
         if nb:
-            parts.append(f"**Top 非品牌关键词**（{kw.get('non_branded_count', len(nb))} 个）:")
+            parts.append(_T(lang,
+                f"**Top non-branded keywords** ({kw.get('non_branded_count', len(nb))}):",
+                f"**Top 非品牌关键词**（{kw.get('non_branded_count', len(nb))} 个）:"))
             for k in nb[:20]:
                 if isinstance(k, dict):
-                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,} 竞争度:{k.get('competition','—')}")
+                    parts.append(f"  \"{k.get('keyword','')}\" {pos_w}#{k.get('position',0)} {vol_w}{k.get('search_volume',0):,} {comp_w}:{k.get('competition','—')}")
 
         if branded:
-            parts.append(f"**品牌词**（{kw.get('branded_count', len(branded))} 个）:")
+            parts.append(_T(lang,
+                f"**Branded keywords** ({kw.get('branded_count', len(branded))}):",
+                f"**品牌词**（{kw.get('branded_count', len(branded))} 个）:"))
             for k in branded[:10]:
                 if isinstance(k, dict):
-                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
+                    parts.append(f"  \"{k.get('keyword','')}\" {pos_w}#{k.get('position',0)} {vol_w}{k.get('search_volume',0):,}")
 
         if gap:
-            parts.append(f"**关键词缺口（后来者可切入）**（{kw.get('gap_keyword_count', len(gap))} 个）:")
+            parts.append(_T(lang,
+                f"**Keyword gap (entry points for challengers)** ({kw.get('gap_keyword_count', len(gap))}):",
+                f"**关键词缺口（后来者可切入）**（{kw.get('gap_keyword_count', len(gap))} 个）:"))
             for k in gap[:10]:
                 if isinstance(k, dict):
                     comp = k.get('competition', '')
-                    opp = '高机会' if k.get('position',99) > 10 and comp in ('LOW','') else '中机会'
-                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',99)} 月搜索量{k.get('search_volume',0):,} [{opp}]")
+                    is_high = k.get('position',99) > 10 and comp in ('LOW','')
+                    opp = (_T(lang, 'high opportunity', '高机会') if is_high
+                           else _T(lang, 'medium opportunity', '中机会'))
+                    parts.append(f"  \"{k.get('keyword','')}\" {pos_w}#{k.get('position',99)} {vol_w}{k.get('search_volume',0):,} [{opp}]")
 
         elif not nb and kw_list:
-            parts.append("**Top 关键词**:")
+            parts.append(_T(lang, "**Top keywords**:", "**Top 关键词**:"))
             for k in kw_list[:8]:
                 if isinstance(k, dict):
-                    parts.append(f"  「{k.get('keyword','')}」位置#{k.get('position',0)} 月搜索量{k.get('search_volume',0):,}")
+                    parts.append(f"  \"{k.get('keyword','')}\" {pos_w}#{k.get('position',0)} {vol_w}{k.get('search_volume',0):,}")
 
     sm = social or {}
     ch = sm.get("channels", {})
@@ -1304,51 +1389,71 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
             n = v.get("followers") or v.get("stars_total") or v.get("subreddit_members") or 0
             social_lines.append(f"{v.get('platform', pf)} {v.get('handle','')} {n:,}")
     if social_lines:
-        parts.append(f"\n**社交媒体**: {' | '.join(social_lines)}")
+        parts.append(_T(lang,
+            f"\n**Social media**: {' | '.join(social_lines)}",
+            f"\n**社交媒体**: {' | '.join(social_lines)}"))
 
     ph = producthunt or {}
     if ph.get("found"):
-        parts.append(f"**Product Hunt**: {ph.get('launch_date','')} ⬆{ph.get('votes',0):,} votes ⭐{ph.get('reviews_rating',0):.1f}({ph.get('reviews_count',0)}条)")
+        reviews_label = _T(lang, "reviews", "条")
+        parts.append(f"**Product Hunt**: {ph.get('launch_date','')} ⬆{ph.get('votes',0):,} votes ⭐{ph.get('reviews_rating',0):.1f}({ph.get('reviews_count',0)} {reviews_label})")
 
     return "\n".join(parts)
 
 
-def _build_pricing_insight(pricing: dict) -> str:
-    """生成定价洞察文本，供 AI 提示词使用"""
+def _build_pricing_insight(pricing: dict, lang: str = "zh") -> str:
+    """Build the pricing-insight text block fed to the AI prompt."""
     p = pricing or {}
     if not p.get("found"):
-        return "未能抓取到定价页数据（可能无公开定价或为纯企业询价模式）。"
+        return _T(lang,
+            "Could not extract pricing page data (no public pricing, or enterprise-quote-only).",
+            "未能抓取到定价页数据（可能无公开定价或为纯企业询价模式）。")
 
     lines = []
-    lines.append(f"**来源**: {p.get('source_url', '—')}")
-    lines.append(f"**定价模式**: {p.get('model', '—')} | **有免费套餐**: {'是' if p.get('free_plan') else '否'} | **免费试用**: {'是' if p.get('free_trial') else '否'}")
+    lines.append(_T(lang, f"**Source**: {p.get('source_url', '—')}", f"**来源**: {p.get('source_url', '—')}"))
+    yes_w = _T(lang, "Yes", "是")
+    no_w  = _T(lang, "No",  "否")
+    free_plan = yes_w if p.get('free_plan') else no_w
+    free_trial = yes_w if p.get('free_trial') else no_w
+    lines.append(_T(lang,
+        f"**Pricing model**: {p.get('model', '—')} | **Free plan**: {free_plan} | **Free trial**: {free_trial}",
+        f"**定价模式**: {p.get('model', '—')} | **有免费套餐**: {free_plan} | **免费试用**: {free_trial}"))
     if p.get("annual_discount"):
-        lines.append(f"**年付折扣**: {p['annual_discount']}")
+        lines.append(_T(lang,
+            f"**Annual discount**: {p['annual_discount']}",
+            f"**年付折扣**: {p['annual_discount']}"))
 
     tiers = p.get("tiers", [])
     if tiers:
-        lines.append(f"\n**定价层级**（共 {len(tiers)} 档）:")
+        lines.append(_T(lang,
+            f"\n**Pricing tiers** ({len(tiers)} total):",
+            f"\n**定价层级**（共 {len(tiers)} 档）:"))
+        free_word = _T(lang, "Free", "免费")
+        per_month = _T(lang, "/mo", "/月")
+        annual_pfx = _T(lang, " (annual ${0}/mo)", "（年付 ${0}/月）")
         for t in tiers:
-            price_str = "免费" if t.get("price_monthly") == 0 else f"${t.get('price_monthly', '?')}/月"
+            price_str = free_word if t.get("price_monthly") == 0 else f"${t.get('price_monthly', '?')}{per_month}"
             if t.get("price_annual_monthly"):
-                price_str += f"（年付 ${t['price_annual_monthly']}/月）"
+                price_str += annual_pfx.format(t['price_annual_monthly'])
             features_str = " / ".join(t.get("features", [])[:3])
             lines.append(f"  - **{t.get('name', '—')}**: {price_str} — {features_str}")
 
     insights = p.get("insights", [])
     if insights:
-        lines.append("\n**定价洞察**:")
+        lines.append(_T(lang, "\n**Pricing insights**:", "\n**定价洞察**:"))
         for ins in insights:
             lines.append(f"  • {ins}")
 
     return "\n".join(lines)
 
 
-def _build_github_insight(github_oss: dict) -> str:
-    """生成 GitHub 开源数据洞察文本，供 AI 提示词使用"""
+def _build_github_insight(github_oss: dict, lang: str = "zh") -> str:
+    """Build the GitHub open-source insight block fed to the AI prompt."""
     g = github_oss or {}
     if not g.get("found"):
-        return "该产品无 GitHub 开源数据，或非开源项目。"
+        return _T(lang,
+            "No GitHub open-source data for this product, or it is closed-source.",
+            "该产品无 GitHub 开源数据，或非开源项目。")
 
     parts = []
     stars = g.get("stars", 0)
@@ -1358,16 +1463,22 @@ def _build_github_insight(github_oss: dict) -> str:
     license_ = g.get("license", "")
     language = g.get("language", "")
     repo_url = g.get("repo_url", "")
+    unknown_w = _T(lang, "unknown", "未知")
+    contrib_w = _T(lang, "contributors", "贡献者")
 
-    parts.append(f"- 仓库：{repo_url}（创建于 {created}，主语言 {language}，协议 {license_ or '未知'}）")
-    parts.append(f"- **{stars:,} Stars** | {forks:,} Forks | {contributors:,} 贡献者")
+    parts.append(_T(lang,
+        f"- Repo: {repo_url} (created {created}, primary language {language}, license {license_ or unknown_w})",
+        f"- 仓库：{repo_url}（创建于 {created}，主语言 {language}，协议 {license_ or unknown_w}）"))
+    parts.append(f"- **{stars:,} Stars** | {forks:,} Forks | {contributors:,} {contrib_w}")
 
     # Star milestones
     milestones = g.get("milestones", [])
     if milestones:
-        parts.append("- Star 里程碑时间轴：")
+        parts.append(_T(lang, "- Star milestone timeline:", "- Star 里程碑时间轴："))
         for m in milestones:
-            parts.append(f"  · {m['label']} stars：{m['month']}")
+            parts.append(_T(lang,
+                f"  · {m['label']} stars: {m['month']}",
+                f"  · {m['label']} stars：{m['month']}"))
 
     # Peak growth
     star_history = g.get("star_history", [])
@@ -1378,14 +1489,20 @@ def _build_github_insight(github_oss: dict) -> str:
         )
         if peaks:
             top = peaks[:3]
-            parts.append("- 增长峰值月份（对应重大发布节点）：")
+            parts.append(_T(lang,
+                "- Peak growth months (typically aligned with major releases):",
+                "- 增长峰值月份（对应重大发布节点）："))
             for month, gain in top:
-                parts.append(f"  · {month} 单月新增 {gain:,} stars")
+                parts.append(_T(lang,
+                    f"  · {month} added {gain:,} stars",
+                    f"  · {month} 单月新增 {gain:,} stars"))
 
     # Latest release
     rel = g.get("latest_release")
     if rel:
-        parts.append(f"- 最新发布：{rel.get('tag', '')} ({rel.get('date', '')})  {rel.get('name', '')}")
+        parts.append(_T(lang,
+            f"- Latest release: {rel.get('tag', '')} ({rel.get('date', '')})  {rel.get('name', '')}",
+            f"- 最新发布：{rel.get('tag', '')} ({rel.get('date', '')})  {rel.get('name', '')}"))
 
     # Auto insights
     insights = g.get("insights", [])
