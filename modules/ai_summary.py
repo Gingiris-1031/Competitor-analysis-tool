@@ -666,16 +666,40 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
             "but your ENTIRE response MUST be in fluent natural English. Treat the Chinese as a "
             "TRANSLATION TARGET — read each Chinese section heading and instruction, then OUTPUT "
             "the English equivalent. Do NOT echo any Chinese characters in your response.\n\n"
+            "🚫 SPECIFIC ANTI-PATTERN — DO NOT QUOTE CHINESE VERBATIM:\n"
+            "The biggest leak we've observed is the LLM copying Chinese phrases from the data "
+            "blocks (Wayback insights, Playbook matches, PH comments, etc.) into its English "
+            "output verbatim — usually wrapped in quotation marks like "
+            "`The Wayback timeline shows '首次收录：2019-04-01'`. "
+            "Iris 2026-06-25 verified this is the #1 cause of CJK in EN reports.\n"
+            "RULE: if a Chinese phrase appears anywhere in the prompt (system, data, labels) and "
+            "you want to cite or paraphrase it, TRANSLATE the inner content first. Never wrap "
+            "Chinese text in quotation marks and pass it through.\n"
+            "  WRONG:  The timeline notes \"首次收录：2019-04-01\"\n"
+            "  RIGHT:  The timeline shows the domain was first indexed in April 2019\n"
+            "  WRONG:  Slogan 演变轨迹: 2020 → \"产品体验优先\"\n"
+            "  RIGHT:  Slogan evolution: 2020 → \"product experience first\"\n\n"
             "Examples of required translation:\n"
             "  '## 一、产品定位与目标用户' → '## 1. Product Positioning & ICP'\n"
             "  '增长模式' → 'Growth Pattern'\n"
+            "  '增长密码' → 'Growth Playbook' or 'What They Did Right'\n"
+            "  '增长飞轮' → 'Growth Flywheel'\n"
+            "  '内容与传播策略' → 'Content & Distribution Strategy'\n"
+            "  '风险与机会' → 'Risks & Opportunities'\n"
+            "  '首次收录' → 'First indexed' / 'First seen'\n"
+            "  '关键变化节点' → 'Key change milestones'\n"
+            "  '主 Launch Tagline' → 'Primary Launch Tagline'\n"
             "  Verdict JSON values: write all values in English (e.g. growth_pattern='PLG product-driven').\n\n"
         )
         _lang_tail = (
             "\n\n🌐 FINAL LANGUAGE REINFORCEMENT: This is your last reminder. Your ENTIRE output, "
             "INCLUDING the JSON verdict at the end, must be in fluent natural English with no Chinese "
-            "characters whatsoever. If you find yourself about to write a Chinese phrase, translate it "
-            "to English first."
+            "characters whatsoever. Do not echo any Chinese phrase from the instructions or the data "
+            "blocks above, even inside quotation marks or code blocks (translate the inner content "
+            "to English first). If you find yourself about to write a sentence that contains 中文 of "
+            "any kind, STOP, translate the Chinese fragment to English, and then continue. The output "
+            "is being scanned by an automated reviewer that will reject any Chinese character "
+            "(including 一-鿿, Chinese punctuation, and fullwidth forms like ＋)."
         )
     prompt = f"""{_lang_note}你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
@@ -907,10 +931,69 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
     return result
 
 
-async def generate_ai_summary_from_text(product_name: str, text_description: str) -> dict:
-    """从用户提供的文字描述或 PDF 提取内容生成竞品/产品分析（无需网站 URL）"""
+async def generate_ai_summary_from_text(product_name: str, text_description: str, lang: str = "zh") -> dict:
+    """从用户提供的文字描述或 PDF 提取内容生成竞品/产品分析（无需网站 URL）
 
-    prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars。
+    Iris 2026-06-25: previously no lang param at all — text/PDF mode would
+    output Chinese regardless of the user's language. Now an EN prompt
+    variant is used directly (no Chinese leak via translation wrapping)
+    when lang=en; ZH path keeps the original Chinese prompt verbatim.
+    """
+    if (lang or "").lower().startswith("en"):
+        prompt = f"""You are a top growth advisor for products going global. You've helped multiple open-source projects grow from 0 to 60K+ GitHub stars.
+
+The user provided the following material about the product **{product_name}** (this may be a pitch deck, product docs, a competitor brief, etc.):
+
+---
+
+{text_description[:8000]}
+
+---
+
+Based on the above, write a structured product growth analysis report **in fluent natural English**. For every conclusion, cite the supporting material where possible; if a dimension can't be inferred from the material, write "Insufficient material to assess".
+
+🚫 LANGUAGE RULE: do not output any Chinese characters anywhere in the report, even inside quotation marks. If the source material contains Chinese, translate it to English before quoting it. The output is being scanned by an automated reviewer that will reject any CJK character.
+
+### 1. Product Positioning & ICP
+
+**Core user persona**: which users does this product serve? Role, pain points, usage scenarios.
+
+**Market positioning**: how is it differentiated? Which segment does it own?
+
+### 2. Business Model
+
+**Pricing & monetization**: describe (or infer) the pricing logic. What's the free strategy and the paid hook?
+
+**Revenue potential**: based on the target market and positioning, estimate a revenue range (state your assumptions).
+
+### 3. Growth Path
+
+Based on the product characteristics, infer:
+- The most fitting acquisition channels (PLG / SLG / community / content)
+- Key actions for the 0→100 user phase
+- Possible viral mechanics
+
+### 4. Growth Flywheel
+
+Describe the typical growth flywheel for this product category (A → B → C → back to A).
+
+### 5. Tactical Advice for the Founder / a Competitor
+
+The 5 most important actionable recommendations:
+- What can start today
+- The cost of NOT doing it
+
+### 6. Risks & Opportunities
+
+**Key risks** (2-3): typical pitfalls and competitive threats for this product category.
+
+**Market opportunities** (1-2): current gaps in the market or windows of timing.
+
+---
+
+Voice: like a strategic advisor — direct, no fluff. Each section under 150 words."""
+    else:
+        prompt = f"""你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars。
 
 用户提供了以下关于产品 **{product_name}** 的描述材料（可能来自 pitch deck、产品文档、竞品介绍等）：
 
