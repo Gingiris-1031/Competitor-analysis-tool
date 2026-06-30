@@ -11,6 +11,11 @@
     <title>Analook Pricing — Free + $29/mo vs SimilarWeb $125/mo</title>
     <meta name="description" content="Free plan available. Growth Audit $29/mo. Save $1,100+/yr vs SimilarWeb. Get AI competitor analysis: traffic, SEO, social & market positioning. 7-day refund guarantee.">
     <link rel="canonical" href="https://www.analook.com/pricing.html">
+    <!-- hreflang: declare both language alternates so search engines serve the right page per locale -->
+    <link rel="alternate" hreflang="en" href="https://www.analook.com/pricing.html">
+    <link rel="alternate" hreflang="zh" href="https://www.analook.com/zh/pricing.html">
+    <link rel="alternate" hreflang="zh-CN" href="https://www.analook.com/zh/pricing.html">
+    <link rel="alternate" hreflang="x-default" href="https://www.analook.com/pricing.html">
     <meta property="og:title" content="Analook Pricing — Free + $29/mo vs SimilarWeb $125/mo">
     <meta property="og:description" content="Free plan available. Growth Audit $29/mo. Save $1,100+/yr vs SimilarWeb. AI competitor analysis with 7-day refund guarantee.">
     <meta property="og:url" content="https://www.analook.com/pricing.html">
@@ -94,7 +99,10 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
             <a href="/" class="flex items-center gap-2">
                 <span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span>
             </a>
-            <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors">← Back to app</a>
+            <div class="flex items-center gap-4">
+                <a href="/zh/pricing.html" hreflang="zh" aria-label="Switch to Chinese version" title="Chinese version" class="text-xs text-[color:var(--ink-faint)] hover:text-[color:var(--ink)] transition-colors">ZH</a>
+                <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors">← Back to app</a>
+            </div>
         </div>
     </header>
 
