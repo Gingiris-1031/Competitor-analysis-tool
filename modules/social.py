@@ -629,6 +629,13 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
         f"{brand}hq", f"{name_lower}hq",
         f"{brand}official", f"{name_lower}official",  # AFFiNEOfficial pattern
         brand, name_lower,
+        # Iris 2026-06-30 bug ga-a0fa2515: Hyperliquid matched @HyperliquidAi
+        # instead of official @HyperliquidX because "x" wasn't in this list at
+        # all. The "+x" suffix is a common crypto/web3 naming convention
+        # (LayerZero → @LayerZero, Aevo → @AevoXYZ, Hyperliquid → @HyperliquidX).
+        # Adding it ahead of the AI variant since AI suffix has lower precision
+        # in crypto/finance space.
+        f"{brand}x", f"{name_lower}x",
         f"{brand}_dev", f"{brand}ai", f"get{brand}", f"{brand}app", f"use{brand}",
     ])
     handles_to_try = list(dict.fromkeys(handles_to_try))
@@ -784,7 +791,14 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
 
         # Pick best candidate. The site-declared handle (handle_hint) is ground
         # truth — if it validated, prefer it even when another brand variant has
-        # more followers. Otherwise fall back to most-followed (likely official).
+        # more followers. Otherwise rank by (verified > followers).
+        #
+        # Iris 2026-06-30: previously the tiebreak was followers-only, so a
+        # rogue @HyperliquidAi (1 follower) could win over real @HyperliquidX
+        # (410K, Business-verified) if the handles list happened to include AI
+        # but not X. Sorting verified-first kills that whole class of bug:
+        # an unverified 1-follower account can't beat a verified 100K account
+        # regardless of which handle pattern hit first.
         if candidates:
             best = None
             if handle_hint:
@@ -795,7 +809,13 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                     None,
                 )
             if best is None:
-                best = max(candidates, key=lambda p: p.get("followers", 0) or 0)
+                def _rank(p):
+                    return (
+                        1 if p.get("verifiedType") == "Business" else 0,
+                        1 if p.get("isBlueVerified") else 0,
+                        p.get("followers", 0) or 0,
+                    )
+                best = max(candidates, key=_rank)
             screen_name = best.get("userName", "")
             result["detected"] = True
             result["handle"] = f"@{screen_name}"
