@@ -666,12 +666,38 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
             _persist_report(job_id, jobs[job_id])
             return {"job_id": job_id, "status": "started", "cached": True}
     
+    # Detect report language. Same order as /api/growth-audit:
+    #   1. explicit body.lang ("en" | "zh")
+    #   2. query ?lang=
+    #   3. Referer contains /zh/ → zh
+    #   4. Accept-Language header
+    #   5. default to "en" (most analook organic traffic is English SEO)
+    #
+    # Iris 2026-06-30 bug a0fa2515: the old `(req.lang or "en")` ignored
+    # the user's actual locale signal entirely. A user on /zh/ submitting an
+    # analysis got an English report because the frontend wasn't sending
+    # `lang=zh` in the body. Now we read the Referer as a fallback so the
+    # /zh/ page produces Chinese reports out of the box.
+    _detected_lang = (req.lang or request.query_params.get("lang") or "").strip().lower()
+    if not _detected_lang:
+        _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
+        if "/zh/" in _ref or "lang=zh" in _ref:
+            _detected_lang = "zh"
+        else:
+            _al = (request.headers.get("accept-language") or "").lower()
+            if _al.startswith("zh"):
+                _detected_lang = "zh"
+            elif _al.startswith("en"):
+                _detected_lang = "en"
+    if _detected_lang not in ("en", "zh"):
+        _detected_lang = "en"
+
     jobs[job_id] = {
         "status": "running",
         "product_name": product_name,
         "url": req.url if req.url.startswith("http") else f"https://{req.url}",
         "user_id": user["id"] if user else None,       # ← 记录报告归属人
-        "lang": (req.lang or "en").lower(),             # ← 报告语言
+        "lang": _detected_lang,                          # ← 报告语言
         "cancelled": False,
         "progress": {
             "website": "pending",
