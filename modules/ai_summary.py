@@ -733,13 +733,15 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 ```
 
 引用示例：
-> 月访问 12,000 [fact:traffic.monthly_organic_visits]，主要来自 8 个 Top-10 关键词 [fact:traffic.keywords_top10]。
+> 月非品牌有机搜索访问 12,000 [fact:traffic.monthly_organic_visits]（DataForSEO 估算，不含品牌词搜索和直接流量），主要来自 8 个 Top-10 关键词 [fact:traffic.keywords_top10]。
 
 ---
 
 ## 🔥 跨源信号（程序自动检测，**必须在报告中体现**）
 
 下面是把不同 source 数据**并排比较**后浮现的洞察。这些是 Crayon / SimilarWeb 等单源工具看不到的差异化信号。
+
+> ⚠️ **DataForSEO organic_traffic 说明**：该字段为非品牌关键词有机搜索估算（ETV），不含品牌词搜索和直接流量。对于品牌口碑驱动的产品（如 v0.dev），此值可能远低于实际总月访问量。报告中引用时，必须注明"非品牌有机搜索估算"，不能直接说"月访问"或"月流量"。
 **报告里至少要引用 1-2 个跨源信号作为支撑论据**（在「增长密码」「内容与传播」或「风险与机会」段落里）。
 
 {conflicts_md}
@@ -855,9 +857,10 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 ## ⚠️ 必须遵守的约束：
 
 1. **每个具体数字 / URL / 时间 / 价格必须紧跟 `[fact:KEY]` 引用**。例：
-   - ✅ "月访问 12,000 [fact:traffic.monthly_organic_visits]"
+   - ✅ "月非品牌有机搜索 12,000 [fact:traffic.monthly_organic_visits]"（注意：这是 DataForSEO 非品牌有机搜索估算，≠ 总月访问量）
    - ❌ "月访问约 12,000"（缺 fact 引用）
    - ❌ "月访问可能在 10K-20K 之间"（FACTS 没数据时不要瞎猜）
+   - ❌ "月有机搜索流量 331 次"当作"总流量"描述（DataForSEO organic_traffic 是非品牌关键词估算，≠ 总月访问；品牌词流量、直接流量不在其中。推文/报告必须注明"非品牌有机搜索估算"）
 2. **FACTS JSON 没覆盖的维度**写"FACTS 未覆盖（需用户提供）"或省略，不要凭印象推断数字。
 3. **严禁编造时间节点**。只有 FACTS 里出现的日期才能用，禁止"可能""推断""大约"修饰时间。
 4. **社交账号可能误匹配**。如账号描述与产品不符，标注"⚠️ 此账号可能不属于目标产品"并跳过该数据。
