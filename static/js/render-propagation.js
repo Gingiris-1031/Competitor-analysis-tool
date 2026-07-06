@@ -92,9 +92,9 @@ function renderPropagation(prop) {
         // Stats grid
         html += `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">`;
         const metricItems = [
-            { label: '总 Retweets', val: (agg.total_retweets || 0).toLocaleString(), color: 'text-blue-300' },
-            { label: '总 Likes',    val: (agg.total_likes || 0).toLocaleString(),    color: 'text-pink-300' },
-            { label: '总 Views',    val: (agg.total_views || 0).toLocaleString(),    color: 'text-gray-300' },
+            { label: 'Total Retweets', val: (agg.total_retweets || 0).toLocaleString(), color: 'text-blue-300' },
+            { label: 'Total Likes',    val: (agg.total_likes || 0).toLocaleString(),    color: 'text-pink-300' },
+            { label: 'Total Views',    val: (agg.total_views || 0).toLocaleString(),    color: 'text-gray-300' },
             { label: 'Est. Reach',    val: (est.estimated_reach || 0).toLocaleString(), color: 'text-green-300' },
         ];
         for (const m of metricItems) {
