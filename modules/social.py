@@ -1351,8 +1351,22 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
     data = None
     matched_name = None
 
+    def _candidate_rank(c: dict) -> tuple:
+        """Rank GitHub candidates: domain-matching blog beats follower count.
+
+        Iris 2026-07-06 accuracy audit: Notion matched org `notionhq`
+        (7 followers, no blog) because the loop broke on FIRST relevant hit.
+        The real org `makenotion` (2,925 followers, blog=notion.so) was never
+        tried. Collect all candidates and rank: blog-matches-domain is the
+        strongest ownership signal, then followers as tiebreak.
+        """
+        blog = (c.get("blog") or "").lower().strip().rstrip("/")
+        blog_match = any(dv in blog for dv in domain_variants) if blog else False
+        return (1 if blog_match else 0, c.get("followers", 0) or 0)
+
     try:
-        # Try all name variants as org first, then user
+        # Try all name variants, collect ALL relevant candidates, rank at end
+        candidates_gh = []
         for alt in names_to_try:
             for endpoint in ["orgs", "users"]:
                 try:
@@ -1360,14 +1374,16 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
                     if r.status_code == 200:
                         candidate = r.json()
                         if _is_relevant(candidate):
-                            data = candidate
-                            matched_name = alt
-                            result["type"] = "organization" if endpoint == "orgs" else "user"
-                            break
+                            candidate["_matched_name"] = alt
+                            candidate["_endpoint"] = endpoint
+                            candidates_gh.append(candidate)
+                            break  # org and user for same name can't both exist
                 except Exception:
                     pass
-            if data:
-                break
+        if candidates_gh:
+            data = max(candidates_gh, key=_candidate_rank)
+            matched_name = data["_matched_name"]
+            result["type"] = "organization" if data["_endpoint"] == "orgs" else "user"
 
         if data:
             result["detected"] = True
@@ -1375,20 +1391,30 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
             result["public_repos"] = data.get("public_repos", 0)
             result["followers"] = data.get("followers", 0)
 
-            # Get top repos
+            # Get top repos.
+            #
+            # Iris 2026-07-06 accuracy audit: `?sort=stars` is NOT a valid
+            # value for GitHub's list-repos API (valid: created/updated/
+            # pushed/full_name) — it was silently ignored, returning the 5
+            # OLDEST repos by creation date. For rustfs this reported
+            # stars_total=446 while the flagship rustfs/rustfs repo alone
+            # has 29,483 stars. Fix: pull up to 100 repos in one call and
+            # sort client-side by stargazers_count.
             endpoint_type = 'orgs' if result['type'] == 'organization' else 'users'
             repos_resp = await client.get(
-                f"https://api.github.com/{endpoint_type}/{matched_name}/repos?sort=stars&per_page=5"
+                f"https://api.github.com/{endpoint_type}/{matched_name}/repos?per_page=100"
             )
             if repos_resp.status_code == 200:
-                repos = repos_resp.json()
-                total_stars = 0
-                for r in repos:
-                    stars = r.get("stargazers_count", 0)
-                    total_stars += stars
+                repos = sorted(
+                    repos_resp.json(),
+                    key=lambda r: r.get("stargazers_count", 0) or 0,
+                    reverse=True,
+                )
+                total_stars = sum(r.get("stargazers_count", 0) or 0 for r in repos)
+                for r in repos[:5]:
                     result["top_repos"].append({
                         "name": r.get("name", ""),
-                        "stars": stars,
+                        "stars": r.get("stargazers_count", 0),
                         "language": r.get("language", ""),
                         "description": (r.get("description") or "")[:80],
                     })
