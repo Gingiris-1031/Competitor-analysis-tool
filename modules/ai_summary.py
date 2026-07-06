@@ -1311,9 +1311,13 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
     tr = traffic or {}
     rank = tr.get("domain_rank", {})
     if rank.get("organic_traffic"):
+        _scope = rank.get("market_scope") or "US"
         parts.append(_T(lang,
-            f"\n**Monthly organic traffic (US search only)**: {rank['organic_traffic']:,} | **Keywords**: {rank.get('total_keywords',0):,}",
-            f"\n**月均有机流量（仅美国搜索）**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}"))
+            f"\n**Monthly organic traffic ({_scope} search)**: {rank['organic_traffic']:,} | **Keywords**: {rank.get('total_keywords',0):,}",
+            f"\n**月均有机流量（{_scope} 搜索市场）**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}"))
+        if rank.get("markets"):
+            _mk = " | ".join(f"{lbl} {m['organic_traffic']:,}" for lbl, m in rank["markets"].items())
+            parts.append(f"**By market**: {_mk}")
         # When the input domain redirects elsewhere (notion.so → notion.com),
         # tell the LLM which domain the SEO numbers describe so the report
         # doesn't confidently attribute notion.com metrics to notion.so.
