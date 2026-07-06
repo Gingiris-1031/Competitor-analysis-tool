@@ -189,17 +189,17 @@ async function resolveReport(item, idx) {
                 // "failed to start: 401" which leaves the user guessing.
                 let msg;
                 if (res.status === 401) {
-                    msg = '⚠️ 登录已过期，请刷新页面重新登录';
+                    msg = '⚠️ Session expired — refresh the page and sign in again';
                     if (window._analookAuth?.showModal) window._analookAuth.showModal();
                 } else if (res.status === 402) {
-                    msg = '💳 积分不足，<a href="/pricing.html" class="underline">升级套餐</a>';
+                    msg = '💳 Out of credits — <a href="/pricing.html" class="underline">upgrade your plan</a>';
                 } else if (res.status === 503) {
-                    msg = '🚧 服务暂时不可用（后端配置错误），稍后再试';
+                    msg = '🚧 Service temporarily unavailable (backend misconfigured) — try again later';
                 } else {
                     let body = '';
                     try { body = await res.text(); } catch {}
                     // body is server-returned text — escape before injecting via innerHTML
-                    msg = `失败 (${res.status})${body ? ': ' + esc(body.slice(0, 100)) : ''}`;
+                    msg = `Failed (${res.status})${body ? ': ' + esc(body.slice(0, 100)) : ''}`;
                 }
                 setRowStatus(idx, msg, 'text-red-400');
                 return { idx, label: item.label, report: null, error: res.status };
@@ -288,9 +288,9 @@ function renderVerdicts(valid) {
         const url = meta.url || '';
 
         // Color-code replicability
-        const replColor = repl === '高' ? 'text-green-400 bg-green-900/30 border-green-700/50'
-                       : repl === '中' ? 'text-yellow-400 bg-yellow-900/30 border-yellow-700/50'
-                       : repl === '低' ? 'text-red-400 bg-red-900/30 border-red-700/50'
+        const replColor = (repl === '高' || /^high/i.test(repl)) ? 'text-green-400 bg-green-900/30 border-green-700/50'
+                       : (repl === '中' || /^med/i.test(repl)) ? 'text-yellow-400 bg-yellow-900/30 border-yellow-700/50'
+                       : (repl === '低' || /^low/i.test(repl)) ? 'text-red-400 bg-red-900/30 border-red-700/50'
                        : 'text-gray-400 bg-gray-800 border-gray-700';
 
         return `<div class="bg-gradient-to-br from-blue-900/20 to-gray-900 border border-gray-800 rounded-xl p-5">
@@ -299,7 +299,7 @@ function renderVerdicts(valid) {
                     <div class="text-base font-semibold text-white truncate">${esc(productName)}</div>
                     <div class="text-xs text-gray-500 truncate">${esc(url.replace(/^https?:\/\//, ''))}</div>
                 </div>
-                ${repl ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${replColor} font-medium flex-shrink-0">可复制：${esc(repl)}</span>` : ''}
+                ${repl ? `<span class="text-[10px] px-2 py-0.5 rounded-full border ${replColor} font-medium flex-shrink-0">Replicability: ${esc(repl)}</span>` : ''}
             </div>
             <div class="mb-3">
                 <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Killer Move</div>
