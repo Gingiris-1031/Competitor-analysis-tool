@@ -1,3 +1,6 @@
+// i18n: zh pages set window._ANALOOK_LANG='zh' before loading shared JS.
+const _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
+const _t = (en, zh) => _LANG_ZH ? zh : en;
 /**
  * referral-modal.js — first-time-authenticated referral source survey
  *
@@ -127,15 +130,15 @@
           <div class="ana-ref-card" role="dialog" aria-modal="true" aria-labelledby="ana-ref-title">
             <div class="ana-ref-stripe"></div>
             <h2 id="ana-ref-title">How did you <em style="color:#FB923C">find</em> Analook?</h2>
-            <p class="sub">一个问题，帮我们做归因 — 这样下次知道在哪个渠道再投资。</p>
+            <p class="sub">${_t("One question that helps us attribute growth — so we know which channel to invest in next.", "一个问题，帮我们做归因 — 这样下次知道在哪个渠道再投资。")}</p>
 
             <div class="ana-ref-opts" role="radiogroup" aria-label="Referral source">
               <button class="ana-ref-opt" data-source="twitter"        role="radio" aria-checked="false"><span class="ico">𝕏</span><span>Twitter / X</span></button>
               <button class="ana-ref-opt" data-source="linkedin"       role="radio" aria-checked="false"><span class="ico" style="color:#0a66c2">in</span><span>LinkedIn</span></button>
               <button class="ana-ref-opt" data-source="google_search"  role="radio" aria-checked="false"><span class="ico">🔎</span><span>Google Search</span></button>
               <button class="ana-ref-opt" data-source="geo"            role="radio" aria-checked="false"><span class="ico">🤖</span><span>AI Search (ChatGPT, Perplexity, Claude)</span></button>
-              <button class="ana-ref-opt" data-source="referral"       role="radio" aria-checked="false"><span class="ico">👥</span><span>朋友推荐 / Word of mouth</span></button>
-              <button class="ana-ref-opt" data-source="other"          role="radio" aria-checked="false"><span class="ico">✏️</span><span>Other (填写)</span></button>
+              <button class="ana-ref-opt" data-source="referral"       role="radio" aria-checked="false"><span class="ico">👥</span><span>${_t("Friend / Word of mouth", "朋友推荐 / Word of mouth")}</span></button>
+              <button class="ana-ref-opt" data-source="other"          role="radio" aria-checked="false"><span class="ico">✏️</span><span>${_t("Other (type in)", "Other (填写)")}</span></button>
             </div>
 
             <div class="ana-ref-other" id="ana-ref-other-wrap">
