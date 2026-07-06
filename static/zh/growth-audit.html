@@ -100,7 +100,7 @@
               "name": "How much does a Growth Audit cost?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "10 credits per audit. The Pro plan ($29/month, 30 credits) covers 3 audits per month. Team ($99/month, unlimited credits) is for higher-volume use."
+                "text": "10 credits per audit. The Pro plan ($19/month, 30 credits) covers 3 audits per month. Team ($79/month, unlimited credits) is for higher-volume use."
               }
             },
             {
@@ -242,7 +242,7 @@
             <div class="flex items-center gap-4">
                 <a href="/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">竞品分析</a>
                 <a href="/growth-audit.html" class="text-sm text-orange-400 font-medium">增长诊断</a>
-                <a href="/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">定价</a>
+                <a href="/zh/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">定价</a>
                 <!-- Auth button (managed by auth.js) -->
                 <button id="auth-btn"
                     class="text-sm bg-[color:var(--ink)] hover:bg-white text-[color:var(--cream-bg)] px-4 py-1.5 rounded-full font-medium transition-colors">
@@ -300,7 +300,7 @@
                     </div>
                 </details>
 
-                <p class="text-xs text-[color:var(--ink-faint)] mt-6">每份诊断消耗 10 积分 ·<strong class="text-[color:var(--ink-muted)]">Pro $29/月 = 3 份诊断</strong> · <a href="/pricing.html" class="text-orange-400 hover:underline">查看定价 →</a></p>
+                <p class="text-xs text-[color:var(--ink-faint)] mt-6">每份诊断消耗 10 积分 ·<strong class="text-[color:var(--ink-muted)]">Pro $19/月 = 3 份诊断</strong> · <a href="/zh/pricing.html" class="text-orange-400 hover:underline">查看定价 →</a></p>
             </div>
         </section>
 
@@ -554,10 +554,10 @@
                     showToast({
                         kind: 'info',
                         title: `Out of credits — needs ${need}`,
-                        message: `Pro $29/mo = 3 audits/month (30 credits). Taking you to pricing…`,
+                        message: `Pro $19/月 = 每月 3 份诊断（30 积分）。正在跳转到定价页…`,
                         duration: 3500,
                     });
-                    setTimeout(() => { window.location.href = '/pricing.html'; }, 1800);
+                    setTimeout(() => { window.location.href = '/zh/pricing.html'; }, 1800);
                     return;
                 }
                 showToast({ kind: 'error', title: '失败 to start audit', message: data.error || 'Please try again in a moment.' });
