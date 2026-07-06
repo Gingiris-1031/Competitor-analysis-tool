@@ -1312,8 +1312,13 @@ def _build_context(product_name, url, website, social, traffic, producthunt, gro
     rank = tr.get("domain_rank", {})
     if rank.get("organic_traffic"):
         parts.append(_T(lang,
-            f"\n**Monthly organic traffic**: {rank['organic_traffic']:,} | **Keywords**: {rank.get('total_keywords',0):,}",
-            f"\n**月均有机流量**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}"))
+            f"\n**Monthly organic traffic (US search only)**: {rank['organic_traffic']:,} | **Keywords**: {rank.get('total_keywords',0):,}",
+            f"\n**月均有机流量（仅美国搜索）**: {rank['organic_traffic']:,} | **关键词数**: {rank.get('total_keywords',0):,}"))
+        # When the input domain redirects elsewhere (notion.so → notion.com),
+        # tell the LLM which domain the SEO numbers describe so the report
+        # doesn't confidently attribute notion.com metrics to notion.so.
+        if tr.get("redirect_note"):
+            parts.append(f"**DOMAIN NOTE**: {tr['redirect_note']}")
         parts.append(_T(lang,
             f"**Top1 keywords**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}",
             f"**Top1 关键词**: {rank.get('keywords_top1',0)} | **Top10**: {rank.get('keywords_top10',0)}"))
