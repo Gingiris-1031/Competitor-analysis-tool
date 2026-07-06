@@ -102,6 +102,12 @@ def _format_traffic(data: dict, lang: str = "zh") -> dict:
         # IMPORTANT: all values are scalars so the UI can render them directly.
         "seo_metrics": seo_metrics,
     }
+    # Pass through the canonical-domain annotation from dataforseo.analyze_domain
+    # (e.g. "notion.so redirects to notion.com") so both the UI and the
+    # markdown export can disclose which domain the SEO numbers describe.
+    if data.get("redirect_note"):
+        result["redirect_note"] = data["redirect_note"]
+        result["queried_domain"] = data.get("queried_domain")
     return result
 
 
@@ -349,7 +355,16 @@ def report_to_markdown(report: dict) -> str:
 
         has_data = rank.get("organic_traffic") or bl.get("backlinks")
         if has_data:
-            md += _T(lang, "Data source: DataForSEO\n\n", "数据来源: DataForSEO\n\n")
+            # US-scoped disclosure — DataForSEO queries use location_code=2840
+            # (United States). Iris 2026-07-06: unlabeled numbers looked ~5-10x
+            # low next to Ahrefs-style worldwide estimates and read as "wrong".
+            md += _T(lang,
+                "Data source: DataForSEO · organic metrics are **US search only** (worldwide totals run higher)\n\n",
+                "数据来源: DataForSEO · 有机流量指标为**仅美国搜索**（全球总量会更高）\n\n")
+            # Surface the redirect note when the input domain isn't the one
+            # that actually ranks (e.g. notion.so → notion.com).
+            if tr.get("redirect_note"):
+                md += f"> ℹ️ {tr['redirect_note']}\n\n"
 
             # Core metrics
             md += _T(lang, "### Core Metrics\n\n", "### 核心指标\n\n")
@@ -359,8 +374,8 @@ def report_to_markdown(report: dict) -> str:
                 "| 关键词 | 排名 | 月搜索量 | CPC | 竞争度 |\n|--------|------|----------|-----|--------|\n")
             if rank.get("organic_traffic") is not None:
                 md += _T(lang,
-                    f"| Organic traffic / month | {rank['organic_traffic']:,} |\n",
-                    f"| 有机流量/月 | {rank['organic_traffic']:,} |\n")
+                    f"| Organic traffic / month (US) | {rank['organic_traffic']:,} |\n",
+                    f"| 有机流量/月（美国） | {rank['organic_traffic']:,} |\n")
             if rank.get("total_keywords") is not None:
                 md += _T(lang,
                     f"| Ranked keywords | {rank['total_keywords']:,} |\n",
