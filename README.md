@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/badge/Live-analook.com-blue)](https://www.analook.com)
-[![Skills on ClawHub](https://img.shields.io/badge/Skills-clawhub.ai%2Fuser%2Fgingiris-purple)](https://clawhub.ai/user/gingiris)
+[![Skills on ClawHub](https://img.shields.io/badge/Skills-clawhub.ai%2Fuser%2Fgingiris-purple)](https://clawhub.ai/gingiris-1031)
 [![Deployed on Railway](https://img.shields.io/badge/Deploy-Railway-blueviolet)](https://railway.app)
 
 **[English](#english) | [中文](#中文版)** · **[🤖 MCP Server](#-remote-mcp-server)** · **[📖 Docs](https://www.analook.com/docs/mcp.html)**
@@ -38,7 +38,7 @@ Full docs & token instructions → **[analook.com/docs/mcp](https://www.analook.
 
 > 💡 **出海增长咨询 · 1v1 Session 约课 $200** — [Telegram @Iris_carrot](https://t.me/Iris_carrot)
 >
-> 或访问 **[gingiris.com](https://gingiris.com/en)** — Iris 的出海增长咨询，1:1 指导、开源项目运营、企业顾问服务
+> 或访问 **[gingiris.tools](https://gingiris.tools)** — Iris 的出海增长咨询，1:1 指导、开源项目运营、企业顾问服务
 
 ## Table of Contents
 
@@ -90,7 +90,7 @@ Full docs & token instructions → **[analook.com/docs/mcp](https://www.analook.
 
 ## What is Analook?
 
-**Analook** is an open-source AI-powered competitor intelligence tool built by [Iris](https://gingiris.com), former cofounder & COO of [AFFiNE](https://github.com/toeverything/AFFiNE) (60k+ stars).
+**Analook** is an open-source AI-powered competitor intelligence tool built by [Iris](https://gingiris.tools), former cofounder & COO of [AFFiNE](https://github.com/toeverything/AFFiNE) (60k+ stars).
 
 Enter any product URL. In ~30 seconds, Analook runs a **7-module parallel analysis pipeline** and returns a structured deep-dive report — growth strategy, traffic signals, social footprint, ProductHunt history, AI insights, and more.
 
@@ -111,6 +111,19 @@ Built for:
 | 💡 AI Deep Dive | ICP, business model, growth flywheel, tactical recs |
 | 📡 Propagation | Peak traffic events, viral moments, channel breakdown |
 | 🧠 Growth Strategy | Early-stage strategy reconstruction from public signals |
+
+### What's Inside
+
+This repo is the production backend powering **[analook.com](https://www.analook.com)**:
+
+- **`app.py`** — FastAPI orchestrator: parallel analysis pipeline, job state, streaming, credit gating
+- **`modules/`** — analysis engines (traffic, social, Product Hunt, growth analysis, AI summary) plus the Supabase client, payment integrations, and the MCP server (`mcp_app.py`)
+- **`migrations/`** — Supabase SQL migrations (auth/credits/promo codes/attribution)
+- **`scripts/`** — operational tooling: user metrics, attribution reports, EDM campaigns
+- **`static/`** — the web UI served at analook.com
+- **`tests/`** + `Dockerfile` — regression suite and container build
+
+Stack: **FastAPI + Supabase** (auth, credits, report storage), deployed via Docker.
 
 ---
 
@@ -155,8 +168,7 @@ Powered by **TeamoRouter** (primary) and **DeepSeek** (fallback), with max 4,000
 ## ⚡ Quick Start
 
 ```bash
-# Source available at https://clawhub.ai/user/gingiris
-# (Skills published under @gingiris; contact iris@gingiris.com for source code access)
+git clone https://github.com/Gingiris-1031/Competitor-analysis-tool.git
 cd Competitor-analysis-tool
 pip install -r requirements.txt
 ```
@@ -218,14 +230,14 @@ If Analook saved you hours of manual research, a ⭐ helps others discover it!
 
 ## About the Author
 
-**Iris (生姜iris)** — Former cofounder & COO of [AFFiNE](https://github.com/toeverything/AFFiNE) (60k+ GitHub stars). Now running **[Gingiris](https://gingiris.com)** — an open-source go-to-market and global expansion consulting practice.
+**Iris (生姜iris)** — Former cofounder & COO of [AFFiNE](https://github.com/toeverything/AFFiNE) (60k+ GitHub stars). Now running **[Gingiris](https://gingiris.tools)** — an open-source go-to-market and global expansion consulting practice.
 
 - 🐦 Twitter: [@WeiYipei](https://twitter.com/WeiYipei)
 - 💬 Telegram: [@Iris_carrot](https://t.me/Iris_carrot)
-- 🌐 Website: [gingiris.com](https://gingiris.com/en)
+- 🌐 Website: [gingiris.tools](https://gingiris.tools)
 
 **Related Playbooks (now on ClawHub):**
-- [@gingiris on ClawHub](https://clawhub.ai/user/gingiris) — GTM strategy, B2B SaaS PLG/SLG growth, open source launch marketing, and other AI-agent skills
+- [@gingiris on ClawHub](https://clawhub.ai/gingiris-1031) — GTM strategy, B2B SaaS PLG/SLG growth, open source launch marketing, and other AI-agent skills
 
 ---
 
@@ -259,7 +271,7 @@ If Analook saved you hours of manual research, a ⭐ helps others discover it!
 ### 快速部署
 
 ```bash
-# Source: https://clawhub.ai/user/gingiris  (联系 iris@gingiris.com 获取源代码访问)
+git clone https://github.com/Gingiris-1031/Competitor-analysis-tool.git
 cd Competitor-analysis-tool
 pip install -r requirements.txt
 # 配置 .env 文件后：
@@ -270,8 +282,14 @@ uvicorn app:app --reload --port 8000
 
 ### 关于作者
 
-Iris（生姜iris），AFFiNE 联创 & 前 COO，现运营 [Gingiris](https://gingiris.com) 开源出海增长咨询。
+Iris（生姜iris），AFFiNE 联创 & 前 COO，现运营 [Gingiris](https://gingiris.tools) 开源出海增长咨询。
 
-- 出海咨询预约：[gingiris.com](https://gingiris.com/en)
+- 出海咨询预约：[gingiris.tools](https://gingiris.tools)
 - Telegram：[@Iris_carrot](https://t.me/Iris_carrot)
 - Twitter：[@WeiYipei](https://twitter.com/WeiYipei)
+
+---
+
+## License
+
+MIT — free to use, modify, and redistribute.
