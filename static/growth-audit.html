@@ -791,8 +791,8 @@
             container.innerHTML =
                 '<div class="text-center py-16 text-[color:var(--ink-muted)] fade-in">' +
                 '<div class="text-3xl mb-3 animate-pulse">⏳</div>' +
-                '<p class="font-medium">这部分报告正在生成中…</p>' +
-                '<p class="text-sm mt-1 opacity-70">已就绪的部分可先查看,其余会自动出现</p></div>';
+                '<p class="font-medium">This section is still generating…</p>' +
+                '<p class="text-sm mt-1 opacity-70">Finished sections are viewable now; the rest will appear automatically</p></div>';
         } else {
             container.innerHTML = marked.parse('*Report generation failed. Please try again.*');
         }
