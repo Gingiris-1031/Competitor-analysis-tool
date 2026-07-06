@@ -169,8 +169,14 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
             else:
                 results["channels"][ch_name] = res
 
-        # Sync check (no I/O, instant)
-        results["channels"]["linkedin"] = _check_linkedin(brand)
+        # LinkedIn: resolve the real company slug via Google's index
+        # (SerpAPI) instead of guessing linkedin.com/company/{brand}.
+        try:
+            results["channels"]["linkedin"] = await _aio.wait_for(
+                _check_linkedin_search(brand, product_name, domain), timeout=15,
+            )
+        except Exception:
+            results["channels"]["linkedin"] = _check_linkedin(brand)
 
     # Aggregate propagation metrics
     results["propagation_metrics"] = _calc_propagation_metrics(results)
@@ -1430,12 +1436,72 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
 
 
 def _check_linkedin(brand: str) -> dict:
+    """Legacy guess-URL fallback — kept for when SerpAPI is unavailable."""
     return {
         "platform": "LinkedIn",
         "detected": None,
         "url": f"https://www.linkedin.com/company/{brand}",
         "note": "🔍 LinkedIn 需登录验证，建议手动检查",
     }
+
+
+async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dict:
+    """Find the company's LinkedIn page via Google's index (SerpAPI).
+
+    Iris 2026-07-06 accuracy audit: the old _check_linkedin just GUESSED
+    linkedin.com/company/{brand} and told the user to verify manually.
+    LinkedIn blocks anonymous scraping, but Google indexes the real
+    company pages — searching site:linkedin.com/company gives us the
+    canonical slug that actually exists, which is a big precision jump
+    over string-guessing. Still marked "via Google index" because we
+    can't read follower counts without auth.
+    """
+    key = (os.environ.get("SERPAPI_KEY") or "").strip()
+    if not key:
+        return _check_linkedin(brand)
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            r = await client.get(
+                "https://serpapi.com/search.json",
+                params={
+                    "engine": "google",
+                    "q": f'site:linkedin.com/company "{name}"',
+                    "num": 5,
+                    "api_key": key,
+                },
+            )
+            if r.status_code != 200:
+                return _check_linkedin(brand)
+            results = r.json().get("organic_results", []) or []
+        brand_l = brand.lower()
+        name_l = name.lower()
+        for res in results:
+            link = (res.get("link") or "").split("?")[0].rstrip("/")
+            if "/company/" not in link:
+                continue
+            slug = link.split("/company/")[-1].lower()
+            title = (res.get("title") or "").lower()
+            # Relevance: slug or result title must relate to the brand
+            if brand_l in slug or name_l in slug.replace("-", "") \
+               or brand_l in title or name_l in title:
+                return {
+                    "platform": "LinkedIn",
+                    "detected": True,
+                    "url": link,
+                    "handle": slug,
+                    "note": f"✅ 经 Google 索引确认（标题: {(res.get('title') or '')[:60]}）",
+                }
+        # Indexed pages exist but none match the brand → likely no LinkedIn
+        if results:
+            return {
+                "platform": "LinkedIn",
+                "detected": False,
+                "url": None,
+                "note": "Google 索引中未找到匹配该品牌的 LinkedIn 公司页",
+            }
+    except Exception as e:
+        log.warning("LinkedIn SerpAPI lookup failed: %s", str(e)[:80])
+    return _check_linkedin(brand)
 
 
 async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> dict:
