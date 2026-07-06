@@ -1,3 +1,7 @@
+// i18n: zh pages set window._ANALOOK_LANG='zh' before loading shared JS.
+// TAAFT rejected the EN site twice for Chinese strings in dynamic UI (2026-07-07).
+const _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
+const _t = (en, zh) => _LANG_ZH ? zh : en;
 let currentJobId = null;
 let analysisStartTime = null;
 let timerInterval = null;
@@ -147,10 +151,10 @@ function renderHistory() {
 
 function formatAgo(ts) {
     const s = Math.round((Date.now() - ts) / 1000);
-    if (s < 60) return `${s}秒前`;
-    if (s < 3600) return `${Math.round(s/60)}分钟前`;
-    if (s < 86400) return `${Math.round(s/3600)}小时前`;
-    return `${Math.round(s/86400)}天前`;
+    if (s < 60) return _t(`${s}s ago`, `${s}秒前`);
+    if (s < 3600) return _t(`${Math.round(s/60)}m ago`, `${Math.round(s/60)}分钟前`);
+    if (s < 86400) return _t(`${Math.round(s/3600)}h ago`, `${Math.round(s/3600)}小时前`);
+    return _t(`${Math.round(s/86400)}d ago`, `${Math.round(s/86400)}天前`);
 }
 
 // ── Analysis start ──────────────────────────────────────────────────────────
@@ -169,12 +173,12 @@ async function startAnalysis() {
     const rawUrl = document.getElementById('url-input').value.trim();
     const normalized = normalizeUrl(rawUrl);
     if (!normalized) {
-        showError('请输入有效的竞品网址，例如 lovable.dev 或 https://linear.app');
+        showError(_t('Enter a valid competitor URL, e.g. lovable.dev or https://linear.app', '请输入有效的竞品网址，例如 lovable.dev 或 https://linear.app'));
         document.getElementById('url-input').focus();
         return;
     }
     const name = document.getElementById('name-input').value.trim() || null;
-    _beginProgress('🌐 正在分析竞品官网...');
+    _beginProgress(_t('🌐 Analyzing competitor website...', '🌐 正在分析竞品官网...'));
 
     // 附带 Auth token
     const token = window._analookAuth?.getToken();
@@ -200,39 +204,39 @@ async function startAnalysis() {
                 window._analookAuth?.showModal();
                 return;
             }
-            throw new Error(err.detail || `服务器错误 ${resp.status}`);
+            throw new Error(err.detail || _t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         }
         const data = await resp.json();
         currentJobId = data.job_id;
         saveToHistory(data.job_id, normalized, name || normalized);
         pollStatus();
     } catch (e) {
-        _abortProgress('启动失败：' + e.message);
+        _abortProgress(_t('Failed to start: ', '启动失败：') + e.message);
     }
 }
 
 async function startTextAnalysis() {
     clearError();
     const text = (document.getElementById('text-input')?.value || '').trim();
-    const name = (document.getElementById('text-name-input')?.value || '').trim() || '产品';
+    const name = (document.getElementById('text-name-input')?.value || '').trim() || _t('Product', '产品');
     if (!text || text.length < 30) {
-        showError('请输入至少 30 个字的产品描述');
+        showError(_t('Please enter a product description of at least 30 characters', '请输入至少 30 个字的产品描述'));
         return;
     }
-    _beginProgress('📝 正在分析产品描述...');
+    _beginProgress(_t('📝 Analyzing product description...', '📝 正在分析产品描述...'));
     try {
         const resp = await fetch('/api/analyze-text', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, product_name: name }),
         });
-        if (!resp.ok) throw new Error(`服务器错误 ${resp.status}`);
+        if (!resp.ok) throw new Error(_t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         const data = await resp.json();
         currentJobId = data.job_id;
-        saveToHistory(data.job_id, `[描述] ${name}`, name);
+        saveToHistory(data.job_id, _t(`[text] ${name}`, `[描述] ${name}`), name);
         pollStatus();
     } catch (e) {
-        _abortProgress('启动失败：' + e.message);
+        _abortProgress(_t('Failed to start: ', '启动失败：') + e.message);
     }
 }
 
@@ -240,10 +244,10 @@ async function startPdfAnalysis() {
     clearError();
     const fileInput = document.getElementById('pdf-input');
     const file = fileInput?.files?.[0];
-    if (!file) { showError('请选择一个 PDF 文件'); return; }
-    if (file.size > 20 * 1024 * 1024) { showError('PDF 文件不能超过 20MB'); return; }
+    if (!file) { showError(_t('Please choose a PDF file', '请选择一个 PDF 文件')); return; }
+    if (file.size > 20 * 1024 * 1024) { showError(_t('PDF must be under 20MB', 'PDF 文件不能超过 20MB')); return; }
     const name = (document.getElementById('pdf-name-input')?.value || '').trim() || file.name.replace('.pdf', '');
-    _beginProgress('📄 正在解析 PDF 内容...');
+    _beginProgress(_t('📄 Parsing PDF content...', '📄 正在解析 PDF 内容...'));
     try {
         const form = new FormData();
         form.append('file', file);
@@ -251,21 +255,21 @@ async function startPdfAnalysis() {
         const resp = await fetch('/api/analyze-pdf', { method: 'POST', body: form });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error || `服务器错误 ${resp.status}`);
+            throw new Error(err.error || _t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         }
         const data = await resp.json();
         currentJobId = data.job_id;
         saveToHistory(data.job_id, `[PDF] ${name}`, name);
         pollStatus();
     } catch (e) {
-        _abortProgress('启动失败：' + e.message);
+        _abortProgress(_t('Failed to start: ', '启动失败：') + e.message);
     }
 }
 
 function _beginProgress(label) {
     const btn = document.getElementById('start-btn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> 分析中...';
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> ' + _t('Analyzing...', '分析中...');
 
     document.getElementById('hero-section')?.classList.add('hidden');
     document.getElementById('history-section')?.classList.add('hidden');
@@ -291,7 +295,7 @@ function _abortProgress(msg) {
     showError(msg);
     const btn = document.getElementById('start-btn');
     btn.disabled = false;
-    btn.innerHTML = '🚀 开始调研';
+    btn.innerHTML = _t('🚀 Start Analysis', '🚀 开始调研');
     stopTimer();
     document.getElementById('progress-section').classList.add('hidden');
     document.getElementById('input-section').classList.remove('hidden');
@@ -304,18 +308,18 @@ function _abortProgress(msg) {
 async function cancelAnalysis() {
     if (!currentJobId) return;
     const btn = document.getElementById('cancel-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '取消中...'; }
+    if (btn) { btn.disabled = true; btn.textContent = _t('Cancelling...', '取消中...'); }
     try {
         await fetch(`/api/cancel/${currentJobId}`, { method: 'POST' });
     } catch {}
     // Reset UI
     const startBtn = document.getElementById('start-btn');
-    if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = '🚀 开始调研'; }
+    if (startBtn) { startBtn.disabled = false; startBtn.innerHTML = _t('🚀 Start Analysis', '🚀 开始调研'); }
     stopTimer();
     document.getElementById('progress-section').classList.add('hidden');
     document.getElementById('input-section').classList.remove('hidden');
     document.getElementById('hero-section')?.classList.remove('hidden');
-    if (btn) { btn.classList.add('hidden'); btn.disabled = false; btn.textContent = '⏹ 停止分析'; }
+    if (btn) { btn.classList.add('hidden'); btn.disabled = false; btn.textContent = _t('⏹ Stop', '⏹ 停止分析'); }
     currentJobId = null;
     renderHistory();
 }
@@ -326,7 +330,7 @@ function startTimer() {
     timerInterval = setInterval(() => {
         const elapsed = Math.round((Date.now() - analysisStartTime) / 1000);
         const el = document.getElementById('prog-timer');
-        if (el) el.textContent = `已用时 ${elapsed} 秒`;
+        if (el) el.textContent = _t(`Elapsed ${elapsed}s`, `已用时 ${elapsed} 秒`);
     }, 1000);
 }
 
@@ -334,7 +338,7 @@ function stopTimer() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     const elapsed = Math.round((Date.now() - analysisStartTime) / 1000);
     const el = document.getElementById('prog-timer');
-    if (el) el.textContent = `✅ 完成，共用时 ${elapsed} 秒`;
+    if (el) el.textContent = _t(`✅ Done in ${elapsed}s`, `✅ 完成，共用时 ${elapsed} 秒`);
 }
 
 // ── Poll status ─────────────────────────────────────────────────────────────
@@ -381,9 +385,9 @@ async function pollStatus() {
         } else if (data.status === 'error') {
             stopTimer();
             document.getElementById('cancel-btn')?.classList.add('hidden');
-            showError('分析过程中出错，请刷新重试');
+            showError(_t('Something went wrong during analysis — refresh and retry', '分析过程中出错，请刷新重试'));
             const btn = document.getElementById('start-btn');
-            if (btn) { btn.disabled = false; btn.innerHTML = '🚀 开始调研'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = _t('🚀 Start Analysis', '🚀 开始调研'); }
         } else {
             setTimeout(pollStatus, 1200);
         }
@@ -405,9 +409,9 @@ function _renderPartialResults(partial) {
     // Use the report.py format functions via a lightweight shim
     const moduleMap = {
         'website':     { section: 'website_analysis', render: typeof renderWebsite !== 'undefined' ? renderWebsite : null,
-                         format: (d) => ({ title: "官网演变分析", domain: d.domain, first_seen: d.first_seen, total_snapshots: d.total_snapshots, deep_timeline: d.deep_timeline || [], current: d.current_site || {}, key_changes: d.key_changes || [] }) },
+                         format: (d) => ({ title: _t("Website Evolution", "官网演变分析"), domain: d.domain, first_seen: d.first_seen, total_snapshots: d.total_snapshots, deep_timeline: d.deep_timeline || [], current: d.current_site || {}, key_changes: d.key_changes || [] }) },
         'social':      { section: 'social_media', render: typeof renderSocial !== 'undefined' ? renderSocial : null,
-                         format: (d) => ({ title: "社交媒体", brand: d.brand, channels: d.channels || {}, propagation_metrics: d.propagation_metrics || {} }) },
+                         format: (d) => ({ title: _t("Social Media", "社交媒体"), brand: d.brand, channels: d.channels || {}, propagation_metrics: d.propagation_metrics || {} }) },
         'traffic':     { section: 'traffic_analysis', render: typeof renderTraffic !== 'undefined' ? renderTraffic : null, format: (d) => d },
         'producthunt': { section: 'producthunt', render: typeof renderProductHunt !== 'undefined' ? renderProductHunt : null, format: (d) => d },
         'pricing':     { section: 'pricing', render: typeof renderPricing !== 'undefined' ? renderPricing : null, format: (d) => d },
@@ -472,11 +476,11 @@ async function loadReport() {
         document.getElementById('hero-section')?.classList.add('hidden');
 
         const btn = document.getElementById('start-btn');
-        if (btn) { btn.disabled = false; btn.innerHTML = '🚀 开始调研'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = _t('🚀 Start Analysis', '🚀 开始调研'); }
     } catch (e) {
-        showError('加载报告失败：' + e.message);
+        showError(_t('Failed to load report: ', '加载报告失败：') + e.message);
         const btn = document.getElementById('start-btn');
-        if (btn) { btn.disabled = false; btn.innerHTML = '🚀 开始调研'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = _t('🚀 Start Analysis', '🚀 开始调研'); }
     }
 }
 
@@ -500,19 +504,19 @@ function renderSummaryCard(report) {
 
     const twStr = twitterFollowers ? fmtNum(twitterFollowers) : '—';
     const trafficStr = monthlyTraffic ? fmtNum(monthlyTraffic) + '/mo' : '—';
-    const phStr = phScore ? `⬆${fmtNum(phScore)}` : '未上线';
+    const phStr = phScore ? `⬆${fmtNum(phScore)}` : _t('Not launched', '未上线');
 
     el.innerHTML = `
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
-        <div class="text-xs text-gray-500 uppercase tracking-wider mb-3">核心指标</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wider mb-3">${_t("Core Metrics", "核心指标")}</div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">有机搜索流量估算</div>
+                <div class="text-xs text-gray-500 mb-1">${_t("Organic search estimate", "有机搜索流量估算")}</div>
                 <div class="text-xl font-bold text-white">${trafficStr}</div>
                 <div class="text-xs text-gray-600 mt-0.5">via keyword rankings</div>
             </div>
             <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">Twitter 粉丝</div>
+                <div class="text-xs text-gray-500 mb-1">${_t("Twitter followers", "Twitter 粉丝")}</div>
                 <div class="text-xl font-bold text-white">${twStr}</div>
             </div>
             <div class="bg-gray-800/60 rounded-lg p-3">
@@ -520,7 +524,7 @@ function renderSummaryCard(report) {
                 <div class="text-xl font-bold text-white">${phStr}</div>
             </div>
             <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">首次出现</div>
+                <div class="text-xs text-gray-500 mb-1">${_t("First seen", "首次出现")}</div>
                 <div class="text-xl font-bold text-white">${esc(firstSeen)}</div>
             </div>
         </div>
@@ -564,7 +568,7 @@ async function exportMarkdown() {
         const resp = await fetch(`/api/export/${currentJobId}`);
         if (!resp.ok) {
             const data = await resp.json().catch(() => ({}));
-            showError(data.error || '导出失败，报告尚未生成');
+            showError(data.error || _t('Export failed — report not ready yet', '导出失败，报告尚未生成'));
             return;
         }
         const text = await resp.text();
@@ -578,7 +582,7 @@ async function exportMarkdown() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (e) {
-        showError('导出失败：' + e.message);
+        showError(_t('Export failed: ', '导出失败：') + e.message);
     }
 }
 
@@ -588,19 +592,19 @@ async function shareReport() {
     try {
         const resp = await fetch(`/api/share/${currentJobId}`);
         const data = await resp.json();
-        if (data.error) { showError('分享失败: ' + data.error); return; }
+        if (data.error) { showError(_t('Share failed: ', '分享失败: ') + data.error); return; }
         const fullUrl = `${window.location.origin}${data.share_url}`;
         if (navigator.clipboard) {
             await navigator.clipboard.writeText(fullUrl);
         } else {
-            prompt('复制分享链接：', fullUrl);
+            prompt(_t('Copy share link:', '复制分享链接：'), fullUrl);
         }
         const orig = btn.innerHTML;
-        btn.innerHTML = '✅ 已复制';
+        btn.innerHTML = _t('✅ Copied', '✅ 已复制');
         btn.classList.add('bg-green-900', 'border-green-700');
         setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('bg-green-900', 'border-green-700'); }, 3000);
     } catch (e) {
-        showError('分享失败：' + e.message);
+        showError(_t('Share failed: ', '分享失败：') + e.message);
     }
 }
 
