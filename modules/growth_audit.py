@@ -194,6 +194,37 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
         except FileNotFoundError:
             return {"error": "TINYFISH_API_KEY not configured"}
 
+    # Iris 2026-07-06 accuracy audit: resolve redirects BEFORE building the
+    # base, otherwise robots.txt / pricing / sitemap get fetched from the
+    # OLD domain when the site has migrated (notion.so → notion.com held
+    # 8x the SEO footprint in the sibling /api/analyze bug). The audit
+    # then confidently mis-describes the wrong domain's GEO readiness.
+    redirect_note = ""
+    raw_url = url if url.startswith("http") else f"https://{url}"
+    try:
+        async with httpx.AsyncClient(
+            timeout=8, follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; analook/1.0)"},
+        ) as _rc:
+            _resp = await _rc.get(raw_url)
+            _final = str(_resp.url)
+            _orig_host = urlparse(raw_url).netloc.lower().replace("www.", "")
+            _final_host = urlparse(_final).netloc.lower().replace("www.", "")
+            if _final_host and _final_host != _orig_host:
+                # NB: keep this note in ENGLISH — it flows into the LLM
+                # context for BOTH en and zh audits. A Chinese note would
+                # leak CJK into EN reports (the exact bug class fixed in
+                # the 2026-06-25 i18n sweep); the zh prompt handles English
+                # data fragments natively.
+                redirect_note = (
+                    f"NOTE: the submitted domain {_orig_host} redirects to "
+                    f"{_final_host}; all fetching and diagnosis below reflect "
+                    f"{_final_host} (the domain actually serving the product)."
+                )
+                url = _final
+    except Exception:
+        pass  # network hiccup → proceed with the raw URL as before
+
     parsed = urlparse(url if url.startswith("http") else f"https://{url}")
     base = f"{parsed.scheme}://{parsed.netloc}"
 
@@ -253,6 +284,8 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
 
     results["url"] = url
     results["domain"] = parsed.netloc
+    if redirect_note:
+        results["redirect_note"] = redirect_note
     return results
 
 
@@ -692,6 +725,8 @@ def _build_site_context(site_data: dict) -> str:
     parts.append("")
     parts.append(f"## 目标产品网站:{url}(域名:{domain})\n")
     parts.append(f"抓取时间:刚刚(实时 fetch)\n")
+    if site_data.get("redirect_note"):
+        parts.append(f"⚠️ {site_data['redirect_note']}\n")
 
     # Homepage
     hp = site_data.get("homepage", {})
