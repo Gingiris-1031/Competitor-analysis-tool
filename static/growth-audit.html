@@ -974,15 +974,15 @@
     /**
      * Pull the first meaningful "headline" from the Executive Summary so
      * shares can carry a unique hook instead of generic copy. Strategy:
-     *   1. Find the first H3 / bold under "核心发现" / "Core findings".
+     *   1. Find the first H3 / bold under the core-findings heading (ZH or EN).
      *   2. Strip markdown noise (** *, etc.), cap at 110 chars.
      *   3. Fall back to product name + generic copy if extraction fails.
      */
     function extractTopFinding() {
         const md = reports.executive_summary || '';
         if (!md) return null;
-        // Look for the first bullet OR first H3 under a "核心发现" section
-        const sectionMatch = md.match(/#{1,3}\s*[🎯🚨🔥📊]?\s*(?:核心发现|Core findings|Top finding|Key finding)[^\n]*\n+([\s\S]+?)(?=\n#{1,3}\s|\n---|\n$)/i);
+        // Look for the first bullet OR first H3 under a core-findings section
+        const sectionMatch = md.match(/#{1,3}\s*[🎯🚨🔥📊]?\s*(?:\u6838\u5fc3\u53d1\u73b0|Core findings|Top finding|Key finding)[^\n]*\n+([\s\S]+?)(?=\n#{1,3}\s|\n---|\n$)/i);
         let body = sectionMatch ? sectionMatch[1] : md.slice(0, 800);
         // Take first bullet OR first sentence
         const bulletMatch = body.match(/^\s*[-*]\s*\*?\*?([^*\n]+)/m);
