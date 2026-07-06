@@ -155,30 +155,90 @@ async def _analyze_domain_uncached(domain: str) -> dict:
     return results
 
 
+# Iris 2026-07-06 accuracy audit: single-location US-only numbers looked
+# 5-10x low vs Ahrefs-style worldwide estimates and read as "wrong data".
+# Now the headline organic numbers aggregate the 4 biggest Google markets
+# in one batched POST (each task billed separately, ~4x cost on this one
+# endpoint only — keywords/historical stay US-only to control spend).
+_RANK_LOCATIONS = [
+    (2840, "US"),
+    (2826, "UK"),
+    (2356, "IN"),
+    (2276, "DE"),
+]
+
+
 async def _domain_rank(client, headers, domain) -> dict:
-    """域名排名概览"""
-    resp = await _post_with_retry(
-        client, f"{API_BASE}/dataforseo_labs/google/domain_rank_overview/live",
-        headers, [{"target": domain, "language_code": "en", "location_code": 2840}],
+    """域名排名概览 — aggregated across top 4 Google markets.
+
+    NB: dataforseo_labs live endpoints reject multi-task POSTs
+    ("You can set only one task at a time"), so the 4 markets are
+    fetched as parallel single-task requests. Same wall-clock as one
+    call; total cost ~$0.012 for all four.
+    """
+    async def _one_market(code):
+        resp = await _post_with_retry(
+            client, f"{API_BASE}/dataforseo_labs/google/domain_rank_overview/live",
+            headers, [{"target": domain, "language_code": "en", "location_code": code}],
+        )
+        return resp.json()
+
+    responses = await asyncio.gather(
+        *(_one_market(code) for code, _label in _RANK_LOCATIONS),
+        return_exceptions=True,
     )
-    data = resp.json()
-    cost = data.get("cost", 0)
-    task = data.get("tasks", [{}])[0]
-    if task.get("result") and task["result"][0].get("items"):
-        metrics = task["result"][0]["items"][0].get("metrics", {})
-        org = metrics.get("organic", {})
+
+    cost = 0
+    agg = {"etv": 0, "count": 0, "pos_1": 0, "pos_2_3": 0, "pos_4_10": 0,
+           "is_new": 0, "is_lost": 0, "paid_cost": 0}
+    markets = {}
+    for data, (_code, label) in zip(responses, _RANK_LOCATIONS):
+        if isinstance(data, Exception):
+            continue
+        cost += data.get("cost", 0)
+        task = (data.get("tasks") or [{}])[0]
+        if not (task.get("result") and task["result"][0].get("items")):
+            continue
+        org = task["result"][0]["items"][0].get("metrics", {}).get("organic", {})
+        markets[label] = {
+            "organic_traffic": round(org.get("etv", 0)),
+            "keywords": org.get("count", 0),
+        }
+        agg["etv"] += org.get("etv", 0)
+        agg["count"] += org.get("count", 0)
+        agg["pos_1"] += org.get("pos_1", 0)
+        agg["pos_2_3"] += org.get("pos_2_3", 0)
+        agg["pos_4_10"] += org.get("pos_4_10", 0)
+        agg["is_new"] += org.get("is_new", 0)
+        agg["is_lost"] += org.get("is_lost", 0)
+        agg["paid_cost"] += org.get("estimated_paid_traffic_cost", 0)
+
+    if markets:
         return {
             "cost": cost,
-            "organic_traffic": round(org.get("etv", 0)),
-            "total_keywords": org.get("count", 0),
-            "keywords_top1": org.get("pos_1", 0),
-            "keywords_top3": org.get("pos_1", 0) + org.get("pos_2_3", 0),
-            "keywords_top10": org.get("pos_1", 0) + org.get("pos_2_3", 0) + org.get("pos_4_10", 0),
-            "new_keywords": org.get("is_new", 0),
-            "lost_keywords": org.get("is_lost", 0),
-            "estimated_paid_cost": round(org.get("estimated_paid_traffic_cost", 0)),
+            "organic_traffic": round(agg["etv"]),
+            "total_keywords": agg["count"],
+            "keywords_top1": agg["pos_1"],
+            "keywords_top3": agg["pos_1"] + agg["pos_2_3"],
+            "keywords_top10": agg["pos_1"] + agg["pos_2_3"] + agg["pos_4_10"],
+            "new_keywords": agg["is_new"],
+            "lost_keywords": agg["is_lost"],
+            "estimated_paid_cost": round(agg["paid_cost"]),
+            # Scope metadata — lets the report/LLM disclose what the number covers
+            "market_scope": "+".join(label for _c, label in _RANK_LOCATIONS if label in markets),
+            "markets": markets,
         }
-    return {"cost": cost, "error": task.get("status_message", "No data")}
+    # No market returned data — surface the first real error message we saw
+    err_msg = "No data"
+    for data in responses:
+        if isinstance(data, Exception):
+            err_msg = str(data)[:100]
+            continue
+        task = (data.get("tasks") or [{}])[0]
+        if task.get("status_message"):
+            err_msg = task["status_message"]
+            break
+    return {"cost": cost, "error": err_msg}
 
 
 async def _backlinks_summary(client, headers, domain) -> dict:
