@@ -1,3 +1,6 @@
+// i18n: zh pages set window._ANALOOK_LANG='zh' before loading shared JS.
+const _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
+const _t = (en, zh) => _LANG_ZH ? zh : en;
 /**
  * auth.js — Analook Supabase Auth 模块
  * 暴露 window._analookAuth 供 app.js 使用
@@ -9,7 +12,7 @@
   const SUPABASE_ANON = document.querySelector('meta[name="supabase-anon"]')?.content || '';
 
   if (!SUPABASE_URL || !SUPABASE_ANON) {
-    console.warn('[auth] Supabase 配置缺失，Auth 模块未启动');
+    console.warn('[auth] Supabase config missing; auth module not started');
     window._analookAuth = { user: null, getToken: () => null, showModal: () => {} };
     return;
   }
@@ -343,7 +346,7 @@
       _clearAuthError();
       const email = document.getElementById('auth-email')?.value?.trim();
       const pass  = document.getElementById('auth-password')?.value;
-      if (!email || !pass) return _setAuthError('请输入邮箱和密码');
+      if (!email || !pass) return _setAuthError(_t('Please enter email and password', '请输入邮箱和密码'));
       _setLoading(true);
       const { error } = await sb.auth.signInWithPassword({ email, password: pass });
       _setLoading(false);
@@ -356,13 +359,13 @@
       _clearAuthError();
       const email = document.getElementById('auth-signup-email')?.value?.trim();
       const pass  = document.getElementById('auth-signup-password')?.value;
-      if (!email || !pass) return _setAuthError('请输入邮箱和密码');
-      if (pass.length < 6) return _setAuthError('密码至少 6 位');
+      if (!email || !pass) return _setAuthError(_t('Please enter email and password', '请输入邮箱和密码'));
+      if (pass.length < 6) return _setAuthError(_t('Password must be at least 6 characters', '密码至少 6 位'));
       _setLoading(true);
       const { error } = await sb.auth.signUp({ email, password: pass });
       _setLoading(false);
       if (error) return _setAuthError(error.message);
-      _setAuthError('✅ 注册成功！请查收验证邮件后登录');
+      _setAuthError(_t('✅ Registered! Check your email to verify, then sign in.', '✅ 注册成功！请查收验证邮件后登录'));
       _switchAuthTab('login');
     });
 
@@ -382,7 +385,7 @@
       _clearAuthError();
       const email = (document.getElementById('auth-email')?.value
                   || document.getElementById('auth-signup-email')?.value || '').trim();
-      if (!email) return _setAuthError('请先填邮箱再点击「邮件登录」');
+      if (!email) return _setAuthError(_t('Enter your email above, then click the magic-link button', '请先填邮箱再点击「邮件登录」'));
       _setLoading(true);
       const { error } = await sb.auth.signInWithOtp({
         email,
@@ -390,7 +393,7 @@
       });
       _setLoading(false);
       if (error) return _setAuthError(error.message);
-      _setAuthError(`✅ 已发送到 ${email}，请到邮箱点击魔法链接登录`);
+      _setAuthError(_t(`✅ Sent to ${email} — click the magic link in your inbox to sign in`, `✅ 已发送到 ${email}，请到邮箱点击魔法链接登录`));
     });
 
     // GitHub OAuth
