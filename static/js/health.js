@@ -43,7 +43,7 @@
         .then(({ status, body }) => {
             if (status === 503 || body.status === 'degraded') {
                 showBanner(
-                    `⚠️ Analook 后端暂时降级：${body.warning || 'Supabase 配置异常，报告可能无法保存'}`,
+                    `⚠️ Analook backend degraded: ${body.warning || 'Supabase misconfigured; reports may not be saved'}`,
                     'error'
                 );
             }
@@ -51,6 +51,6 @@
         .catch(() => {
             // /api/health unreachable → backend completely down. Show a
             // softer warning since the user can probably see other issues.
-            showBanner('⚠️ 无法连接到 Analook 后端，部分功能可能不可用', 'error');
+            showBanner('⚠️ Cannot reach the Analook backend; some features may be unavailable', 'error');
         });
 })();
