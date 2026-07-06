@@ -28,7 +28,7 @@ function renderPricing(pricing) {
             ${tiers.map(t => {
                 const price = t.price_monthly === 0
                     ? '<span class="text-2xl font-bold text-green-400">Free</span>'
-                    : `<span class="text-2xl font-bold text-white">$${t.price_monthly}</span><span class="text-xs text-gray-500">/月</span>`;
+                    : `<span class="text-2xl font-bold text-white">$${t.price_monthly}</span><span class="text-xs text-gray-500">/mo</span>`;
                 const annualNote = t.price_annual_monthly
                     ? `<p class="text-xs text-gray-500 mt-0.5">Annual: $${t.price_annual_monthly}/mo</p>`
                     : '';
