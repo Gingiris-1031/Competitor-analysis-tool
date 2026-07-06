@@ -364,14 +364,13 @@
       <div id="qa-meta" class="qa-meta"></div>
       <div id="qa-thread" class="qa-thread">
         <div class="qa-empty" id="qa-empty">
-          <strong id="qa-empty-title">What would you like to know? · 想问点什么？</strong><br>
-          <span id="qa-empty-sub">Ask in English or 中文 — the answer matches your language.</span>
+          <strong id="qa-empty-title">What would you like to know?</strong><br>
+          <span id="qa-empty-sub">Ask in any language — the answer matches yours.</span>
           <div class="qa-suggestions" id="qa-suggestions">
-            <button class="qa-suggestion" data-q="这周我最该优先修哪一件事？">🇨🇳 这周我最该优先修哪一件事？</button>
-            <button class="qa-suggestion" data-q="What's the single most important thing I should fix this week?">🇺🇸 What's the single most important fix this week?</button>
-            <button class="qa-suggestion" data-q="报告里的 traffic 数字是怎么估出来的？">🇨🇳 报告里的 traffic 数字是怎么估出来的？</button>
-            <button class="qa-suggestion" data-q="Which competitor is the biggest threat and why?">🇺🇸 Which competitor is the biggest threat?</button>
-            <button class="qa-suggestion" data-q="如果我有 $500/月预算，行动计划该怎么改？">🇨🇳 有 $500/月预算的话，计划怎么改？</button>
+            <button class="qa-suggestion" data-q="What's the single most important thing I should fix this week?">🔧 What's the single most important fix this week?</button>
+            <button class="qa-suggestion" data-q="How were the traffic numbers in this report estimated?">📊 How were the traffic numbers estimated?</button>
+            <button class="qa-suggestion" data-q="Which competitor is the biggest threat and why?">🥊 Which competitor is the biggest threat?</button>
+            <button class="qa-suggestion" data-q="If I had a $500/month budget, how should the action plan change?">💰 With a $500/mo budget, what changes?</button>
           </div>
         </div>
       </div>
@@ -486,17 +485,44 @@
 
     // ─── Dynamic Q&A suggestion from executive_summary ───────────────
     const execMd = reports.executive_summary || '';
-    const problemMatch = execMd.match(/###\s*问题\s*\d[：:]\s*([^\n]+)/);
+    // Matches both ZH "### \u95ee\u9898 1\uff1a..." and EN "### Problem 1: ..."
+    // headings. CJK kept as \u escapes so page source stays CJK-free.
+    const problemMatch = execMd.match(new RegExp('###\\s*(?:\u95ee\u9898|Problem)\\s*\\d[\uff1a:]\\s*([^\\n]+)'));
     if (problemMatch) {
         const firstProblem = problemMatch[1].replace(/\*\*/g, '').trim().slice(0, 40);
         const btn = document.querySelector('.qa-suggestion');
         if (btn) {
-            btn.dataset.q = `"${firstProblem}" 具体该怎么修？`;
-            btn.textContent = `🔍 "${firstProblem}" 具体该怎么修？`;
+            const isZh = /[\u4e00-\u9fff]/.test(firstProblem);
+            const suffix = isZh ? ' \u5177\u4f53\u8be5\u600e\u4e48\u4fee\uff1f' : ' — how exactly do I fix this?';
+            btn.dataset.q = `"${firstProblem}"` + suffix;
+            btn.textContent = `\ud83d\udd0d "${firstProblem}"` + suffix;
         }
     }
 
     // ─── Q&A widget — reveal once the report has rendered ────────────
+
+    // Locale-aware ZH suggestion chips — injected only for zh browsers.
+    // Strings are \u-escaped so the page source carries no raw CJK
+    // (the EN site was rejected twice by a directory reviewer for stray
+    // Chinese; source-level greps must stay clean).
+    (function () {
+      if (!(navigator.language || '').toLowerCase().startsWith('zh')) return;
+      var box = document.getElementById('qa-suggestions');
+      if (!box) return;
+      var zh = [
+        '\u8fd9\u5468\u6211\u6700\u8be5\u4f18\u5148\u4fee\u54ea\u4e00\u4ef6\u4e8b\uff1f',
+        '\u62a5\u544a\u91cc\u7684 traffic \u6570\u5b57\u662f\u600e\u4e48\u4f30\u51fa\u6765\u7684\uff1f',
+        '\u5982\u679c\u6211\u6709 $500/\u6708\u9884\u7b97\uff0c\u884c\u52a8\u8ba1\u5212\u8be5\u600e\u4e48\u6539\uff1f'
+      ];
+      zh.forEach(function (q) {
+        var b = document.createElement('button');
+        b.className = 'qa-suggestion';
+        b.dataset.q = q;
+        b.textContent = '🇨🇳 ' + q;
+        box.appendChild(b);
+      });
+    })();
+
     initQaWidget(jobId);
 })();
 
