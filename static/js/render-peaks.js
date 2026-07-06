@@ -1,4 +1,11 @@
 function renderPeaks(tp) {
+
+// Display-side translation for backend-supplied Chinese phase/trend labels.
+// traffic_peaks.py hardcodes ZH values; the EN renderer maps them for display
+// (TAAFT rejected the EN site for Chinese in dynamic UI, 2026-07-07).
+const _PEAKS_EN = {'冷启动期':'Cold Start','爬坡期':'Ramp Up','爆发期':'Explosion','高位运行期':'Plateau','回落期':'Decline','上升':'Rising','下降':'Falling','平稳':'Flat'};
+const _peaksEn = v => _PEAKS_EN[v] || v;
+
     const container = document.getElementById('section-peaks');
     if (!tp || (!tp.summary && !tp.error)) { container.innerHTML = ''; return; }
     if (tp.error || !tp.summary || !tp.summary.total_weeks) {
@@ -33,8 +40,8 @@ function renderPeaks(tp) {
         { label: 'Query', val: s.primary_query || '', color: 'text-blue-300' },
         { label: 'Peak Interest', val: String(s.max_interest || 0), sub: s.max_interest_date || '', color: 'text-yellow-300' },
         { label: 'Avg Interest', val: String(s.avg_interest || 0), color: 'text-gray-300' },
-        { label: 'Recent Trend', val: s.recent_trend || 'N/A', color: s.recent_trend === '上升' ? 'text-green-300' : (s.recent_trend === '下降' ? 'text-red-300' : 'text-gray-300') },
-        { label: 'Current Phase', val: s.current_phase || 'N/A', color: 'text-purple-300' },
+        { label: 'Recent Trend', val: _peaksEn(s.recent_trend) || 'N/A', color: s.recent_trend === '上升' ? 'text-green-300' : (s.recent_trend === '下降' ? 'text-red-300' : 'text-gray-300') },
+        { label: 'Current Phase', val: _peaksEn(s.current_phase) || 'N/A', color: 'text-purple-300' },
         { label: 'Detected Peaks', val: String(s.total_peaks_detected || 0), sub: `Matched ${s.matched_peaks || 0} / Unmatched ${s.unmatched_peaks || 0}`, color: 'text-orange-300' },
     ];
     for (const st of stats) {
@@ -135,7 +142,7 @@ function renderPeaks(tp) {
             html += `<div class="${cls} rounded-lg px-3 py-2">
                 <div class="flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-medium">${esc(ph.phase)}</span>${peakBadge}
+                        <span class="text-xs font-medium">${esc(_peaksEn(ph.phase))}</span>${peakBadge}
                         <span class="text-[10px] text-gray-500 ml-2 font-mono">${esc(ph.start_date)} → ${esc(ph.end_date)}</span>
                     </div>
                     <div class="text-right">
