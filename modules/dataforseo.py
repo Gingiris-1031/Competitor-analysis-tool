@@ -47,6 +47,40 @@ async def _post_with_retry(client, url: str, headers: dict, json_body, max_retri
     raise last_error
 
 
+async def _resolve_canonical_domain(domain: str) -> tuple:
+    """Follow HTTP redirects to find the domain that actually ranks.
+
+    Iris 2026-07-06 accuracy audit: a user analyzing notion.so got
+    organic=152K / 1,143 keywords, while the REAL marketing domain
+    notion.com holds 1.23M organic / 86K keywords (8× more). Notion
+    migrated domains in 2024 and https://notion.so now chains through
+    redirects to www.notion.com — but we were querying DataForSEO with
+    the raw user-typed domain.
+
+    Returns (resolved_domain, note). note is "" when nothing changed.
+    Falls back to the input on any network error — never blocks the audit.
+    """
+    raw = (domain or "").strip().lower().rstrip("/")
+    bare = raw[4:] if raw.startswith("www.") else raw
+    try:
+        async with httpx.AsyncClient(
+            timeout=8, follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; analook/1.0)"},
+        ) as c:
+            r = await c.get(f"https://{raw}")
+            final_host = (r.url.host or "").lower()
+            if final_host.startswith("www."):
+                final_host = final_host[4:]
+            if final_host and final_host != bare:
+                return final_host, (
+                    f"Input domain {bare} redirects to {final_host}; "
+                    f"SEO metrics reflect {final_host} (the domain that actually ranks)."
+                )
+    except Exception:
+        pass
+    return bare, ""
+
+
 async def analyze_domain(domain: str) -> dict:
     """综合域名分析：排名概览 + 反链 + 历史趋势 + Top 关键词
 
@@ -59,17 +93,28 @@ async def analyze_domain(domain: str) -> dict:
     if not domain_key:
         return {"error": "empty domain"}
 
+    # Resolve redirects BEFORE cache lookup so notion.so and notion.com
+    # share one cache entry keyed on the domain that actually ranks.
+    resolved, redirect_note = await _resolve_canonical_domain(domain_key)
+
+    async def _fetch_and_annotate():
+        res = await _analyze_domain_uncached(resolved)
+        if redirect_note and isinstance(res, dict):
+            res["queried_domain"] = resolved
+            res["redirect_note"] = redirect_note
+        return res
+
     try:
         from .audit_cache import cached_fetch, TTL
         return await cached_fetch(
             source="dataforseo",
-            cache_key=domain_key,
+            cache_key=resolved,
             ttl_seconds=TTL.DATAFORSEO,
-            fetch_fn=lambda: _analyze_domain_uncached(domain),
+            fetch_fn=_fetch_and_annotate,
         )
     except Exception:
         # Defensive — cache layer failures must never block the audit.
-        return await _analyze_domain_uncached(domain)
+        return await _fetch_and_annotate()
 
 
 async def _analyze_domain_uncached(domain: str) -> dict:
