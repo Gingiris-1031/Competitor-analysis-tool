@@ -1386,6 +1386,36 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
                             break  # org and user for same name can't both exist
                 except Exception:
                     pass
+
+        # Widen the pool via GitHub org search. Iris 2026-07-06 self-test:
+        # Notion's real org is `makenotion` — no enumerable pattern reaches
+        # it, so the wrong `notion` user (63 stars) won by default. Search
+        # surfaces naming schemes we can't guess; _is_relevant + blog-match
+        # ranking still gate what actually gets picked.
+        try:
+            sr = await client.get(
+                "https://api.github.com/search/users",
+                params={"q": f"{brand} type:org", "per_page": 3},
+            )
+            if sr.status_code == 200:
+                seen_logins = {(c.get("login") or "").lower() for c in candidates_gh}
+                for item in sr.json().get("items", []):
+                    login = (item.get("login") or "")
+                    if not login or login.lower() in seen_logins:
+                        continue
+                    pr = await client.get(f"https://api.github.com/users/{login}")
+                    if pr.status_code != 200:
+                        continue
+                    candidate = pr.json()
+                    if _is_relevant(candidate):
+                        candidate["_matched_name"] = login
+                        candidate["_endpoint"] = (
+                            "orgs" if candidate.get("type") == "Organization" else "users"
+                        )
+                        candidates_gh.append(candidate)
+        except Exception:
+            pass
+
         if candidates_gh:
             data = max(candidates_gh, key=_candidate_rank)
             matched_name = data["_matched_name"]
