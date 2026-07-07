@@ -1,13 +1,13 @@
 ---
 name: gingiris-ugc-matrix
 description: |
-  🇺🇸 UGC Matrix Growth Playbook — Scale user-generated content with AI + real creators. Complete SOP for UGC flywheel, creator recruitment, incentive design, multi-platform publishing. Proven at CPM $0.5, $10M ARR in 60 days with 70M impressions. Kuse case study included.
+  🇺🇸 UGC Matrix Growth Playbook — Scale user-generated content with AI + real creators. Complete SOP for UGC flywheel, creator recruitment, incentive design, multi-platform publishing. Proven at CPM $0.5, $10M ARR in 60 days with 70M impressions. Includes a full anonymized client case study.
 
-  🇨🇳 UGC矩阵号增长实操手册 — AI+真人创作者规模化用户生成内容。完整的UGC飞轮SOP、创作者招募、激励机制设计、多平台分发策略。已验证CPM $0.5，60天$1000万ARR，7000万曝光。含Kuse案例拆解。
+  🇨🇳 UGC矩阵号增长实操手册 — AI+真人创作者规模化用户生成内容。完整的UGC飞轮SOP、创作者招募、激励机制设计、多平台分发策略。已验证CPM $0.5，60天$1000万ARR，7000万曝光。含完整客户案例拆解（已脱敏）。
 
-  🇯🇵 UGCマトリックス成長プレイブック — AI＋リアルクリエイターでUGCをスケール。フライホイールSOP、クリエイター採用、インセンティブ設計、マルチプラットフォーム配信。CPM $0.5、60日で$10M ARR、7000万インプレッション実証済み。Kuseケーススタディ付き。
+  🇯🇵 UGCマトリックス成長プレイブック — AI＋リアルクリエイターでUGCをスケール。フライホイールSOP、クリエイター採用、インセンティブ設計、マルチプラットフォーム配信。CPM $0.5、60日で$10M ARR、7000万インプレッション実証済み。匿名化クライアント事例付き。
 
-  🇰🇷 UGC 매트릭스 성장 플레이북 — AI + 실제 크리에이터로 UGC 스케일링. 플라이휠 SOP, 크리에이터 모집, 인센티브 설계, 멀티플랫폼 배포. CPM $0.5, 60일 $10M ARR, 7000만 노출 검증 완료. Kuse 케이스 스터디 포함.
+  🇰🇷 UGC 매트릭스 성장 플레이북 — AI + 실제 크리에이터로 UGC 스케일링. 플라이휠 SOP, 크리에이터 모집, 인센티브 설계, 멀티플랫폼 배포. CPM $0.5, 60일 $10M ARR, 7000만 노출 검증 완료. 익명화된 클라이언트 사례 포함.
 
   Triggers: "UGC" | "UGC matrix" | "user generated content" | "creator program" | "creator economy" | "AI UGC" | "matrix accounts" | "矩阵号" | "UGC运营" | "创作者招募" | "UGC Program" | "content matrix" | "TikTok UGC" | "Instagram UGC"
 when_to_use: |
@@ -36,7 +36,7 @@ IP号（立人设、建信任）
                 → 更多人加入 → 飞轮加速
 ```
 
-### 关键数据（Kuse案例验证）
+### 关键数据（客户案例验证·已脱敏）
 
 | 指标 | 数据 |
 |------|------|
@@ -103,7 +103,7 @@ IP号（立人设、建信任）
 - 平台冷启动路径（Reddit/YouTube/小红书）
 - 社区体系建设（品牌挚友计划）
 - 内容制作方法论（拆竞品+AI批量生产）
-- Kuse案例完整复盘
+- 客户案例完整复盘（已脱敏）
 
 ---
 
