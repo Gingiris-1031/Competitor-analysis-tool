@@ -2657,15 +2657,15 @@ def _categorize_report(name: str, url: str) -> str:
     return "SaaS / Other"
 
 
-@app.get("/api/public-reports")
-async def public_reports():
-    """List public completed reports for the /reports/ gallery.
+async def _public_reports_data():
+    """Shared data source for the gallery API, the SSR gallery pages, and the
+    dynamic sitemap. Returns the cached list of public report dicts.
 
     Deduped by domain (latest wins), partial audits excluded, 5-min cache.
     """
     if _public_reports_cache["data"] is not None and \
        time.time() - _public_reports_cache["ts"] < 300:
-        return _public_reports_cache["data"]
+        return _public_reports_cache["data"]["reports"]
     try:
         from modules.supabase_client import get_supabase
         sb = get_supabase()
@@ -2682,7 +2682,7 @@ async def public_reports():
             .order("created_at", desc=True).limit(150).execute().data or []
     except Exception as e:
         log.warning("public-reports query failed: %s", e)
-        return {"reports": []}
+        return []
 
     out, seen_domains = [], set()
     for r in rows:
@@ -2708,10 +2708,15 @@ async def public_reports():
         })
         if len(out) >= 60:
             break
-    payload = {"reports": out}
     _public_reports_cache["ts"] = time.time()
-    _public_reports_cache["data"] = payload
-    return payload
+    _public_reports_cache["data"] = {"reports": out}
+    return out
+
+
+@app.get("/api/public-reports")
+async def public_reports():
+    """List public completed reports for the /reports/ gallery (JSON API)."""
+    return {"reports": await _public_reports_data()}
 
 
 # In-flight (job_id, target) translation runs on THIS machine — prevents
@@ -2950,9 +2955,9 @@ async def shared_report_page(job_id: str, request: Request):
     # Serve zh/index.html for ?lang=zh or Referer from /zh/
     lang = request.query_params.get("lang", "")
     referer = request.headers.get("referer", "")
-    if lang == "zh" or "/zh/" in referer:
-        return FileResponse("static/zh/index.html")
-    return FileResponse("static/index.html")
+    zh = lang == "zh" or "/zh/" in referer
+    shell = "static/zh/index.html" if zh else "static/index.html"
+    return await _serve_report_shell(shell, job_id, zh=zh)
 
 
 @app.get("/zh/report/{job_id}")
@@ -2962,7 +2967,7 @@ async def shared_report_page_zh(job_id: str, request: Request):
         from starlette.responses import RedirectResponse
         qs = ("?" + request.url.query) if request.url.query else ""
         return RedirectResponse(url=f"/share/audit/{job_id}{qs}", status_code=302)
-    return FileResponse("static/zh/index.html")
+    return await _serve_report_shell("static/zh/index.html", job_id, zh=True)
 
 
 class QARequest(BaseModel):
@@ -3058,6 +3063,251 @@ except Exception as _mcp_err:
 # redirects for every existing .html file at /static root (and one level
 # deep under /docs, /alternatives, /compare, /blog, /research) so the
 # extension-less URL is the canonical one.
+# ─── SEO: per-report SSR head injection + SSR gallery + dynamic sitemap ──────
+# Crawlers (esp. AI crawlers GPTBot/PerplexityBot) often don't execute JS.
+# The report/gallery pages are SPAs that fetch content client-side, so a bare
+# crawl saw: (a) every /report/{id} canonical-tagged to the HOMEPAGE (Google
+# then treats all 60 report pages as dupes of "/" and indexes none), and
+# (b) a gallery whose 60 internal links + product names existed only after JS
+# ran. These helpers inject the real per-report <head> + crawlable card links
+# server-side so the reports become an indexable, AI-citable content asset.
+import html as _html
+import re as _seo_re
+
+
+async def _lookup_report_meta(job_id: str):
+    """3-tier lookup (memory → disk → Supabase) → {product_name, url} or None."""
+    product_name = url = None
+    job = jobs.get(job_id)
+    if job:
+        product_name, url = job.get("product_name"), job.get("url")
+    if not product_name:
+        try:
+            path = os.path.join(REPORTS_DIR, f"{job_id}.json")
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    d = _json.load(f)
+                product_name, url = d.get("product_name"), d.get("url")
+        except Exception:
+            pass
+    if not product_name:
+        try:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                res = sb.table("reports").select("product_name,url") \
+                    .eq("id", job_id).limit(1).execute()
+                if res.data:
+                    product_name = res.data[0].get("product_name")
+                    url = res.data[0].get("url")
+        except Exception as e:
+            log.warning("_lookup_report_meta failed for %s: %s", job_id, e)
+    if not product_name:
+        return None
+    return {"product_name": product_name, "url": url or ""}
+
+
+def _report_seo(product_name: str, domain: str, zh: bool):
+    """Build (title, description) for a competitor-analysis report page."""
+    if zh:
+        title = f"{product_name} 竞品分析报告 2026 — 流量 / SEO / 增长策略 | Analook"
+        desc = (f"{product_name}（{domain}）的完整竞品情报：自然流量估算、SEO 关键词布局、"
+                f"社媒声量、定价与增长策略。由 Analook 用 15 个数据源在 60 秒内生成。")
+    else:
+        title = f"{product_name} Competitor Analysis 2026 — Traffic, SEO & Growth Strategy | Analook"
+        desc = (f"Full competitive intelligence on {product_name} ({domain}): organic traffic "
+                f"estimates, SEO keyword footprint, social reach, pricing and growth strategy. "
+                f"Generated by Analook across 15 data sources in 60 seconds.")
+    return title, desc
+
+
+async def _serve_report_shell(shell_path: str, job_id: str, zh: bool):
+    """Serve the SPA shell with per-report SEO head injected. Falls back to the
+    plain shell if the report can't be found (SPA still renders client-side)."""
+    from starlette.responses import HTMLResponse
+    try:
+        meta = await _lookup_report_meta(job_id)
+        if not meta:
+            return FileResponse(shell_path)
+        with open(shell_path, "r", encoding="utf-8") as f:
+            htmldoc = f.read()
+        name = meta["product_name"]
+        raw_url = meta["url"] or ""
+        domain = urlparse(raw_url if raw_url.startswith("http") else f"https://{raw_url}") \
+            .netloc.lower().replace("www.", "") or name
+        title, desc = _report_seo(name, domain, zh)
+        path = f"/zh/report/{job_id}" if zh else f"/report/{job_id}"
+        canonical = f"https://www.analook.com{path}"
+        e = _html.escape
+        # 1) title
+        htmldoc = _seo_re.sub(r"<title>.*?</title>", f"<title>{e(title)}</title>", htmldoc, count=1, flags=_seo_re.S)
+        # 2) description
+        htmldoc = _seo_re.sub(r'(<meta\s+name="description"\s+content=")[^"]*(")',
+                              lambda m: m.group(1) + e(desc) + m.group(2), htmldoc, count=1)
+        # 3) canonical → the report's OWN url (fixes the homepage-canonical bug)
+        htmldoc = _seo_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
+                              lambda m: m.group(1) + canonical + m.group(2), htmldoc, count=1)
+        # 4) og:title / og:description / og:url
+        htmldoc = _seo_re.sub(r'(<meta\s+property="og:title"\s+content=")[^"]*(")',
+                              lambda m: m.group(1) + e(title) + m.group(2), htmldoc, count=1)
+        htmldoc = _seo_re.sub(r'(<meta\s+property="og:description"\s+content=")[^"]*(")',
+                              lambda m: m.group(1) + e(desc) + m.group(2), htmldoc, count=1)
+        htmldoc = _seo_re.sub(r'(<meta\s+property="og:url"\s+content=")[^"]*(")',
+                              lambda m: m.group(1) + canonical + m.group(2), htmldoc, count=1)
+        # 4b) Strip the shell's homepage hreflang alternates — on a report page
+        # they'd wrongly point Google to "/" and collide with the per-report
+        # alternates we inject below.
+        htmldoc = _seo_re.sub(r'\s*<link\s+rel="alternate"\s+hreflang="[^"]*"[^>]*>', "", htmldoc)
+        # 5) Report + BreadcrumbList JSON-LD + hreflang, injected before </head>
+        jsonld = {
+            "@context": "https://schema.org", "@type": "Report",
+            "name": title, "headline": title, "description": desc, "url": canonical,
+            "about": {"@type": "Organization", "name": name,
+                      "url": (raw_url if raw_url.startswith("http") else f"https://{domain}")},
+            "isPartOf": {"@type": "CollectionPage", "name": "Competitor Intelligence Reports",
+                         "url": "https://www.analook.com/reports/"},
+            "publisher": {"@type": "Organization", "name": "Analook",
+                          "url": "https://www.analook.com",
+                          "logo": {"@type": "ImageObject",
+                                   "url": "https://www.analook.com/assets/favicon-192x192.png"}},
+        }
+        crumbs = {
+            "@context": "https://schema.org", "@type": "BreadcrumbList",
+            "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Reports",
+                 "item": "https://www.analook.com/reports/"},
+                {"@type": "ListItem", "position": 2, "name": f"{name} Analysis", "item": canonical},
+            ],
+        }
+        alt_en = f"https://www.analook.com/report/{job_id}"
+        alt_zh = f"https://www.analook.com/zh/report/{job_id}"
+        inject = (
+            f'<script type="application/ld+json">{_json.dumps(jsonld, ensure_ascii=False)}</script>\n'
+            f'<script type="application/ld+json">{_json.dumps(crumbs, ensure_ascii=False)}</script>\n'
+            f'<link rel="alternate" hreflang="en" href="{alt_en}">\n'
+            f'<link rel="alternate" hreflang="zh" href="{alt_zh}">\n'
+            f'<link rel="alternate" hreflang="x-default" href="{alt_en}">\n'
+        )
+        htmldoc = htmldoc.replace("</head>", inject + "</head>", 1)
+        return HTMLResponse(content=htmldoc)
+    except Exception as ex:
+        log.warning("_serve_report_shell inject failed for %s: %s", job_id, ex)
+        return FileResponse(shell_path)
+
+
+def _render_gallery_cards(reports: list, zh: bool) -> str:
+    """SSR the report cards as crawlable <a> links (JS re-renders on load)."""
+    e = _html.escape
+    out = []
+    for r in reports:
+        rid = r["id"]
+        name = r.get("product_name") or r.get("domain") or rid
+        domain = r.get("domain") or ""
+        cat = r.get("category") or "SaaS / Other"
+        if str(rid).startswith("ga-"):
+            href = f"/share/audit/{rid}"
+        else:
+            href = f"/zh/report/{rid}" if zh else f"/report/{rid}"
+        label = (f"{e(name)} 竞品分析 — {e(cat)}" if zh
+                 else f"{e(name)} competitor analysis — {e(cat)}")
+        out.append(f'<a href="{href}" data-cat="{e(cat)}" class="report-card-ssr">'
+                   f'<strong>{e(name)}</strong> <span>{e(domain)}</span> '
+                   f'<em>{label}</em></a>')
+    return "\n".join(out)
+
+
+async def _serve_gallery(shell_path: str, zh: bool):
+    """Serve the reports gallery with SSR cards + a real ItemList schema."""
+    from starlette.responses import HTMLResponse
+    try:
+        reports = await _public_reports_data()
+        with open(shell_path, "r", encoding="utf-8") as f:
+            htmldoc = f.read()
+        cards = _render_gallery_cards(reports, zh)
+        # Inject crawlable cards right after the grid's opening tag; the client
+        # JS overwrites #community-grid.innerHTML on load, so this is idempotent.
+        htmldoc = _seo_re.sub(
+            r'(<div\s+id="community-grid"[^>]*>)',
+            lambda m: m.group(1) + "\n" + cards,
+            htmldoc, count=1)
+        # Comprehensive ItemList schema (the static one hardcoded only 3).
+        base = "https://www.analook.com"
+        items = []
+        for i, r in enumerate(reports, 1):
+            rid = r["id"]
+            if str(rid).startswith("ga-"):
+                u = f"{base}/share/audit/{rid}"
+            else:
+                u = f"{base}/zh/report/{rid}" if zh else f"{base}/report/{rid}"
+            items.append({"@type": "ListItem", "position": i,
+                          "name": f'{r.get("product_name") or r.get("domain")} Analysis',
+                          "url": u})
+        itemlist = {"@context": "https://schema.org", "@type": "ItemList",
+                    "name": "Analook Competitor Intelligence Reports",
+                    "numberOfItems": len(items), "itemListElement": items}
+        htmldoc = htmldoc.replace(
+            "</head>",
+            f'<script type="application/ld+json">{_json.dumps(itemlist, ensure_ascii=False)}</script>\n</head>',
+            1)
+        return HTMLResponse(content=htmldoc)
+    except Exception as ex:
+        log.warning("_serve_gallery inject failed (%s): %s", shell_path, ex)
+        return FileResponse(shell_path)
+
+
+@app.get("/reports/")
+@app.get("/reports/index.html")
+async def reports_gallery_en():
+    return await _serve_gallery("static/reports/index.html", zh=False)
+
+
+@app.get("/zh/reports/")
+@app.get("/zh/reports/index.html")
+async def reports_gallery_zh():
+    import os as _os
+    shell = "static/zh/reports/index.html"
+    if not _os.path.exists(shell):
+        shell = "static/reports/index.html"
+    return await _serve_gallery(shell, zh=True)
+
+
+@app.get("/sitemap.xml")
+async def dynamic_sitemap():
+    """Static sitemap + every public analysis report URL appended.
+
+    Only analysis reports (/report/{id}) are added — growth-audit share pages
+    (/share/audit/ga-*) are intentionally noindex, so they stay out.
+    """
+    from starlette.responses import Response
+    try:
+        with open("static/sitemap.xml", "r", encoding="utf-8") as f:
+            xml = f.read()
+        reports = await _public_reports_data()
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        extra = []
+        for r in reports:
+            rid = r["id"]
+            if str(rid).startswith("ga-"):
+                continue  # noindex share pages
+            lastmod = r.get("created_at") or today
+            extra.append(
+                f"  <url><loc>https://www.analook.com/report/{rid}</loc>"
+                f"<lastmod>{lastmod}</lastmod><changefreq>monthly</changefreq>"
+                f"<priority>0.6</priority>"
+                f'<xhtml:link rel="alternate" hreflang="en" href="https://www.analook.com/report/{rid}"/>'
+                f'<xhtml:link rel="alternate" hreflang="zh" href="https://www.analook.com/zh/report/{rid}"/>'
+                "</url>")
+        if extra and "</urlset>" in xml:
+            # Ensure the xhtml namespace is present for hreflang alternates.
+            if "xmlns:xhtml" not in xml:
+                xml = xml.replace("<urlset ", '<urlset xmlns:xhtml="http://www.w3.org/1999/xhtml" ', 1)
+            xml = xml.replace("</urlset>", "\n".join(extra) + "\n</urlset>")
+        return Response(content=xml, media_type="application/xml")
+    except Exception as ex:
+        log.warning("dynamic_sitemap failed: %s", ex)
+        return FileResponse("static/sitemap.xml")
+
+
 def _register_html_aliases():
     from fastapi.responses import RedirectResponse
     import os as _os
