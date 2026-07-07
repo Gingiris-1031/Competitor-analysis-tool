@@ -154,7 +154,7 @@ N. **可复用发布框架 > 一锤子买卖**:发布做成"可反复加场景�
 """
 
 
-def _get_system_prompt(filter_to_skills: Optional[list] = None) -> str:
+def _get_system_prompt(filter_to_skills: Optional[list] = None, lang: str = "zh") -> str:
     """Returns the system prompt with the Gingiris skill registry + a
     tactical cheat-sheet inlined.
 
@@ -166,13 +166,13 @@ def _get_system_prompt(filter_to_skills: Optional[list] = None) -> str:
     """
     return GINGIRIS_SKILLS_CONTEXT.replace(
         "%SKILL_REGISTRY%",
-        _build_skill_registry_prompt()
+        _build_skill_registry_prompt(lang)
         + "\n\n"
-        + _build_tactical_cheatsheet(filter_to_skills)
+        + _build_tactical_cheatsheet(filter_to_skills, lang)
     )
 
 
-def _build_tactical_cheatsheet(filter_to_skills: Optional[list] = None) -> str:
+def _build_tactical_cheatsheet(filter_to_skills: Optional[list] = None, lang: str = "zh") -> str:
     """Compact tactical recipes per skill - drops into system prompt so
     LLM can cite specific tactics verbatim instead of inventing fluffy
     'launch on PH'-level recommendations.
@@ -198,6 +198,8 @@ def _build_tactical_cheatsheet(filter_to_skills: Optional[list] = None) -> str:
         info = GINGIRIS_SKILL_REGISTRY.get(slug, {})
         lines.append(f"### `{slug}` - {info.get('title', slug)}")
         for when, what, bench in tactics:
+            if lang != "zh":
+                when, what, bench = _EN(when), _EN(what), _EN(bench)
             lines.append(f"- **{when}** - {what} _(benchmark: {bench})_")
         lines.append("")
     return "\n".join(lines)
@@ -1280,6 +1282,148 @@ GINGIRIS_SKILL_TACTICS = {
         ("Phase 4-5", "Beta→增长:建立 weekly digest 邮件 + 1v1 onboarding call 节奏 (Iris@AFFiNE 同流程)", "10 倍提高 D30 retention"),
     ],
 }
+_EN_STRINGS = {
+    "**Enterprise / B2B mid-market 必装**": "**Must-have for Enterprise / B2B mid-market**",
+    "**Founder 个人品牌不发力的所有产品**,0→1 推特账号": "**Any product whose founder brand is dormant**; 0→1 Twitter account",
+    "**仅适合 Consumer/PLG**,B2B/Enterprise 不适用": "**Consumer/PLG only** — not for B2B/Enterprise",
+    "**所有中国团队出海产品 (Day 0)**": "**Every China-based team going global (Day 0)**",
+    "**所有产品的基础设施**,PMF 验证必备": "**Infrastructure for every product**; essential for PMF validation",
+    "0→1 KOL 计划": "0→1 KOL program",
+    "0→1000 用户阶段": "0→1,000 users stage",
+    "0→10K stars 阶段": "0→10K stars stage",
+    "1 个月 32K impressions": "32K impressions in 1 month",
+    "10 倍提高 D30 retention": "10x improvement in D30 retention",
+    "10K stars 24-36 个月加速到 14 天": "10K stars: 24-36 months compressed to 14 days",
+    "14 天 sprint:Day 1 Show HN, Day 3 Reddit r/programming, Day 5 X thread, Day 7 Hacker Newsletter": "14-day sprint: Day 1 Show HN, Day 3 Reddit r/programming, Day 5 X thread, Day 7 Hacker Newsletter",
+    "150+ AI startup 实战": "Battle-tested across 150+ AI startups",
+    "30+ PH #1 daily 全用同一模板": "All 30+ PH #1 daily wins used this same template",
+    "4 级体系:Bronze→Silver→Gold→Platinum,每级 points threshold 公开": "4-tier system: Bronze→Silver→Gold→Platinum with public points thresholds per tier",
+    "45 天 1150→1837 关注 (+60%)": "1,150→1,837 followers in 45 days (+60%)",
+    "5 场 60min 访谈 + JTBD 问题模板('上次你解决 X 的方式 / 哪里卡 / 改用我们之后变化')": "5 × 60-min interviews + JTBD question template ('how did you last solve X / where did it hurt / what changed after switching')",
+    "60 天 $10M ARR / 70M impressions 案例": "$10M ARR / 70M impressions in 60 days case study",
+    "AFFiNE 200+ KOL 实战,micro 转化 5-8%": "AFFiNE's 200+ KOL campaigns; micro-KOL conversion 5-8%",
+    "AFFiNE 3-4 万曝光 + 5-8% GitHub star 转化": "AFFiNE: 30-40K impressions + 5-8% GitHub star conversion",
+    "AFFiNE 60K stars 同打法": "Same playbook that took AFFiNE to 60K stars",
+    "AFFiNE 同打法 6 周拿 top 3": "Same AFFiNE playbook reached top 3 in 6 weeks",
+    "AI Native 产品 launch": "AI-native product launches",
+    "AI search 被引用率 30%+": "30%+ AI-search citation rate",
+    "AI 写的初稿过 triple-translation test 才发": "AI drafts must pass the triple-translation test before posting",
+    "AI 矩阵号:用 ElevenLabs + Sora + Hedra 量产 50 条/周,每号差异化人设": "AI account matrix: mass-produce 50 videos/week with ElevenLabs + Sora + Hedra, distinct persona per account",
+    "AMA SOP:找 mod 24 小时前预约 + 准备 20 个 seed Q&A + founder 真名上 + 持续 4 小时": "AMA SOP: book with mods 24h ahead + prep 20 seed Q&As + founder posts under real name + stay live 4 hours",
+    "ASO 占 70% organic install": "ASO drives 70% of organic installs",
+    "Asset 包:30s teaser video + 5 静图 + 1 founder-story tweet + comparison table": "Asset pack: 30s teaser video + 5 stills + 1 founder-story tweet + comparison table",
+    "B2B cold reply rate 12% vs 模板 1%": "B2B cold reply rate 12% vs 1% for templates",
+    "B2B 销售驱动产品": "Sales-led B2B products",
+    "Base44 用同样格式拿 $80M AMA": "Base44 used this exact format for its $80M AMA",
+    "Beta→增长:建立 weekly digest 邮件 + 1v1 onboarding call 节奏 (Iris@AFFiNE 同流程)": "Beta→growth: weekly digest email + 1:1 onboarding call cadence (same flow Iris ran at AFFiNE)",
+    "Churn 早期预警:连续 2 周 0 活动 → 1v1 调研,不要直接踢": "Churn early warning: 2 consecutive zero-activity weeks → 1:1 research call, don't just cut them",
+    "Churn 诊断:用流失用户访谈反推激活 gap (cohort 4-09 类似)": "Churn diagnosis: churned-user interviews to reverse-engineer the activation gap",
+    "Cold 回复率 18% vs 模板 outreach 2%": "18% cold reply rate vs 2% for template outreach",
+    "Consumer / PLG 想做病毒传播": "Consumer / PLG products chasing virality",
+    "Dev Tool / API 产品": "Dev Tool / API products",
+    "Developer 产品 funnel": "Developer product funnels",
+    "Founder 亲发 X thread (≤7 推) + 评论区每条回复 ≤10 分钟": "Founder posts the X thread personally (≤7 tweets) + replies to every comment within 10 minutes",
+    "GEO 三件套:FAQ schema + AI 友好 robots.txt + Brave/Perplexity index 提交": "GEO trio: FAQ schema + AI-friendly robots.txt + Brave/Perplexity index submission",
+    "Gingiris 自身验证": "Validated on Gingiris itself",
+    "HeyGen 937 场访谈到 PMF": "HeyGen's 937 interviews to PMF",
+    "HeyGen 937 场访谈复盘": "HeyGen's 937-interview retrospective",
+    "Hub-spoke 内链:1 个 hub page + 6 个 spoke 互链,targeting KD 20-35 关键词": "Hub-spoke internal links: 1 hub page + 6 interlinked spokes targeting KD 20-35 keywords",
+    "ICP 锚定:用 user-interview SOP 跑 5 场 60min 访谈,提炼 'JTBD 一句话'": "ICP anchoring: run 5 × 60-min interviews via the user-interview SOP, distill the one-line JTBD",
+    "KOL 筛选:用 Brave Search + Twitter API 筛 followers 1K-50K 的 micro-KOL,避开 macro (ROI 差 3x)": "KOL screening: use Brave Search + Twitter API to find 1K-50K-follower micro-KOLs; avoid macros (3x worse ROI)",
+    "LinkedIn ABM:用 Apollo + Clay 抓 100 个 ICP,定制 3-touch 序列(教育→案例→demo)": "LinkedIn ABM: pull 100 ICP accounts via Apollo + Clay, custom 3-touch sequence (educate→case study→demo)",
+    "Lovable 4.3M views 复盘同法": "Same method behind Lovable's 4.3M-view retrospective",
+    "Maker 第一条 comment 必须含 'Hi PH community, X here from Y...' 标准开场": "Maker's first comment must open with the standard 'Hi PH community, X here from Y...'",
+    "Mobile App 冷启动": "Mobile app cold start",
+    "Mobile App 多平台": "Multi-platform mobile apps",
+    "Mobile App 排名优化": "Mobile app ranking optimization",
+    "Newsletter outreach:JS Weekly, Pointer.io, TLDR - pitch 是 1 段 + 1 demo gif": "Newsletter outreach: JS Weekly, Pointer.io, TLDR — pitch is 1 paragraph + 1 demo gif",
+    "Notion 20M 用户实战": "Notion's 20M-user playbook",
+    "OSS 产品": "Open-source products",
+    "Outreach 模板:'你最近关于 X 的帖子我看了,我们在做 Y 跟你 X 视角对得上,能寄你试用吗?' + 不要直接给链接": "Outreach template: 'Read your recent post on X — we're building Y which matches your angle; can I send you access?' Never lead with a bare link",
+    "PH 算法看预热互动": "The PH algorithm weighs pre-launch engagement",
+    "PLG / Consumer / OSS 产品发布前 6-12 周准备": "PLG / Consumer / OSS products 6-12 weeks before launch",
+    "PLG / Consumer 产品 PH 发布前 4 周": "PLG / Consumer products 4 weeks before a PH launch",
+    "PLG 模式 SaaS": "PLG-model SaaS",
+    "PMF 前 churn root cause 80% 是 onboarding": "Pre-PMF, 80% of churn root-causes are onboarding",
+    "README 优化:hero gif + tagline + 5 行 quickstart + comparison table(对照 #1-3 alternatives)": "README optimization: hero gif + tagline + 5-line quickstart + comparison table (vs the #1-3 alternatives)",
+    "ROI 测量:每个 KOL 单独 UTM + Linktree slot,CAC < $25 才续约": "ROI measurement: unique UTM + Linktree slot per KOL; renew only if CAC < $25",
+    "Reddit 内容是 ChatGPT/Claude 40.11% 训练数据": "Reddit content is 40.11% of ChatGPT/Claude training data",
+    "Reddit/Discord/Twitter 三轨:weekly digest + roadmap voting + contributor shoutout": "Reddit/Discord/Twitter triple-track: weekly digest + roadmap voting + contributor shoutouts",
+    "SaaS $0→$50K MRR 阶段": "SaaS at the $0→$50K MRR stage",
+    "SaaS 营销全栈视角": "Full-stack SaaS marketing view",
+    "Seed 阶段": "Seed stage",
+    "Show HN front-page = 1-5K stars/周": "Show HN front page = 1-5K stars/week",
+    "Show HN:周二/周三 8AM PT 发,标题 'Show HN: X - the Y open-source alternative to Z'": "Show HN: post Tue/Wed 8AM PT, title 'Show HN: X — the Y open-source alternative to Z'",
+    "Top-3 表现内容 reinvest:投流 boost 跑赢 baseline 2x 才追加": "Reinvest in top-3 performing content: only boost with spend if it beats baseline 2x",
+    "UGC creator 矩阵:5 TikTok creator × 3 video / 月,导流 App Store": "UGC creator matrix: 5 TikTok creators × 3 videos/month, funneling to the App Store",
+    "Upcoming page + 200 maker comment 攒 buzz": "Upcoming page + 200 maker comments to bank buzz",
+    "X/Twitter 传播链:用 advanced search 找首发 thread + 转评最多 5 个账号,导出 KOL list": "X/Twitter propagation chain: advanced-search the original thread + top-5 amplifier accounts, export the KOL list",
+    "i18n-aso-growth 同打法 multi-locale": "Same multi-locale playbook as i18n-aso-growth",
+    "不确定装哪个 skill 时的入口": "Entry point when unsure which skill to install",
+    "人设校准:voice guide + 死开场 blacklist + 5 段过往真实推作 sample,喂 AI agent": "Persona calibration: voice guide + dead-opener blacklist + 5 real past tweets as samples, fed to the AI agent",
+    "保 momentum 不停": "Keeps momentum unbroken",
+    "关键词研究:用 Sensor Tower 找 traffic>1K + difficulty<30 的 long-tail,5 个塞 title/subtitle": "Keyword research: use Sensor Tower to find long-tails with traffic>1K + difficulty<30; pack 5 into title/subtitle",
+    "养号 SOP:先 karma 0→500(20 天),评论 50+ 真实回答 + 0 自家产品提及": "Account warmup SOP: karma 0→500 first (20 days), 50+ genuine answers, zero mentions of your own product",
+    "出海最常死在 Phase 0 跳过": "Going global most often dies from skipping Phase 0",
+    "前 100 用户:OSS launch 走 HN/Reddit 路径,闭源走 PH/X founder thread 路径": "First 100 users: OSS launches go HN/Reddit; closed-source goes PH/X founder threads",
+    "前 100 用户阶段,需要落地节奏": "First-100-users stage, needs an execution cadence",
+    "发布前 D-7": "D-7 pre-launch",
+    "发布前 W-2": "W-2 pre-launch",
+    "发布前 W-6": "W-6 pre-launch",
+    "发布日 00:01 PT": "Launch day 00:01 PT",
+    "发布日 H+0~3": "Launch day H+0-3",
+    "发布日 H+0~6": "Launch day H+0-6",
+    "命中率 30% (vs PR 模板 3%)": "30% hit rate (vs 3% for PR templates)",
+    "多语言团队": "Multilingual teams",
+    "对手最弱环节 = 你的 wedge": "Your competitor's weakest link = your wedge",
+    "已发布 OSS 但增长平缓": "Launched OSS with flat growth",
+    "市场验证 + positioning:抓 5 个 ICP 国家 × 3 个 substitute 跑过 user-interview": "Market validation + positioning: 5 ICP countries × 3 substitutes through user interviews",
+    "想做 Reddit 种草 / AI 训练数据曝光": "Teams seeding Reddit / chasing AI-training-data exposure",
+    "想用 agent 自动化 SEO/GEO 的团队": "Teams automating SEO/GEO with an agent",
+    "想跑增长实验的团队": "Teams running growth experiments",
+    "截图 A/B:4 套创意,每套 1 周,按 CVR 留最优": "Screenshot A/B: 4 creative sets, 1 week each, keep the CVR winner",
+    "截图差异 = CVR 差 2-3x": "Screenshot differences = 2-3x CVR gaps",
+    "找 5-10 个真人 creator (TikTok 5K-20K followers),按出片付费 $30-50/支": "Recruit 5-10 human creators (TikTok 5K-20K followers), pay per video at $30-50",
+    "投票分散 6+ 小时 = rank 跌出 top 10": "Votes spread over 6+ hours = rank falls out of top 10",
+    "拆 top 3 对手 Wayback v1/Beta/Launch 3 版官网演化,画 positioning 漂移图": "Tear down top-3 competitors' Wayback v1/Beta/Launch site evolutions; chart the positioning drift",
+    "排期:每天 1 条 8AM PT 黄金窗口 + 周三/五各 1 条 thread,dedup 检查防重": "Schedule: 1 post/day in the 8AM PT golden window + threads Wed/Fri, with dedup checks",
+    "搭 SEO Agent 三件套:daily audit + ranking 追踪 + schema 验证 + IndexNow push": "SEO Agent trio: daily audit + rank tracking + schema validation + IndexNow push",
+    "搭 launch team:~30 PH hunters + 20 X amplifier + 5 newsletter,发布日 1 小时内集中投票": "Build the launch team: ~30 PH hunters + 20 X amplifiers + 5 newsletters; concentrate votes within launch hour 1",
+    "数据闭环:tweet-log 周报 → top-3 archetype reinforce + bottom-3 type 砍掉": "Data loop: weekly tweet-log report → reinforce top-3 archetypes, cut bottom-3",
+    "无预算 bootstrap 团队": "Zero-budget bootstrap teams",
+    "有用户基数想做大使计划的产品": "Products with a user base ready for an ambassador program",
+    "构建 AI agent 系统的产品": "Products building AI agent systems",
+    "案例 page 比 feature page 高 4x CVR": "Case-study pages convert 4x better than feature pages",
+    "案例 study:与 3 个 lighthouse 客户做 co-marketing case study,输出 X thread + LinkedIn post + landing page": "Case studies: co-marketing with 3 lighthouse customers — output an X thread + LinkedIn post + landing page each",
+    "每 1-2 小时 founder 回所有 comment,X 持续 retweet 阶段性 update": "Founder replies to all comments every 1-2 hours; X account retweets milestone updates continuously",
+    "申请表:A 题(pre-launch readiness 6 条)+ B 题(评分 rubric) 双 gate 卡 70% noise": "Application form: part A (6 pre-launch readiness items) + part B (scoring rubric) double-gates 70% of noise",
+    "盲投 1000 美元 = 0 转化的常见陷阱": "The classic trap: $1,000 of blind spend = 0 conversions",
+    "盲投 50% 预算浪费": "Blind spend wastes 50% of budget",
+    "纯凭感觉发等于浪费 50% 时间": "Posting on gut feel wastes 50% of your time",
+    "维持 300+ stars/月 (sustained skill 模板)": "Sustains 300+ stars/month (sustained-growth template)",
+    "缺了直接被 hide": "Missing it gets you hidden outright",
+    "选 sub:用 subredditstats.com 找 active>5K + content style 'show & tell' 友好的 sub,避开纯 news sub": "Sub selection: use subredditstats.com for active>5K subs friendly to 'show & tell'; avoid pure news subs",
+    "防 ghosting 关键": "Key to preventing ghosting",
+    "需要 GTM 框架的所有阶段产品": "Products at any stage that need a GTM framework",
+    "需要启动或优化 KOL 计划的产品": "Products starting or optimizing a KOL program",
+    "需要外部视角的所有阶段": "Any stage that needs an outside perspective",
+    "需要建社区的所有产品": "Any product that needs to build a community",
+    "需要拆竞品并定位差异化的所有阶段": "Any stage that needs competitor teardowns and differentiated positioning",
+    "需要被 AI 搜索引擎引用的内容站": "Content sites that need citations from AI search engines",
+    "飞轮 6 阶段评分:Activation/Referral/Acquisition/Retention/Revenue/Product 各 1-5 分,找弱环节": "6-stage flywheel scoring: rate Activation/Referral/Acquisition/Retention/Revenue/Product 1-5 each; find the weak link",
+    "首次发 PH 的团队": "Teams launching on PH for the first time",
+    "首次发布 AI 产品": "First-time AI product launches",
+    "高 engagement = PH 算法加权": "High engagement = PH algorithm boost",
+}
+
+
+def _EN(s: str) -> str:
+    """Display-layer EN lookup for CJK data strings (skill registry best_for
+    + tactic tuples). Data stays ZH-canonical; EN report flows render via
+    this table so audits stay 0-raw-CJK for English users."""
+    return _EN_STRINGS.get(s, s)
+
+
 
 
 # ─── Local SKILL.md paths ────────────────────────────────────────────────────
@@ -1431,7 +1575,7 @@ def _build_injected_skills_block(product_type: str, max_skills: int = 4) -> str:
     return "\n".join(sections)
 
 
-def _build_skill_registry_prompt() -> str:
+def _build_skill_registry_prompt(lang: str = "zh") -> str:
     """Render the registry as a constraint block injected into the system prompt."""
     lines = [
         "",
@@ -1444,7 +1588,8 @@ def _build_skill_registry_prompt() -> str:
         "|---|---|",
     ]
     for slug, meta in GINGIRIS_SKILL_REGISTRY.items():
-        lines.append(f"| `{slug}` | {meta['best_for']} |")
+        bf = meta['best_for'] if lang == "zh" else _EN(meta['best_for'])
+        lines.append(f"| `{slug}` | {bf} |")
     lines.append("")
     lines.append("**Sales-led / Enterprise Infra 类产品的核心 skills**:")
     lines.append("- `gingiris-b2b-growth`、`gingiris-seo-geo`、`gingiris-seo-geo-agent`、`gingiris-kol-outreach`(B2B 版)、`gingiris-user-interview`")
@@ -2539,8 +2684,12 @@ def _render_action_matrix(hints: dict, level: int = 2, lang: str = "zh") -> str:
         chan = channel_label.get(info.get("category", "general"), "⚙️ GTM")
         for tactic in GINGIRIS_SKILL_TACTICS[slug][:2]:
             when, what, bench = tactic
-            # If tactic has its own week-label, use it; else allocate round-robin
-            week = when if when.startswith(("W", "D", "Phase", "发布")) else week_alloc[week_idx % len(week_alloc)]
+            # Week detection runs on the canonical ZH label; display translates
+            has_week = when.startswith(("W", "D", "Phase", "发布"))
+            if lang != "zh":
+                when, what, bench = _EN(when), _EN(what), _EN(bench)
+                chan = chan.replace("UGC 矩阵", "UGC Matrix")
+            week = when if has_week else week_alloc[week_idx % len(week_alloc)]
             week_idx += 1
             matrix_rows.append(
                 f"| **{week}** | {chan} | {what} | "
@@ -2608,8 +2757,9 @@ def _render_playbook_section(hints: dict, level: int = 2, lang: str = "zh") -> s
     ]
     for slug in skills:
         info = GINGIRIS_SKILL_REGISTRY[slug]
+        bf = info['best_for'] if lang == "zh" else _EN(info['best_for'])
         lines.append(
-            f"| **{info['title']}** | {info['best_for']} | "
+            f"| **{info['title']}** | {bf} | "
             f"[`Gingiris/{slug}`](https://huggingface.co/datasets/Gingiris/{slug}) |"
         )
     # Compact install guide. The previous version repeated the same
@@ -2891,7 +3041,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str, lang: st
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=8000)
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=8000)
 
 
 async def generate_action_plan(
@@ -3035,7 +3185,7 @@ npx skills add Gingiris-1031/<skill-name>
     # this drops the action-plan failure rate when the diagnosis report
     # is large and DeepSeek context gets squeezed.
     picked_skills = _pick_skills_for_product_type(hints)
-    sys_prompt = _get_system_prompt(filter_to_skills=picked_skills)
+    sys_prompt = _get_system_prompt(filter_to_skills=picked_skills, lang=lang)
     user_prompt += _lang_tail(lang)
     return await _call_llm_long(sys_prompt, user_prompt, max_tokens=8000)
 
@@ -3106,7 +3256,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(), user_prompt, max_tokens=4000)
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=4000)
 
 
 # ─── Main Orchestrator ──────────────────────────────────────────────────────
@@ -3193,6 +3343,10 @@ async def run_growth_audit(
         if jobs_dict and job_id and job_id in jobs_dict:
             jobs_dict[job_id]["progress"][stage] = status
 
+    _emit_save_tasks = []  # track fire-and-forget partial saves so the
+    # final completion save can await them and always win the last write
+    # (fixes _partial:true sticking on completed reports → excluded from gallery)
+
     def _emit(key: str, md: str):
         """Stream a finished report into the job immediately so the frontend can
         render it before the remaining stages complete (progressive reveal).
@@ -3221,7 +3375,7 @@ async def run_growth_audit(
                     "reports": dict(r),
                     "_partial": jobs_dict[job_id].get("status") != "completed",
                 }
-                _aio2.create_task(_save(
+                _emit_save_tasks.append(_aio2.create_task(_save(
                     job_id=job_id,
                     user_id=jobs_dict[job_id].get("user_id"),
                     url=jobs_dict[job_id].get("url") or url,
@@ -3229,7 +3383,7 @@ async def run_growth_audit(
                     report=partial,
                     markdown="",
                     is_public=True,
-                ))
+                )))
             except Exception:
                 pass  # persistence is best-effort; never break the pipeline
 
@@ -3425,6 +3579,17 @@ async def run_growth_audit(
         else:
             log.error("Action Plan generation failed: %s", plan_result)
 
+    # Drain any still-pending progressive-save tasks BEFORE returning. Each
+    # of those writes _partial:true (job status is still "running" when they
+    # were queued). If one lands after app.py's completion save it revives the
+    # partial flag and the report drops out of the public gallery. Awaiting
+    # them here guarantees the caller's final save is the last write.
+    if _emit_save_tasks:
+        try:
+            await asyncio.gather(*_emit_save_tasks, return_exceptions=True)
+        except Exception:
+            pass
+
     return {
         "product_name": product_name,
         "url": url,
@@ -3436,4 +3601,5 @@ async def run_growth_audit(
         },
         "reports": reports,
         "source": sources,
+        "_partial": False,
     }
