@@ -87,15 +87,15 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
             "url": "https://gingiris.com"
         },
         "featureList": [
-            "Website evolution analysis via Wayback Machine",
-            "SEO and traffic analysis via DataForSEO",
-            "Social media presence detection (Twitter, GitHub, Reddit, YouTube)",
-            "Product Hunt launch tracking",
-            "Google Trends peak detection and attribution",
-            "AI-powered strategic verdict and growth pattern analysis",
-            "Strategy radar map with 6-dimension scoring",
-            "Traffic quality scoring",
-            "GitHub open source community analysis"
+            "通过 Wayback Machine 分析官网演变历史",
+            "通过 DataForSEO 分析 SEO 与流量",
+            "社媒矩阵识别（Twitter、GitHub、Reddit、YouTube）",
+            "Product Hunt 发布追踪",
+            "Google Trends 流量峰值检测与归因",
+            "AI 驱动的战略判断与增长模式分析",
+            "六维评分的策略雷达图",
+            "流量质量评分",
+            "GitHub 开源社区分析"
         ]
     }
     </script>
@@ -160,7 +160,10 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
             </div>
             <!-- Nav + Auth -->
             <div class="flex items-center gap-3">
+                <a href="/comparison.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">对比</a>
+                <a href="/docs/mcp.html" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">MCP</a>
                 <a href="/zh/growth-audit.html" class="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors">增长审计</a>
+                <a href="/reports/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">报告</a>
                 <a href="/blog/" class="text-sm text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] transition-colors">博客</a>
                 <a href="/zh/reports/" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors font-medium">报告</a>
                 <a href="/zh/pricing.html" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors font-medium">定价</a>
@@ -627,6 +630,56 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                 <div class="flex-shrink-0">
                     <a href="/zh/pricing.html" class="btn-primary font-medium px-6 py-3 rounded-lg transition-colors inline-block">查看定价 →</a>
                 </div>
+            </div>
+        </div>
+
+        <!-- 对比区块（SEO 内链） -->
+        <div class="mb-20">
+            <h3 class="font-serif text-3xl text-center text-white mb-3">与竞品对比</h3>
+            <p class="text-center text-sm text-[color:var(--ink-muted)] mb-8">看看 Analook 相比传统竞品情报工具的差异。</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/compare/similarweb.html" class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">对比 SimilarWeb</a>
+                <a href="/compare/semrush.html"    class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">对比 SEMrush</a>
+                <a href="/compare/ahrefs.html"     class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">对比 Ahrefs</a>
+                <a href="/compare/crayon.html"     class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">对比 Crayon</a>
+                <a href="/compare/klue.html"       class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">对比 Klue</a>
+            </div>
+            <p class="text-center text-sm text-[color:var(--ink-muted)] mt-8 mb-4">或浏览完整的替代品指南：</p>
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="/alternatives/ahrefs.html"     class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">最佳 Ahrefs 替代品</a>
+                <a href="/alternatives/similarweb.html" class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">最佳 SimilarWeb 替代品</a>
+                <a href="/alternatives/semrush.html"    class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">最佳 SEMrush 替代品</a>
+                <a href="/alternatives/crayon.html"     class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">最佳 Crayon 替代品</a>
+                <a href="/alternatives/klue.html"       class="card-subtle text-sm text-white px-5 py-2.5 rounded-lg hover:border-[color:var(--border-strong)] transition-colors">最佳 Klue 替代品</a>
+            </div>
+        </div>
+
+        <!-- 竞品情报报告区块 -->
+        <div class="mb-20">
+            <h3 class="font-serif text-3xl text-center text-white mb-3">竞品情报报告</h3>
+            <p class="text-center text-sm text-[color:var(--ink-muted)] mb-8">深度拆解头部 SaaS 产品 —— 流量、SEO、增长策略与市场定位。</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <a href="/reports/cursor.html" class="card p-6 hover:border-[color:var(--border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.15em] text-[color:var(--ink-muted)] mb-2">AI 编程工具</div>
+                    <div class="font-serif text-xl text-white mb-2">Cursor</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">月自然搜索预估 368K · 靠产品名意外获得 SEO · 用量计费</div>
+                    <div class="text-xs text-[color:var(--accent)] mt-3 group-hover:underline">阅读报告 &rarr;</div>
+                </a>
+                <a href="/reports/linear.html" class="card p-6 hover:border-[color:var(--border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.15em] text-[color:var(--ink-muted)] mb-2">项目管理</div>
+                    <div class="font-serif text-xl text-white mb-2">Linear</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">月自然搜索预估 52K · 无 SEO 的 PLG · 靠数学术语建立品牌护城河</div>
+                    <div class="text-xs text-[color:var(--accent)] mt-3 group-hover:underline">阅读报告 &rarr;</div>
+                </a>
+                <a href="/reports/vercel.html" class="card p-6 hover:border-[color:var(--border-strong)] transition-colors group">
+                    <div class="text-[10px] uppercase tracking-[0.15em] text-[color:var(--ink-muted)] mb-2">开发者平台</div>
+                    <div class="font-serif text-xl text-white mb-2">Vercel</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">月自然搜索预估 148K · Next.js 生态护城河 · 2026 转向 AI Cloud</div>
+                    <div class="text-xs text-[color:var(--accent)] mt-3 group-hover:underline">阅读报告 &rarr;</div>
+                </a>
+            </div>
+            <div class="text-center">
+                <a href="/reports/" class="text-sm text-[color:var(--ink-muted)] hover:text-white transition-colors">查看全部报告 &rarr;</a>
             </div>
         </div>
 
