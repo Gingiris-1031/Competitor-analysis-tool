@@ -7,7 +7,7 @@ import time
 import uuid
 
 log = logging.getLogger(__name__)
-from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, Request
+from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
 from pydantic import BaseModel
@@ -941,11 +941,36 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
     return {"job_id": job_id, "status": "started", "lang": lang}
 
 
+def _fly_replay_if_foreign(request: Request):
+    """Ask fly-proxy to replay this request on the sibling machine.
+
+    Iris 2026-07-07 bug (ga-343df106 "stuck at 8%, so slow"): analysis jobs
+    live in per-process memory dicts, but the app runs on TWO Fly machines.
+    The POST that creates a job lands on machine A; fly-proxy then load-
+    balances the polling GETs, and every poll that hits machine B gets a
+    404 — the progress bar freezes forever even though the audit is running
+    fine on A. Responding with `fly-replay: elsewhere=true` makes the proxy
+    transparently retry the request on the other machine.
+
+    Returns a Response to short-circuit with, or None to handle locally.
+    Loop guard: replayed requests carry fly-replay-src, so a job missing on
+    BOTH machines falls through to the normal 404.
+    """
+    if request.headers.get("fly-replay-src"):
+        return None          # already replayed once — genuinely not found
+    if not os.environ.get("FLY_MACHINE_ID"):
+        return None          # not running on Fly (local dev)
+    return Response(status_code=204, headers={"fly-replay": "elsewhere=true"})
+
+
 @app.get("/api/growth-audit/{job_id}")
-async def get_growth_audit_status(job_id: str):
+async def get_growth_audit_status(job_id: str, request: Request):
     """Poll Growth Audit job status and get results."""
     job = _growth_audit_jobs.get(job_id)
     if not job:
+        replay = _fly_replay_if_foreign(request)
+        if replay is not None:
+            return replay
         return JSONResponse({"error": "Job not found"}, status_code=404)
 
     response = {
@@ -2540,9 +2565,13 @@ async def redeem_promo_code(request: Request):
 
 
 @app.get("/api/status/{job_id}")
-async def get_status(job_id: str):
+async def get_status(job_id: str, request: Request):
     job = jobs.get(job_id)
     if not job:
+        # Dual-machine split-brain: the job may live on the sibling machine.
+        replay = _fly_replay_if_foreign(request)
+        if replay is not None:
+            return replay
         return JSONResponse({"error": "Job not found"}, status_code=404)
     resp = {
         "status": job["status"],
@@ -2568,7 +2597,7 @@ async def get_status(job_id: str):
 
 
 @app.get("/api/report/{job_id}")
-async def get_report(job_id: str):
+async def get_report(job_id: str, request: Request):
     # 1. Memory
     job = jobs.get(job_id)
     if job and job.get("report"):
@@ -2592,6 +2621,10 @@ async def get_report(job_id: str):
         pass
     if job and not job.get("report"):
         return JSONResponse({"error": "Report not ready", "status": job["status"]}, status_code=202)
+    # 4. Dual-machine split-brain: an in-flight job may live on the sibling.
+    replay = _fly_replay_if_foreign(request)
+    if replay is not None:
+        return replay
     return JSONResponse({"error": "Job not found"}, status_code=404)
 
 
