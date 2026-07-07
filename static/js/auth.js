@@ -1,6 +1,6 @@
 // i18n: zh pages set window._ANALOOK_LANG='zh' before loading shared JS.
-const _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
-const _t = (en, zh) => _LANG_ZH ? zh : en;
+var _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
+var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
 /**
  * auth.js — Analook Supabase Auth 模块
  * 暴露 window._analookAuth 供 app.js 使用
