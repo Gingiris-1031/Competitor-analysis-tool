@@ -193,20 +193,22 @@ def main():
     print(f"  Domain   : {domain}")
     print(f"{BOLD}{'='*60}{RESET}")
 
-    # ── Quick mode: health check only ─────────────────────────────────────────
+    # ── Quick mode: unauthenticated health check (no auth, no API cost) ────────
+    # 打 /api/health（无鉴权、不烧额度）。旧版打 POST /api/analyze 会因鉴权强制
+    # (_require_credits, commit c4a4c67) 恒返 401，且真跑分析会烧 API 额度。
     if args.quick:
-        info("快速模式：检查 API 可达性…")
+        info("快速模式：检查后端健康（/api/health，无鉴权、零成本）…")
         try:
-            resp = _post(f"{base}/api/analyze", {"url": f"https://{domain}"})
-            job_id = resp.get("job_id")
-            if job_id:
-                print(f"\n{GREEN}{BOLD}  ✅ API 可达，job 已启动（{job_id}）— 推送继续{RESET}\n")
+            resp = _get(f"{base}/api/health")
+            if resp.get("status") == "ok":
+                sb   = resp.get("supabase_ok")
+                keys = resp.get("keys_configured", "?")
+                print(f"\n{GREEN}{BOLD}  ✅ 后端健康（status=ok, supabase={sb}, keys={keys}）— 推送继续{RESET}\n")
                 sys.exit(0)
-            else:
-                print(f"\n{RED}{BOLD}  ❌ API 响应异常: {resp}{RESET}\n")
-                sys.exit(1)
+            print(f"\n{RED}{BOLD}  ❌ 健康检查异常: {resp}{RESET}\n")
+            sys.exit(1)
         except Exception as e:
-            print(f"\n{RED}{BOLD}  ❌ API 不可达: {e}{RESET}\n")
+            print(f"\n{RED}{BOLD}  ❌ 后端不可达: {e}{RESET}\n")
             sys.exit(1)
 
     # ── Step 1: 启动分析 or 用已有 job ────────────────────────────────────────
