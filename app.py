@@ -2632,6 +2632,89 @@ async def get_report(job_id: str, request: Request):
     return JSONResponse({"error": "Job not found"}, status_code=404)
 
 
+# ─── Public reports gallery (Iris 2026-07-07: SEO/GEO play — surface all
+# public customer reports at /reports/ with product categories) ────────────
+
+_CATEGORY_RULES = [
+    # (category, keyword regex over "product_name url") — first match wins.
+    ("Crypto / Web3", r"crypto|web3|defi|blockchain|token|coin|nft|dao|wallet|exchange|trading|hyperliquid|solana|onchain|\.finance"),
+    ("AI / Agents",   r"\bai\b|agent|gpt|llm|copilot|assistant|\.ai\b|neural|genai|chatbot"),
+    ("Dev Tools",     r"\bdev\b|\bapi\b|sdk|cli|database|deploy|hosting|code|git|terminal|\.dev\b|framework|infra"),
+    ("Design / Creative", r"design|creative|video|image|photo|音乐|music|art|render|canva|figma"),
+    ("E-commerce",    r"shop|commerce|store|retail|merch|dropship"),
+    ("Marketing / SEO", r"seo|marketing|growth|analytics|ads|campaign|content"),
+    ("Productivity",  r"note|task|calendar|productivity|workspace|docs|wiki|crm|meeting"),
+]
+_public_reports_cache = {"ts": 0.0, "data": None}
+
+
+def _categorize_report(name: str, url: str) -> str:
+    import re as _re2
+    hay = f"{name} {url}".lower()
+    for cat, pat in _CATEGORY_RULES:
+        if _re2.search(pat, hay):
+            return cat
+    return "SaaS / Other"
+
+
+@app.get("/api/public-reports")
+async def public_reports():
+    """List public completed reports for the /reports/ gallery.
+
+    Deduped by domain (latest wins), partial audits excluded, 5-min cache.
+    """
+    if _public_reports_cache["data"] is not None and \
+       time.time() - _public_reports_cache["ts"] < 300:
+        return _public_reports_cache["data"]
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if not sb:
+            return {"reports": []}
+        rows = sb.table("reports") \
+            .select("id,url,product_name,created_at,report") \
+            .eq("is_public", True) \
+            .order("created_at", desc=True).limit(120).execute().data or []
+    except Exception as e:
+        log.warning("public-reports query failed: %s", e)
+        return {"reports": []}
+
+    out, seen_domains = [], set()
+    for r in rows:
+        rep = r.get("report") or {}
+        # Skip partial (still-generating / deploy-orphaned) audits
+        if rep.get("_partial"):
+            continue
+        # Must have real content: audit reports dict or ai_insights success
+        has_ga = isinstance(rep.get("reports"), dict) and any(
+            isinstance(v, str) and len(v) > 500 for v in rep["reports"].values())
+        ai = ((rep.get("sections") or {}).get("ai_insights") or {})
+        has_ai = bool(ai.get("success")) and len(ai.get("content") or "") > 500
+        if not (has_ga or has_ai):
+            continue
+        url = (r.get("url") or "").strip()
+        domain = urlparse(url if url.startswith("http") else f"https://{url}").netloc \
+            .lower().replace("www.", "")
+        if not domain or domain in seen_domains:
+            continue
+        seen_domains.add(domain)
+        name = (r.get("product_name") or domain.split(".")[0].capitalize()).strip()
+        out.append({
+            "id": r["id"],
+            "product_name": name[:60],
+            "domain": domain,
+            "kind": "growth-audit" if has_ga else "analysis",
+            "category": _categorize_report(name, url),
+            "created_at": (r.get("created_at") or "")[:10],
+        })
+        if len(out) >= 60:
+            break
+    payload = {"reports": out}
+    _public_reports_cache["ts"] = time.time()
+    _public_reports_cache["data"] = payload
+    return payload
+
+
 # In-flight (job_id, target) translation runs on THIS machine — prevents
 # duplicate LLM spend when the frontend polls while a run is active.
 _translations_inflight: set = set()
