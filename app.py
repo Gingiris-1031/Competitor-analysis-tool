@@ -2632,6 +2632,11 @@ async def get_report(job_id: str, request: Request):
     return JSONResponse({"error": "Job not found"}, status_code=404)
 
 
+# In-flight (job_id, target) translation runs on THIS machine — prevents
+# duplicate LLM spend when the frontend polls while a run is active.
+_translations_inflight: set = set()
+
+
 @app.post("/api/report/{job_id}/translate")
 async def translate_report(job_id: str, request: Request):
     """One-click report language toggle (Iris 2026-07-07 feature).
@@ -2706,35 +2711,51 @@ async def translate_report(job_id: str, request: Request):
     if not docs:
         return JSONResponse({"error": "Nothing translatable in this report"}, status_code=422)
 
-    # ── Translate (15-40s depending on doc count/size) ──
-    try:
-        from modules.translate_report import translate_docs
-        translated = await translate_docs(docs, target)
-    except Exception as e:
-        log.error("Report translation failed for %s → %s: %s", job_id, target, e)
-        return JSONResponse({"error": f"Translation failed: {str(e)[:120]}"}, status_code=502)
+    # ── Async translation (NB: MUST NOT translate inline). Full-document
+    # LLM translation takes 60-180s; Fly's proxy idle-timeout kills the
+    # response first (observed 2026-07-07: curl got empty bodies at 240s).
+    # Instead: mark in-flight, run in background, persist to Supabase, and
+    # let the frontend re-POST this endpoint every few seconds — the cache
+    # branch above returns the finished docs once persisted. The inflight
+    # guard is per-machine only; a poll landing on the sibling machine may
+    # start a duplicate LLM run (~$0.01 wasted, results converge) — known
+    # trade-off, acceptable at current traffic.
+    inflight_key = (job_id, target)
+    if inflight_key in _translations_inflight:
+        return JSONResponse({"status": "translating", "target": target}, status_code=202)
 
-    # ── Persist under _translations (disk + Supabase best-effort) ──
-    report.setdefault("_translations", {})[target] = translated
-    try:
-        path = os.path.join(REPORTS_DIR, f"{job_id}.json")
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                data = _json.load(f)
-            data["report"] = report
-            with open(path, "w", encoding="utf-8") as f:
-                _json.dump(data, f, ensure_ascii=False, default=str)
-    except Exception:
-        pass
-    try:
-        from modules.supabase_client import get_supabase
-        sb = get_supabase()
-        if sb:
-            sb.table("reports").update({"report": report}).eq("id", job_id).execute()
-    except Exception as e:
-        log.warning("Translation persisted to disk only (Supabase update failed): %s", e)
+    _translations_inflight.add(inflight_key)
 
-    return {"target": target, "docs": translated, "cached": False}
+    async def _translate_and_persist():
+        try:
+            from modules.translate_report import translate_docs
+            translated = await translate_docs(docs, target)
+            report.setdefault("_translations", {})[target] = translated
+            try:
+                path = os.path.join(REPORTS_DIR, f"{job_id}.json")
+                if os.path.exists(path):
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = _json.load(f)
+                    data["report"] = report
+                    with open(path, "w", encoding="utf-8") as f:
+                        _json.dump(data, f, ensure_ascii=False, default=str)
+            except Exception:
+                pass
+            try:
+                from modules.supabase_client import get_supabase
+                sb = get_supabase()
+                if sb:
+                    sb.table("reports").update({"report": report}).eq("id", job_id).execute()
+            except Exception as e:
+                log.warning("Translation persisted to disk only (Supabase update failed): %s", e)
+            log.info("Report %s translated → %s (%d docs)", job_id, target, len(translated))
+        except Exception as e:
+            log.error("Report translation failed for %s → %s: %s", job_id, target, e)
+        finally:
+            _translations_inflight.discard(inflight_key)
+
+    asyncio.create_task(_translate_and_persist())
+    return JSONResponse({"status": "translating", "target": target}, status_code=202)
 
 
 @app.get("/api/export/{job_id}")
