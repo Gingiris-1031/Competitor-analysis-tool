@@ -618,7 +618,10 @@ def _load_persisted_report(job_id: str) -> dict | None:
 class AnalyzeRequest(BaseModel):
     url: str
     product_name: Optional[str] = None
-    lang: Optional[str] = "en"  # "en" or "zh"
+    # None (not "en") so the Referer/Accept-Language fallback in the handler
+    # actually runs for API callers that omit lang. Iris 2026-07-07: the old
+    # "en" default made the fallback dead code.
+    lang: Optional[str] = None  # "en" or "zh"
 
 
 class TextAnalyzeRequest(BaseModel):
@@ -644,8 +647,33 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
     _brand = _re.sub(r'\.[a-z]{2,6}$', '', _brand)   # strip any TLD (.pro, .com, .io, .ai, .dev…)
     product_name = req.product_name or _brand.replace("-", " ").replace("_", " ").capitalize()
 
+    # Detect report language BEFORE the cache check — the cache is scoped
+    # per (domain, lang). Same detection order as /api/growth-audit:
+    #   1. explicit body.lang ("en" | "zh")
+    #   2. query ?lang=
+    #   3. Referer contains /zh/ → zh
+    #   4. Accept-Language header
+    #   5. default to "en" (most analook organic traffic is English SEO)
+    _detected_lang = (req.lang or request.query_params.get("lang") or "").strip().lower()
+    if not _detected_lang:
+        _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
+        if "/zh/" in _ref or "lang=zh" in _ref:
+            _detected_lang = "zh"
+        else:
+            _al = (request.headers.get("accept-language") or "").lower()
+            if _al.startswith("zh"):
+                _detected_lang = "zh"
+            elif _al.startswith("en"):
+                _detected_lang = "en"
+    if _detected_lang not in ("en", "zh"):
+        _detected_lang = "en"
+
     # --- Domain cache: return cached result if available, fresh, and AI succeeded ---
-    cache_key = domain.lower().replace("www.", "")
+    # Iris 2026-07-07 bug (plaud.ai from /zh/ showed an English report): the
+    # cache was keyed on domain ONLY, so a ZH request hit the cached EN
+    # report wholesale and the lang-aware pipeline never ran. Key by
+    # (domain, lang) so each language gets its own cached analysis.
+    cache_key = f"{domain.lower().replace('www.', '')}|{_detected_lang}"
     cached = _domain_cache.get(cache_key)
     if cached and (time.time() - cached["timestamp"]) < DOMAIN_CACHE_TTL:
         cached_job = cached["job"]
@@ -665,32 +693,6 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
             }
             _persist_report(job_id, jobs[job_id])
             return {"job_id": job_id, "status": "started", "cached": True}
-    
-    # Detect report language. Same order as /api/growth-audit:
-    #   1. explicit body.lang ("en" | "zh")
-    #   2. query ?lang=
-    #   3. Referer contains /zh/ → zh
-    #   4. Accept-Language header
-    #   5. default to "en" (most analook organic traffic is English SEO)
-    #
-    # Iris 2026-06-30 bug a0fa2515: the old `(req.lang or "en")` ignored
-    # the user's actual locale signal entirely. A user on /zh/ submitting an
-    # analysis got an English report because the frontend wasn't sending
-    # `lang=zh` in the body. Now we read the Referer as a fallback so the
-    # /zh/ page produces Chinese reports out of the box.
-    _detected_lang = (req.lang or request.query_params.get("lang") or "").strip().lower()
-    if not _detected_lang:
-        _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
-        if "/zh/" in _ref or "lang=zh" in _ref:
-            _detected_lang = "zh"
-        else:
-            _al = (request.headers.get("accept-language") or "").lower()
-            if _al.startswith("zh"):
-                _detected_lang = "zh"
-            elif _al.startswith("en"):
-                _detected_lang = "en"
-    if _detected_lang not in ("en", "zh"):
-        _detected_lang = "en"
 
     jobs[job_id] = {
         "status": "running",
@@ -2219,7 +2221,9 @@ async def _run_analysis(job_id: str):
 
     _persist_report(job_id, job)
 
-    cache_key = domain.lower().replace("www.", "")
+    # Cache write is lang-scoped to match the lang-scoped read in
+    # start_analysis (a ZH report must never be served to an EN request).
+    cache_key = f"{domain.lower().replace('www.', '')}|{job.get('lang', 'en')}"
     _domain_cache[cache_key] = {"timestamp": time.time(), "job": job}
 
 
