@@ -491,6 +491,28 @@
         langBtn.textContent = curLang === 'zh' ? '🌐 EN' : '🌐 中文';
     }
     _langBtnLabel();
+        async function _pollTranslate(id, target, maxMs) {
+            const deadline = Date.now() + (maxMs || 240000);
+            while (Date.now() < deadline) {
+                const resp = await fetch(`/api/report/${id}/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target }),
+                });
+                if (resp.status === 200) {
+                    const out = await resp.json();
+                    if (out.docs) return out.docs;
+                    throw new Error(out.error || 'empty result');
+                }
+                if (resp.status !== 202) {
+                    const out = await resp.json().catch(() => ({}));
+                    throw new Error(out.error || `HTTP ${resp.status}`);
+                }
+                await new Promise(r => setTimeout(r, 4000));
+            }
+            throw new Error('translation timed out');
+        }
+
     langBtn.addEventListener('click', async () => {
         const target = curLang === 'zh' ? 'en' : 'zh';
         if (docsByLang[target]) {
@@ -499,14 +521,8 @@
         langBtn.disabled = true;
         langBtn.textContent = curLang === 'zh' ? '🌐 Translating…' : '🌐 翻译中…';
         try {
-            const resp = await fetch(`/api/report/${jobId}/translate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target }),
-            });
-            const out = await resp.json();
-            if (!resp.ok || !out.docs) throw new Error(out.error || `HTTP ${resp.status}`);
-            docsByLang[target] = Object.assign({}, reports, out.docs);
+            const docs = await _pollTranslate(jobId, target);
+            docsByLang[target] = Object.assign({}, reports, docs);
             curLang = target;
             renderTab(curTab);
         } catch (e) {
