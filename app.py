@@ -2632,6 +2632,111 @@ async def get_report(job_id: str, request: Request):
     return JSONResponse({"error": "Job not found"}, status_code=404)
 
 
+@app.post("/api/report/{job_id}/translate")
+async def translate_report(job_id: str, request: Request):
+    """One-click report language toggle (Iris 2026-07-07 feature).
+
+    Body: {"target": "zh" | "en"}
+    Translates the AI-generated markdown of a completed report into the
+    target language via LLM, caches the result under report._translations
+    and persists it — so each report translates at most once per language;
+    later toggles return instantly from cache.
+
+    Handles both report shapes:
+    - growth-audit (ga-*): report["reports"] = {executive_summary,
+      diagnosis_report, action_plan}
+    - competitor analysis: report["sections"]["ai_insights"]["content"]
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+    target = (body.get("target") or "").strip().lower()
+    if target not in ("en", "zh"):
+        return JSONResponse({"error": "target must be 'en' or 'zh'"}, status_code=400)
+
+    # ── Load the report (memory → disk → Supabase, same order as get_report) ──
+    report = None
+    job = jobs.get(job_id)
+    if job and job.get("report"):
+        report = job["report"]
+    ga_job = _growth_audit_jobs.get(job_id)
+    if report is None and ga_job and ga_job.get("reports"):
+        # growth-audit in-memory shape: promote to the persisted result shape
+        report = {"reports": ga_job["reports"], "url": ga_job.get("url"),
+                  "product_name": ga_job.get("product_name")}
+    if report is None:
+        path = os.path.join(REPORTS_DIR, f"{job_id}.json")
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    report = _json.load(f).get("report")
+            except Exception:
+                pass
+    if report is None:
+        try:
+            from modules.supabase_client import get_supabase
+            sb = get_supabase()
+            if sb:
+                result = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
+                if result.data and result.data[0].get("report"):
+                    report = result.data[0]["report"]
+        except Exception:
+            pass
+    if report is None:
+        replay = _fly_replay_if_foreign(request)
+        if replay is not None:
+            return replay
+        return JSONResponse({"error": "Report not found"}, status_code=404)
+
+    # ── Cache hit? ──
+    cached = (report.get("_translations") or {}).get(target)
+    if cached:
+        return {"target": target, "docs": cached, "cached": True}
+
+    # ── Collect the translatable documents by shape ──
+    if isinstance(report.get("reports"), dict):          # growth-audit
+        docs = {k: v for k, v in report["reports"].items()
+                if isinstance(v, str) and v.strip()}
+    else:                                                 # competitor analysis
+        ai = ((report.get("sections") or {}).get("ai_insights") or {})
+        docs = {}
+        if isinstance(ai.get("content"), str) and ai["content"].strip():
+            docs["ai_insights"] = ai["content"]
+    if not docs:
+        return JSONResponse({"error": "Nothing translatable in this report"}, status_code=422)
+
+    # ── Translate (15-40s depending on doc count/size) ──
+    try:
+        from modules.translate_report import translate_docs
+        translated = await translate_docs(docs, target)
+    except Exception as e:
+        log.error("Report translation failed for %s → %s: %s", job_id, target, e)
+        return JSONResponse({"error": f"Translation failed: {str(e)[:120]}"}, status_code=502)
+
+    # ── Persist under _translations (disk + Supabase best-effort) ──
+    report.setdefault("_translations", {})[target] = translated
+    try:
+        path = os.path.join(REPORTS_DIR, f"{job_id}.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            data["report"] = report
+            with open(path, "w", encoding="utf-8") as f:
+                _json.dump(data, f, ensure_ascii=False, default=str)
+    except Exception:
+        pass
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if sb:
+            sb.table("reports").update({"report": report}).eq("id", job_id).execute()
+    except Exception as e:
+        log.warning("Translation persisted to disk only (Supabase update failed): %s", e)
+
+    return {"target": target, "docs": translated, "cached": False}
+
+
 @app.get("/api/export/{job_id}")
 async def export_markdown(job_id: str):
     job = jobs.get(job_id)
