@@ -2671,28 +2671,27 @@ async def public_reports():
         sb = get_supabase()
         if not sb:
             return {"reports": []}
+        # LIGHT query only — pulling the full `report` JSONB for 120 rows
+        # (some >100KB each) blew past client limits and dropped the whole
+        # endpoint into the exception path (round-1 self-test: 328 public
+        # rows in DB, endpoint returned []). The PostgREST arrow selector
+        # extracts just the _partial flag.
         rows = sb.table("reports") \
-            .select("id,url,product_name,created_at,report") \
+            .select("id,url,product_name,created_at,partial:report->_partial") \
             .eq("is_public", True) \
-            .order("created_at", desc=True).limit(120).execute().data or []
+            .order("created_at", desc=True).limit(150).execute().data or []
     except Exception as e:
         log.warning("public-reports query failed: %s", e)
         return {"reports": []}
 
     out, seen_domains = [], set()
     for r in rows:
-        rep = r.get("report") or {}
         # Skip partial (still-generating / deploy-orphaned) audits
-        if rep.get("_partial"):
-            continue
-        # Must have real content: audit reports dict or ai_insights success
-        has_ga = isinstance(rep.get("reports"), dict) and any(
-            isinstance(v, str) and len(v) > 500 for v in rep["reports"].values())
-        ai = ((rep.get("sections") or {}).get("ai_insights") or {})
-        has_ai = bool(ai.get("success")) and len(ai.get("content") or "") > 500
-        if not (has_ga or has_ai):
+        if r.get("partial"):
             continue
         url = (r.get("url") or "").strip()
+        if not url or url == "—":
+            continue  # text/PDF analyses have no URL — skip in the gallery
         domain = urlparse(url if url.startswith("http") else f"https://{url}").netloc \
             .lower().replace("www.", "")
         if not domain or domain in seen_domains:
@@ -2703,7 +2702,7 @@ async def public_reports():
             "id": r["id"],
             "product_name": name[:60],
             "domain": domain,
-            "kind": "growth-audit" if has_ga else "analysis",
+            "kind": "growth-audit" if str(r["id"]).startswith("ga-") else "analysis",
             "category": _categorize_report(name, url),
             "created_at": (r.get("created_at") or "")[:10],
         })
