@@ -769,6 +769,28 @@
         const cur = _reportLang || _detectLangOf(reports);
         b.textContent = cur === 'zh' ? '🌐 EN' : '🌐 中文';
     }
+        async function _pollTranslate(id, target, maxMs) {
+            const deadline = Date.now() + (maxMs || 240000);
+            while (Date.now() < deadline) {
+                const resp = await fetch(`/api/report/${id}/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target }),
+                });
+                if (resp.status === 200) {
+                    const out = await resp.json();
+                    if (out.docs) return out.docs;
+                    throw new Error(out.error || 'empty result');
+                }
+                if (resp.status !== 202) {
+                    const out = await resp.json().catch(() => ({}));
+                    throw new Error(out.error || `HTTP ${resp.status}`);
+                }
+                await new Promise(r => setTimeout(r, 4000));
+            }
+            throw new Error('translation timed out');
+        }
+
     async function toggleReportLang() {
         const b = document.getElementById('lang-toggle');
         if (!_reportLang) {
@@ -785,14 +807,8 @@
         b.disabled = true;
         b.textContent = _reportLang === 'zh' ? '🌐 Translating…' : '🌐 翻译中…';
         try {
-            const resp = await fetch(`/api/report/${currentJobId}/translate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target }),
-            });
-            const out = await resp.json();
-            if (!resp.ok || !out.docs) throw new Error(out.error || `HTTP ${resp.status}`);
-            _docsByLang[target] = Object.assign({}, reports, out.docs);
+            const docs = await _pollTranslate(currentJobId, target);
+            _docsByLang[target] = Object.assign({}, reports, docs);
             reports = _docsByLang[target];
             _reportLang = target;
             renderCurrentTab();
