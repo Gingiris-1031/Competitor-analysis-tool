@@ -43,11 +43,11 @@
           "description": "AI-powered growth diagnostic that takes a single product URL and produces three reports — Executive Summary, Full Diagnosis, and 30-Day Action Plan — based on the Gingiris Growth Framework (40+ playbooks distilled from AFFiNE's 60K-star open-source growth, 150+ AI startup advisories, and 30+ Product Hunt #1 launches).",
           "offers": {
             "@type": "Offer",
-            "price": "29.00",
+            "price": "19.00",
             "priceCurrency": "USD",
             "priceSpecification": {
               "@type": "UnitPriceSpecification",
-              "price": "29.00",
+              "price": "19.00",
               "priceCurrency": "USD",
               "billingDuration": "P1M",
               "unitText": "3 audits / month"
@@ -72,7 +72,7 @@
           ],
           "offers": {
             "@type": "Offer",
-            "price": "29.00",
+            "price": "19.00",
             "priceCurrency": "USD"
           }
         },
@@ -417,10 +417,11 @@
             </div>
 
             <!-- Tabs -->
-            <div class="flex border-b border-[color:var(--warm-border)] mb-6">
+            <div class="flex border-b border-[color:var(--warm-border)] mb-6 items-center">
                 <button class="tab-btn px-5 py-3 text-sm font-medium tab-active" data-tab="exec" onclick="switchTab('exec')">📋 执行摘要</button>
                 <button class="tab-btn px-5 py-3 text-sm font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]" data-tab="diag" onclick="switchTab('diag')">🔬 诊断报告</button>
                 <button class="tab-btn px-5 py-3 text-sm font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]" data-tab="plan" onclick="switchTab('plan')">🎯 30 天行动计划</button>
+                <button id="lang-toggle" onclick="toggleReportLang()" class="ml-auto px-4 py-2 text-xs font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)] border border-[color:var(--warm-border)] rounded-full transition-colors" title="切换报告语言">🌐 …</button>
             </div>
 
             <!-- Report Content -->
@@ -752,6 +753,57 @@
 
     const TAB_KEY = { exec: 'executive_summary', diag: 'diagnosis_report', plan: 'action_plan' };
 
+    /* ── One-click report language toggle (Iris 2026-07-07 feature) ──────
+       Backend translates once per language + persists, so the first toggle
+       costs ~15-40s and every later toggle is an instant cache hit. */
+    const _docsByLang = {};
+    let _reportLang = null;
+
+    function _detectLangOf(d) {
+        const sample = ((d.executive_summary || d.diagnosis_report || '') + '').slice(0, 400);
+        return /[\u4e00-\u9fff]/.test(sample) ? 'zh' : 'en';
+    }
+    function _syncLangBtn() {
+        const b = document.getElementById('lang-toggle');
+        if (!b) return;
+        const cur = _reportLang || _detectLangOf(reports);
+        b.textContent = cur === 'zh' ? '🌐 EN' : '🌐 中文';
+    }
+    async function toggleReportLang() {
+        const b = document.getElementById('lang-toggle');
+        if (!_reportLang) {
+            _reportLang = _detectLangOf(reports);
+            _docsByLang[_reportLang] = reports;
+        }
+        const target = _reportLang === 'zh' ? 'en' : 'zh';
+        if (_docsByLang[target]) {
+            reports = _docsByLang[target];
+            _reportLang = target;
+            _syncLangBtn(); renderCurrentTab(); return;
+        }
+        if (!currentJobId) return;
+        b.disabled = true;
+        b.textContent = _reportLang === 'zh' ? '🌐 Translating…' : '🌐 翻译中…';
+        try {
+            const resp = await fetch(`/api/report/${currentJobId}/translate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target }),
+            });
+            const out = await resp.json();
+            if (!resp.ok || !out.docs) throw new Error(out.error || `HTTP ${resp.status}`);
+            _docsByLang[target] = Object.assign({}, reports, out.docs);
+            reports = _docsByLang[target];
+            _reportLang = target;
+            renderCurrentTab();
+        } catch (e) {
+            alert((_reportLang === 'zh' ? '翻译失败：' : 'Translation failed: ') + e.message);
+        } finally {
+            b.disabled = false;
+            _syncLangBtn();
+        }
+    }
+
     function switchTab(tab) {
         currentTab = tab;
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -793,6 +845,7 @@
         const firstReady = reports.executive_summary ? 'exec'
                          : reports.diagnosis_report ? 'diag'
                          : reports.action_plan ? 'plan' : 'diag';
+        _syncLangBtn();
         switchTab(firstReady);
     }
 
