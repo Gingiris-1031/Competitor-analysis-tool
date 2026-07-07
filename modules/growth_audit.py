@@ -127,6 +127,29 @@ I. **判断产品类型的优先信号**:首页 hero 价值主张 → 客户案�
    - 月费 < $100 OR 个人/团队 用户为主 → 偏 PLG,PH/UGC 有意义
    - 完全开源、强调 GitHub stars → OSS 路径
 
+## 🚀 宣发 Campaign 三层架构(适用于任何"发布类"动作:新品/新功能/融资/里程碑)
+
+J. **凡 Action Plan 涉及 launch/发布/campaign,必须按三层结构组织,不要只写"发个 PH/发条推"**:
+
+| 层 | 时间窗 | 做什么 | 关键要点 |
+|---|---|---|---|
+| **① 发布层** | 第 0-2 周 | 悬念钩子预热 → 一条主内容集中引爆 → 解说帖管理预期 → 教程降门槛 → 出问题主动公关 → 叙事收尾 | 主内容只有一条(视频/深度帖),其余帖都为它服务;出负面时 24h 内主动透明说明,危机公关帖本身就是内容 |
+| **② 放大层** | 发布前 1-2 周就要铺好 | 提前锁定 3-5 个真 KOL 约定发布日跟发;养多语种社群大使;主推"真实使用 ROI 实测连载"而非硬广 | 区分**真 KOL vs 官号/矩阵号**——转发矩阵是噪音不是宣发;KOL 内容要"真钱实测/真实工作流"才有说服力 |
+| **③ 留存层** | 发布后第 2-8 周 | 叠一个竞赛/挑战/连载机制,把发布拉来的新用户转成持续使用者;让 KOL 当选手利益绑定,战况可连载 | 抄机制不抄形式;可拉联名方/赞助商分摊奖金池成本 |
+
+K. **发布层节奏公式**(逐帖排布,不是一次性乱发):
+   悬念钩子(勾好奇,如"明早有大事") → 主内容引爆(全期流量峰) → 演示/教程帖("怎么用"降门槛) → 危机公关帖(如有问题,主动透明) → 品牌叙事收尾。
+
+L. **转化路径必须写成漏斗四段**,每段配具体动作+钩子:
+   ① 触达(悬念钩子/预热) → ② 认知(主内容+平台级背书) → ③ 激活(教程/低门槛入口) → ④ 转化(入口尽量嵌进用户已在用的工具里)。
+   **分发式转化优先**:AI/agent 类产品优先考虑"把能力装进用户已用的工具"(ChatGPT/Claude 插件、iMessage、浏览器扩展),把转化搬到用户日常工具里,而不是"拉用户来注册新 App"。
+
+M. **预算与验收**(Action Plan 里的 campaign 任务必须带这两项):
+   - 预算逐项给区间(如 主视频 $2-3k / KOL 合作 $2-5k / 竞赛奖金池 $5-10k 可拉赞助分摊),没有预算依据就标"估算"。
+   - 验收指标:**不看发布当天曝光**,盯发布后 4-8 周的核心使用指标趋势(交易量/激活/留存)+ 可交叉验证的第三方数据;明确提醒"自报数字不可照抄,要用链上/第三方数据核实"(适用 crypto/可验证行业)。
+
+N. **可复用发布框架 > 一锤子买卖**:发布做成"可反复加场景的系列"(同一钩子/同一框架换场景再发),而非单次事件。
+
 %SKILL_REGISTRY%
 """
 
@@ -3181,6 +3204,34 @@ async def run_growth_audit(
                 r = {}
                 jobs_dict[job_id]["reports"] = r
             r[key] = md
+            # Progressive persistence — Iris 2026-07-07: three audits died
+            # today because jobs live only in process memory and rolling
+            # deploys replace the machines mid-run. Upserting to Supabase on
+            # every finished section means (a) a deploy can no longer lose
+            # completed work, and (b) share links (/share/audit/{id}) work
+            # the moment the first section exists instead of 404ing forever
+            # (bug ga-bcd33e6d: user shared an audit whose job was killed
+            # before the completion-time save ever ran).
+            try:
+                import asyncio as _aio2
+                from .supabase_client import save_report_to_db as _save
+                partial = {
+                    "product_name": jobs_dict[job_id].get("product_name") or product_name,
+                    "url": jobs_dict[job_id].get("url") or url,
+                    "reports": dict(r),
+                    "_partial": jobs_dict[job_id].get("status") != "completed",
+                }
+                _aio2.create_task(_save(
+                    job_id=job_id,
+                    user_id=jobs_dict[job_id].get("user_id"),
+                    url=jobs_dict[job_id].get("url") or url,
+                    product_name=partial["product_name"] or "",
+                    report=partial,
+                    markdown="",
+                    is_public=True,
+                ))
+            except Exception:
+                pass  # persistence is best-effort; never break the pipeline
 
     # Step 1: Fetch site data
     _update("fetch", "running")
