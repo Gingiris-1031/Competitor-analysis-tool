@@ -1,7 +1,7 @@
 // i18n: zh pages set window._ANALOOK_LANG='zh' before loading shared JS.
 // TAAFT rejected the EN site twice for Chinese strings in dynamic UI (2026-07-07).
-const _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
-const _t = (en, zh) => _LANG_ZH ? zh : en;
+var _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
+var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
 let currentJobId = null;
 let analysisStartTime = null;
 let timerInterval = null;
