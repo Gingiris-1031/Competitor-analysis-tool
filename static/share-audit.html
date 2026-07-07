@@ -333,10 +333,11 @@
 
       <div id="diag-snapshot" class="diag-snapshot" style="display:none"></div>
 
-      <div class="tabs">
+      <div class="tabs" style="align-items:center">
         <button class="tab active" data-tab="exec">📋 Executive Summary</button>
         <button class="tab" data-tab="diag">🔬 Diagnosis</button>
         <button class="tab" data-tab="plan">🎯 30-Day Plan</button>
+        <button id="lang-toggle" class="tab" style="margin-left:auto" title="Translate this report">🌐 …</button>
       </div>
 
       <div class="report-card md" id="report-content"></div>
@@ -464,18 +465,59 @@
     const reports = data.reports || {};
     const reportEl = document.getElementById('report-content');
 
+    // ── One-click language toggle (Iris 2026-07-07 feature) ──────────
+    // Backend translates once per language and persists; later toggles
+    // (by anyone, incl. future visitors) are instant cache hits.
+    const srcLang = /[一-鿿]/.test(((reports.executive_summary || reports.diagnosis_report || '') + '').slice(0, 400)) ? 'zh' : 'en';
+    const docsByLang = { [srcLang]: reports };
+    let curLang = srcLang;
+    let curTab = 'exec';
+
     function renderTab(tab) {
-        document.querySelectorAll('.tab').forEach(t => {
+        curTab = tab;
+        document.querySelectorAll('.tab[data-tab]').forEach(t => {
             t.classList.toggle('active', t.dataset.tab === tab);
         });
+        const d = docsByLang[curLang] || reports;
         let md = '';
-        if (tab === 'exec') md = reports.executive_summary;
-        else if (tab === 'diag') md = reports.diagnosis_report;
-        else if (tab === 'plan') md = reports.action_plan;
+        if (tab === 'exec') md = d.executive_summary;
+        else if (tab === 'diag') md = d.diagnosis_report;
+        else if (tab === 'plan') md = d.action_plan;
         reportEl.innerHTML = md ? marked.parse(md) : '<p style="color:var(--ink-faint);text-align:center;padding:60px 20px">This section is unavailable.</p>';
     }
 
-    document.querySelectorAll('.tab').forEach(t => {
+    const langBtn = document.getElementById('lang-toggle');
+    function _langBtnLabel() {
+        langBtn.textContent = curLang === 'zh' ? '🌐 EN' : '🌐 中文';
+    }
+    _langBtnLabel();
+    langBtn.addEventListener('click', async () => {
+        const target = curLang === 'zh' ? 'en' : 'zh';
+        if (docsByLang[target]) {
+            curLang = target; _langBtnLabel(); renderTab(curTab); return;
+        }
+        langBtn.disabled = true;
+        langBtn.textContent = curLang === 'zh' ? '🌐 Translating…' : '🌐 翻译中…';
+        try {
+            const resp = await fetch(`/api/report/${jobId}/translate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target }),
+            });
+            const out = await resp.json();
+            if (!resp.ok || !out.docs) throw new Error(out.error || `HTTP ${resp.status}`);
+            docsByLang[target] = Object.assign({}, reports, out.docs);
+            curLang = target;
+            renderTab(curTab);
+        } catch (e) {
+            alert((curLang === 'zh' ? '翻译失败：' : 'Translation failed: ') + e.message);
+        } finally {
+            langBtn.disabled = false;
+            _langBtnLabel();
+        }
+    });
+
+    document.querySelectorAll('.tab[data-tab]').forEach(t => {
         t.addEventListener('click', () => renderTab(t.dataset.tab));
     });
 
