@@ -1458,6 +1458,12 @@ async def _render_scorecard_share(card_hash: str, zh: bool):
                              lambda m, v=val: m.group(1) + e(v) + m.group(2), doc, count=1)
         doc = _sc_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
                          lambda m: m.group(1) + canonical + m.group(2), doc, count=1)
+        alt_en = f"https://www.analook.com/scorecard/{card_hash}"
+        alt_zh = f"https://www.analook.com/zh/scorecard/{card_hash}"
+        doc = _sc_re.sub(r'(<link\s+rel="alternate"\s+hreflang="en"\s+href=")[^"]*(")',
+                         lambda m: m.group(1) + alt_en + m.group(2), doc, count=1)
+        doc = _sc_re.sub(r'(<link\s+rel="alternate"\s+hreflang="zh-CN"\s+href=")[^"]*(")',
+                         lambda m: m.group(1) + alt_zh + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
     except Exception as ex:
         log.warning("scorecard share inject failed hash=%s zh=%s: %s", card_hash, zh, ex)
@@ -1509,9 +1515,14 @@ def _scorecard_form(zh: bool):
             doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
             doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
             zt = "增长诊断评分卡 | Analook"
+            zd = ("输入自己的官网 + 竞品，对着行业基准线自动诊断增长健康分：UV→注册、注册→付费、"
+                  "获客成本、SEO 基建。免费看分数和红黄绿灯，付费解锁逐项修复方案。")
             doc = _sf_re.sub(r"<title>.*?</title>", f"<title>{zt}</title>", doc, count=1, flags=_sf_re.S)
-            doc = _sf_re.sub(r'(<meta\s+property="og:title"\s+content=")[^"]*(")',
-                             lambda m: m.group(1) + zt + m.group(2), doc, count=1)
+            for attr, val in ((r'name="description"', zd), (r'property="og:title"', zt),
+                              (r'property="og:description"', zd), (r'name="twitter:title"', zt),
+                              (r'name="twitter:description"', zd)):
+                doc = _sf_re.sub(r'(<meta\s+' + attr + r'\s+content=")[^"]*(")',
+                                 lambda m, v=val: m.group(1) + v + m.group(2), doc, count=1)
             doc = _sf_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
                              lambda m: m.group(1) + "https://www.analook.com/zh/scorecard" + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
@@ -1634,6 +1645,12 @@ async def _render_timeline_share(domain: str, zh: bool):
                              lambda m, v=val: m.group(1) + e(v) + m.group(2), doc, count=1)
         doc = _tl_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
                          lambda m: m.group(1) + canonical + m.group(2), doc, count=1)
+        alt_en = f"https://www.analook.com/timeline/{dom}"
+        alt_zh = f"https://www.analook.com/zh/timeline/{dom}"
+        doc = _tl_re.sub(r'(<link\s+rel="alternate"\s+hreflang="en"\s+href=")[^"]*(")',
+                         lambda m: m.group(1) + alt_en + m.group(2), doc, count=1)
+        doc = _tl_re.sub(r'(<link\s+rel="alternate"\s+hreflang="zh-CN"\s+href=")[^"]*(")',
+                         lambda m: m.group(1) + alt_zh + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
     except Exception as ex:
         log.warning("timeline share inject failed domain=%s zh=%s: %s", dom, zh, ex)
@@ -1689,9 +1706,14 @@ def _timeline_form(zh: bool):
             doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
             doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
             zt = "竞品官网考古时间轴 | Analook"
+            zd = ("把竞品官网从 Wayback 存档逐版本挖出来，做成可视化时间轴：slogan、定价、首屏、"
+                  "页面结构怎么演进。看它什么时候上定价页、怎么改定位。竞品增长路径的化石。")
             doc = _tf_re.sub(r"<title>.*?</title>", f"<title>{zt}</title>", doc, count=1, flags=_tf_re.S)
-            doc = _tf_re.sub(r'(<meta\s+property="og:title"\s+content=")[^"]*(")',
-                             lambda m: m.group(1) + zt + m.group(2), doc, count=1)
+            for attr, val in ((r'name="description"', zd), (r'property="og:title"', zt),
+                              (r'property="og:description"', zd), (r'name="twitter:title"', zt),
+                              (r'name="twitter:description"', zd)):
+                doc = _tf_re.sub(r'(<meta\s+' + attr + r'\s+content=")[^"]*(")',
+                                 lambda m, v=val: m.group(1) + v + m.group(2), doc, count=1)
             doc = _tf_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
                              lambda m: m.group(1) + "https://www.analook.com/zh/timeline" + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
