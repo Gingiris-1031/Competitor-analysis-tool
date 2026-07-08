@@ -179,70 +179,49 @@ def existing_domains() -> set[str]:
         return set()
 
 
-# ── Seed account + audit runner (real /api/analyze path) ─────────────────────
-def ensure_seed_credits(target: int = 30) -> str | None:
-    """Ensure the seed account exists + has credits; return an access token."""
-    if not (SB_URL and SB_KEY and SEED_PASSWORD):
-        log.error("missing SUPABASE_URL / SUPABASE_SERVICE_KEY / SEED_PASSWORD")
-        return None
-    admin = {"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}", "Content-Type": "application/json"}
-    # Try to log in first; create the account if that fails.
-    def _login():
-        try:
-            r = _req(f"{SB_URL}/auth/v1/token?grant_type=password",
-                     data={"email": SEED_EMAIL, "password": SEED_PASSWORD},
-                     headers={"apikey": SB_KEY, "Content-Type": "application/json"})
-            return json.load(r)
-        except Exception:
-            return None
-    auth = _login()
-    if not auth or not auth.get("access_token"):
-        try:
-            _req(f"{SB_URL}/auth/v1/admin/users", data={
-                "email": SEED_EMAIL, "password": SEED_PASSWORD, "email_confirm": True}, headers=admin)
-            log.info("created seed account %s", SEED_EMAIL)
-        except Exception as e:
-            log.warning("seed account create (may already exist): %s", e)
-        auth = _login()
-    if not auth or not auth.get("access_token"):
-        log.error("seed login failed")
-        return None
-    uid = auth["user"]["id"]
-    # Top up credits so we can run the day's batch.
+# ── In-process audit runner ──────────────────────────────────────────────────
+# We run INSIDE the analook Fly image, so we drive the analysis pipeline
+# directly (import app; seed the jobs dict; await _run_analysis_with_timeout).
+# This deliberately avoids self-calling https://www.analook.com from inside
+# Fly — that path hangs, because polling /api/status bounces between the two
+# serving machines via fly-replay and the seed machine's request stalls in the
+# replay loop. Running in-process also means no auth, no credits, no HTTP: the
+# pipeline's own _persist_report saves the report is_public=True (Free-tier
+# default), so it lands in the gallery + /report/{id} exactly like a user audit.
+async def run_audit_inprocess(A, url: str, product_name: str) -> str | None:
+    import asyncio as _a
+    import uuid as _u
+    job_id = _u.uuid4().hex[:8]
+    A.jobs[job_id] = {
+        "status": "running",
+        "product_name": product_name,
+        "url": url if url.startswith("http") else f"https://{url}",
+        "user_id": None,      # anonymous seed report → is_public=True
+        "lang": "en",
+        "cancelled": False,
+        "progress": {k: "pending" for k in (
+            "website", "social", "propagation", "traffic", "pricing",
+            "traffic_peaks", "growth_analysis", "report", "pr_news")},
+        "results": {},
+        "report": None,
+        "markdown": None,
+    }
     try:
-        _req(f"{SB_URL}/rest/v1/profiles?id=eq.{uid}",
-             data={"credits_balance": target}, headers={**admin, "Prefer": "return=minimal"},
-             method="PATCH")
+        # _run_analysis_with_timeout wraps the pipeline in a JOB_TIMEOUT guard,
+        # so a slow site (hanging trend APIs) still yields a partial report
+        # instead of blocking the whole batch forever.
+        await A._run_analysis_with_timeout(job_id)
     except Exception as e:
-        log.warning("credit top-up failed: %s", e)
-    return auth["access_token"]
-
-
-def run_audit(token: str, url: str) -> str | None:
-    """Fire /api/analyze and poll to completion. Returns job_id or None."""
-    hdr = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    try:
-        start = json.load(_req(f"{BASE}/api/analyze", data={"url": url, "lang": "en"}, headers=hdr))
-    except Exception as e:
-        log.warning("analyze start failed for %s: %s", url, e)
+        log.warning("in-process audit crashed for %s: %s", url, e)
         return None
-    job = start.get("job_id")
-    if not job:
-        log.warning("no job_id for %s: %s", url, start)
-        return None
-    for _ in range(60):  # up to ~5 min
-        time.sleep(5)
-        try:
-            st = json.load(_req(f"{BASE}/api/status/{job}", headers=hdr))
-        except Exception:
-            continue
-        s = st.get("status")
-        if s == "completed":
-            return job
-        if s == "failed":
-            log.warning("audit failed for %s", url)
-            return None
-    log.warning("audit timed out for %s", url)
+    # _persist_report fires save_report_to_db via create_task — give it a
+    # moment to flush to Supabase before we move on / the process exits.
+    await _a.sleep(5)
+    job = A.jobs.get(job_id, {})
+    rep = job.get("report") or {}
+    if job.get("status") == "completed" and rep.get("sections"):
+        return job_id
+    log.warning("audit produced no usable report for %s (status=%s)", url, job.get("status"))
     return None
 
 
@@ -281,7 +260,7 @@ def pick_candidates(count: int) -> list[dict]:
     return picked[:count]
 
 
-def main():
+async def main():
     log.info("=== analook seed-reports run (target %d) ===", DAILY_COUNT)
     cands = pick_candidates(DAILY_COUNT)
     if not cands:
@@ -289,14 +268,16 @@ def main():
         return 0
     for c in cands:
         log.info("candidate: %s  <%s>  [%s]", c["name"], c["url"], c["source"])
-    token = ensure_seed_credits(target=max(30, DAILY_COUNT * 3))
-    if not token:
-        log.error("could not obtain seed token — aborting")
+    # Import the app in-process so we can drive the analysis pipeline directly.
+    try:
+        import app as A
+    except Exception as e:
+        log.error("could not import analook app (must run inside the image): %s", e)
         return 1
     done = []
     for c in cands:
         log.info("→ analysing %s (%s)", c["name"], c["url"])
-        job = run_audit(token, c["url"])
+        job = await run_audit_inprocess(A, c["url"], c["name"])
         if job:
             done.append(job)
             log.info("  ✓ %s → /report/%s", c["name"], job)
@@ -308,4 +289,5 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    import asyncio
+    sys.exit(asyncio.run(main()))
