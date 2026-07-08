@@ -238,6 +238,74 @@ def render_audit_share_card(
     return buf.getvalue()
 
 
+def render_scorecard_card(
+    domain: str,
+    score: int,
+    url: str,
+) -> bytes:
+    """Dynamic share card for /scorecard/{hash} — the score is the hero.
+
+    Layout:
+        [TOP STRIPE]
+        Analook  ·  GROWTH SCORE
+        ─────
+        GROWTH HEALTH SCORE FOR
+        <domain>                     ← Instrument Serif italic
+        <big score> / 100            ← giant, accent
+        ─────
+        Diagnose your funnel vs benchmarks.   analook.com/scorecard/...
+    """
+    img = _make_backdrop()
+    _draw_top_stripe(img)
+    draw = ImageDraw.Draw(img)
+    _draw_brand_header(draw, chip_text="Growth score · Analook")
+
+    # Eyebrow
+    eyebrow_font = _font_sans(16, bold=True)
+    draw.text((80, 196), "GROWTH HEALTH SCORE FOR", font=eyebrow_font, fill=INK_FAINT)
+
+    # Domain — italic Instrument Serif, auto-scaled to one line
+    dom = (domain or "your product").strip()
+    dom = dom[:40] + "…" if len(dom) > 40 else dom
+    dom_font = None
+    for s in (110, 96, 84, 72, 62, 54):
+        f = _font_ital(s)
+        bb = f.getbbox(dom)
+        if (bb[2] - bb[0]) <= W - 160:
+            dom_font = f
+            break
+    dom_font = dom_font or _font_ital(54)
+    draw.text((80, 226), dom, font=dom_font, fill=INK)
+
+    # Big score — the hero. "<score> / 100" in giant Instrument Serif.
+    try:
+        s_int = int(round(float(score)))
+    except (TypeError, ValueError):
+        s_int = 0
+    num_font = _font_reg(170)
+    num_txt = str(s_int)
+    draw.text((80, 356), num_txt, font=num_font, fill=ACCENT_ORANGE)
+    nb = num_font.getbbox(num_txt)
+    num_w = nb[2] - nb[0]
+    den_font = _font_reg(64)
+    draw.text((80 + num_w + 18, 452), "/ 100", font=den_font, fill=INK_MUTED)
+
+    # Bottom: tagline + url
+    tag_font = _font_sans(16, bold=False)
+    draw.text((80, H - 80), "Signup rate, paid conversion, CAC and SEO — scored against industry benchmarks.",
+              font=tag_font, fill=INK_MUTED)
+    url_font = _font_sans(14, bold=True)
+    url_display = (url or "analook.com")
+    for pfx in ("https://", "http://"):
+        if url_display.startswith(pfx):
+            url_display = url_display[len(pfx):]
+    draw.text((80, H - 48), url_display[:60].upper(), font=url_font, fill=INK_FAINT)
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 def render_generic_card(
     title: str,
     accent: Optional[str],

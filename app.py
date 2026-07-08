@@ -1373,10 +1373,90 @@ async def unlock_scorecard(card_hash: str, request: Request):
     return layer
 
 
+def _scorecard_domain(raw: str) -> str:
+    d = (raw or "").strip().lower()
+    for pfx in ("https://", "http://"):
+        if d.startswith(pfx):
+            d = d[len(pfx):]
+    return d.split("/")[0].replace("www.", "") or "your product"
+
+
 @app.get("/scorecard/{card_hash}")
 async def scorecard_share_page(card_hash: str):
-    """公开分享页（同 share/audit）：静态 viewer 客户端拉 /api/scorecard/{hash}。"""
-    return FileResponse("static/scorecard.html")
+    """公开分享页：服务端把域名 + 健康分注入 OG/Twitter/title/canonical，让社交卡片和
+    爬虫（不执行 JS）能拿到「<域名> 增长健康分 <score>/100」，而不是通用骨架。
+    正文仍由前端 JS 拉 /api/scorecard/{hash} 渲染。"""
+    from starlette.responses import HTMLResponse
+    import re as _sc_re
+    import html as _sc_html
+    try:
+        from modules.supabase_client import get_scorecard
+        row = await get_scorecard(card_hash)
+        with open("static/scorecard.html", "r", encoding="utf-8") as f:
+            doc = f.read()
+        if not row:
+            return HTMLResponse(content=doc)  # 前端会自行显示表单/404
+
+        result = row.get("result") or {}
+        if isinstance(result, str):
+            try:
+                result = _json.loads(result)
+            except Exception:
+                result = {}
+        score = result.get("overall_score", 0)
+        domain = _scorecard_domain(row.get("domain") or "")
+        e = _sc_html.escape
+        title = f"{domain} 增长健康分 {score}/100 | Analook 增长诊断"
+        desc = (f"{domain} 的增长诊断：注册→付费、UV→注册、获客成本、SEO 基建对着行业基准打分，"
+                f"综合增长健康分 {score}/100。免费看分数，付费看逐项修复方案。")
+        canonical = f"https://www.analook.com/scorecard/{card_hash}"
+        og_img = f"https://www.analook.com/api/og/scorecard/{card_hash}.png"
+
+        doc = _sc_re.sub(r"<title>.*?</title>", f"<title>{e(title)}</title>", doc, count=1, flags=_sc_re.S)
+        for attr, val in (
+            (r'name="description"', desc),
+            (r'property="og:title"', title),
+            (r'property="og:description"', desc),
+            (r'property="og:url"', canonical),
+            (r'property="og:image"', og_img),
+            (r'name="twitter:title"', title),
+            (r'name="twitter:description"', desc),
+            (r'name="twitter:image"', og_img),
+        ):
+            doc = _sc_re.sub(
+                r'(<meta\s+' + attr + r'\s+content=")[^"]*(")',
+                lambda m, v=val: m.group(1) + e(v) + m.group(2), doc, count=1)
+        doc = _sc_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
+                         lambda m: m.group(1) + canonical + m.group(2), doc, count=1)
+        return HTMLResponse(content=doc)
+    except Exception as ex:
+        log.warning("scorecard_share_page inject failed hash=%s: %s", card_hash, ex)
+        return FileResponse("static/scorecard.html")
+
+
+@app.get("/api/og/scorecard/{card_hash}.png")
+async def og_card_scorecard(card_hash: str):
+    """动态 OG 卡：<域名> + 巨大健康分 <score>/100。社交分享的视觉钩子。"""
+    from modules.supabase_client import get_scorecard
+    domain, score = "your product", 0
+    try:
+        row = await get_scorecard(card_hash)
+        if row:
+            domain = _scorecard_domain(row.get("domain") or "")
+            result = row.get("result") or {}
+            if isinstance(result, str):
+                result = _json.loads(result)
+            score = result.get("overall_score", 0)
+    except Exception as e:
+        log.warning("og_card_scorecard fetch failed hash=%s: %s", card_hash, e)
+    try:
+        from modules.og_card import render_scorecard_card
+        png = render_scorecard_card(domain, score, f"analook.com/scorecard/{card_hash}")
+    except Exception as e:
+        log.error("og_card_scorecard render failed hash=%s: %s", card_hash, e)
+        return FileResponse("static/assets/og/growth-audit.png")
+    return Response(content=png, media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/scorecard")
