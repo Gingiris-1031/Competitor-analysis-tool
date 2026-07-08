@@ -1409,11 +1409,9 @@ def _scorecard_domain(raw: str) -> str:
     return d.split("/")[0].replace("www.", "") or "your product"
 
 
-@app.get("/scorecard/{card_hash}")
-async def scorecard_share_page(card_hash: str):
-    """公开分享页：服务端把域名 + 健康分注入 OG/Twitter/title/canonical，让社交卡片和
-    爬虫（不执行 JS）能拿到「<域名> 增长健康分 <score>/100」，而不是通用骨架。
-    正文仍由前端 JS 拉 /api/scorecard/{hash} 渲染。"""
+async def _render_scorecard_share(card_hash: str, zh: bool):
+    """分享页 SSR：按语言注入 <html lang> / window.__LANG__ / 域名+健康分 title/og/canonical。
+    正文由前端 JS 拉 /api/scorecard/{hash} 渲染。EN 默认 /scorecard，中文 /zh/scorecard。"""
     from starlette.responses import HTMLResponse
     import re as _sc_re
     import html as _sc_html
@@ -1422,8 +1420,11 @@ async def scorecard_share_page(card_hash: str):
         row = await get_scorecard(card_hash)
         with open("static/scorecard.html", "r", encoding="utf-8") as f:
             doc = f.read()
+        if zh:
+            doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
+            doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
         if not row:
-            return HTMLResponse(content=doc)  # 前端会自行显示表单/404
+            return HTMLResponse(content=doc)  # 前端自行显示表单/404
 
         result = row.get("result") or {}
         if isinstance(result, str):
@@ -1434,32 +1435,43 @@ async def scorecard_share_page(card_hash: str):
         score = result.get("overall_score", 0)
         domain = _scorecard_domain(row.get("domain") or "")
         e = _sc_html.escape
-        title = f"{domain} 增长健康分 {score}/100 | Analook 增长诊断"
-        desc = (f"{domain} 的增长诊断：注册→付费、UV→注册、获客成本、SEO 基建对着行业基准打分，"
-                f"综合增长健康分 {score}/100。免费看分数，付费看逐项修复方案。")
-        canonical = f"https://www.analook.com/scorecard/{card_hash}"
+        if zh:
+            title = f"{domain} 增长健康分 {score}/100 | Analook 增长诊断"
+            desc = (f"{domain} 的增长诊断：注册→付费、UV→注册、获客成本、SEO 基建对着行业基准打分，"
+                    f"综合增长健康分 {score}/100。免费看分数，付费看逐项修复方案。")
+            canonical = f"https://www.analook.com/zh/scorecard/{card_hash}"
+        else:
+            title = f"{domain} Growth Health Score {score}/100 | Analook"
+            desc = (f"{domain}'s growth diagnostic: signup→paid, visitor→signup, CAC and on-site SEO "
+                    f"scored against industry benchmarks — overall {score}/100. Free score, paid fix plan.")
+            canonical = f"https://www.analook.com/scorecard/{card_hash}"
         og_img = f"https://www.analook.com/api/og/scorecard/{card_hash}.png"
 
         doc = _sc_re.sub(r"<title>.*?</title>", f"<title>{e(title)}</title>", doc, count=1, flags=_sc_re.S)
         for attr, val in (
-            (r'name="description"', desc),
-            (r'property="og:title"', title),
-            (r'property="og:description"', desc),
-            (r'property="og:url"', canonical),
-            (r'property="og:image"', og_img),
-            (r'name="twitter:title"', title),
-            (r'name="twitter:description"', desc),
-            (r'name="twitter:image"', og_img),
+            (r'name="description"', desc), (r'property="og:title"', title),
+            (r'property="og:description"', desc), (r'property="og:url"', canonical),
+            (r'property="og:image"', og_img), (r'name="twitter:title"', title),
+            (r'name="twitter:description"', desc), (r'name="twitter:image"', og_img),
         ):
-            doc = _sc_re.sub(
-                r'(<meta\s+' + attr + r'\s+content=")[^"]*(")',
-                lambda m, v=val: m.group(1) + e(v) + m.group(2), doc, count=1)
+            doc = _sc_re.sub(r'(<meta\s+' + attr + r'\s+content=")[^"]*(")',
+                             lambda m, v=val: m.group(1) + e(v) + m.group(2), doc, count=1)
         doc = _sc_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
                          lambda m: m.group(1) + canonical + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
     except Exception as ex:
-        log.warning("scorecard_share_page inject failed hash=%s: %s", card_hash, ex)
+        log.warning("scorecard share inject failed hash=%s zh=%s: %s", card_hash, zh, ex)
         return FileResponse("static/scorecard.html")
+
+
+@app.get("/scorecard/{card_hash}")
+async def scorecard_share_page(card_hash: str):
+    return await _render_scorecard_share(card_hash, zh=False)
+
+
+@app.get("/zh/scorecard/{card_hash}")
+async def scorecard_share_page_zh(card_hash: str):
+    return await _render_scorecard_share(card_hash, zh=True)
 
 
 @app.get("/api/og/scorecard/{card_hash}.png")
@@ -1487,10 +1499,35 @@ async def og_card_scorecard(card_hash: str):
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
+def _scorecard_form(zh: bool):
+    from starlette.responses import HTMLResponse
+    import re as _sf_re
+    try:
+        with open("static/scorecard.html", "r", encoding="utf-8") as f:
+            doc = f.read()
+        if zh:
+            doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
+            doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
+            zt = "增长诊断评分卡 | Analook"
+            doc = _sf_re.sub(r"<title>.*?</title>", f"<title>{zt}</title>", doc, count=1, flags=_sf_re.S)
+            doc = _sf_re.sub(r'(<meta\s+property="og:title"\s+content=")[^"]*(")',
+                             lambda m: m.group(1) + zt + m.group(2), doc, count=1)
+            doc = _sf_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
+                             lambda m: m.group(1) + "https://www.analook.com/zh/scorecard" + m.group(2), doc, count=1)
+        return HTMLResponse(content=doc)
+    except Exception:
+        return FileResponse("static/scorecard.html")
+
+
 @app.get("/scorecard")
 async def scorecard_form_page():
-    """评分卡输入表单页。"""
-    return FileResponse("static/scorecard.html")
+    """评分卡输入页（EN 默认）。"""
+    return _scorecard_form(zh=False)
+
+
+@app.get("/zh/scorecard")
+async def scorecard_form_page_zh():
+    return _scorecard_form(zh=True)
 
 
 # ─── 竞品官网考古时间轴 ─────────────────────────────────────────────────────
@@ -1545,10 +1582,9 @@ async def get_timeline_api(domain: str, request: Request):
     return built
 
 
-@app.get("/timeline/{domain}")
-async def timeline_share_page(domain: str):
-    """公开分享页：SSR 注入「<domain> 官网演进时间轴」到 title/og/canonical。
-    正文由前端 JS 拉 /api/timeline/{domain} 渲染横向时间轴。"""
+async def _render_timeline_share(domain: str, zh: bool):
+    """时间轴分享页 SSR：按语言注入 <html lang> / window.__LANG__ / title / og / canonical。
+    正文由前端 JS 拉 /api/timeline/{domain} 渲染。EN 默认走 /timeline，中文走 /zh/timeline。"""
     from starlette.responses import HTMLResponse
     import re as _tl_re
     import html as _tl_html
@@ -1571,11 +1607,22 @@ async def timeline_share_page(domain: str):
             pass
         e = _tl_html.escape
         span_txt = f" {span}" if span else ""
-        title = f"{dom} 官网演进时间轴{span_txt} | Analook 竞品考古"
-        desc = (f"{dom} 官网从 Wayback 存档逐版本还原：slogan、定价、首屏、页面结构怎么演进。"
-                f"看它什么时候上定价页、怎么改定位——竞品增长路径的化石。")
-        canonical = f"https://www.analook.com/timeline/{dom}"
+        if zh:
+            title = f"{dom} 官网演进时间轴{span_txt} | Analook 竞品考古"
+            desc = (f"{dom} 官网从 Wayback 存档逐版本还原：slogan、定价、首屏、页面结构怎么演进。"
+                    f"看它什么时候上定价页、怎么改定位——竞品增长路径的化石。")
+            canonical = f"https://www.analook.com/zh/timeline/{dom}"
+        else:
+            title = f"{dom} Website Evolution Timeline{span_txt} | Analook"
+            desc = (f"How {dom}'s website evolved version by version from the Wayback archive — "
+                    f"slogan, pricing, hero and page structure. See when they shipped a pricing "
+                    f"page and how they repositioned.")
+            canonical = f"https://www.analook.com/timeline/{dom}"
         og_img = f"https://www.analook.com/api/og/timeline/{dom}.png"
+        # 语言：<html lang> + JS 的 window.__LANG__
+        if zh:
+            doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
+            doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
         doc = _tl_re.sub(r"<title>.*?</title>", f"<title>{e(title)}</title>", doc, count=1, flags=_tl_re.S)
         for attr, val in (
             (r'name="description"', desc), (r'property="og:title"', title),
@@ -1589,8 +1636,18 @@ async def timeline_share_page(domain: str):
                          lambda m: m.group(1) + canonical + m.group(2), doc, count=1)
         return HTMLResponse(content=doc)
     except Exception as ex:
-        log.warning("timeline_share_page inject failed domain=%s: %s", dom, ex)
+        log.warning("timeline share inject failed domain=%s zh=%s: %s", dom, zh, ex)
         return FileResponse("static/timeline.html")
+
+
+@app.get("/timeline/{domain}")
+async def timeline_share_page(domain: str):
+    return await _render_timeline_share(domain, zh=False)
+
+
+@app.get("/zh/timeline/{domain}")
+async def timeline_share_page_zh(domain: str):
+    return await _render_timeline_share(domain, zh=True)
 
 
 @app.get("/api/og/timeline/{domain}.png")
@@ -1622,10 +1679,35 @@ async def og_card_timeline(domain: str):
                     headers={"Cache-Control": "public, max-age=86400"})
 
 
+def _timeline_form(zh: bool):
+    from starlette.responses import HTMLResponse
+    import re as _tf_re
+    try:
+        with open("static/timeline.html", "r", encoding="utf-8") as f:
+            doc = f.read()
+        if zh:
+            doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
+            doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
+            zt = "竞品官网考古时间轴 | Analook"
+            doc = _tf_re.sub(r"<title>.*?</title>", f"<title>{zt}</title>", doc, count=1, flags=_tf_re.S)
+            doc = _tf_re.sub(r'(<meta\s+property="og:title"\s+content=")[^"]*(")',
+                             lambda m: m.group(1) + zt + m.group(2), doc, count=1)
+            doc = _tf_re.sub(r'(<link\s+rel="canonical"\s+href=")[^"]*(")',
+                             lambda m: m.group(1) + "https://www.analook.com/zh/timeline" + m.group(2), doc, count=1)
+        return HTMLResponse(content=doc)
+    except Exception:
+        return FileResponse("static/timeline.html")
+
+
 @app.get("/timeline")
 async def timeline_form_page():
-    """时间轴输入页（输域名 → 跳 /timeline/<domain>）。"""
-    return FileResponse("static/timeline.html")
+    """时间轴输入页（EN 默认）。"""
+    return _timeline_form(zh=False)
+
+
+@app.get("/zh/timeline")
+async def timeline_form_page_zh():
+    return _timeline_form(zh=True)
 
 
 # ─── Growth Autopilot endpoints ────────────────────────────────────────────

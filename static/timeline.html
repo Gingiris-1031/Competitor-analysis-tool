@@ -1,20 +1,22 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>竞品官网考古时间轴 | Analook</title>
-<meta name="description" content="把竞品官网从 Wayback 存档逐版本挖出来，做成可视化时间轴：slogan、定价、首屏、页面结构怎么演进。看它什么时候上定价页、怎么改定位。">
+<title>Competitor Website Archaeology Timeline | Analook</title>
+<meta name="description" content="Reconstruct any competitor's website version by version from the Wayback archive: how their slogan, pricing, hero and page structure evolved. See when they launched a pricing page and how they repositioned.">
 <link rel="canonical" href="https://www.analook.com/timeline">
-<meta property="og:title" content="竞品官网考古时间轴 | Analook">
-<meta property="og:description" content="竞品官网逐版本演进，Wayback 考古——slogan、定价、结构的化石。">
+<meta property="og:title" content="Competitor Website Archaeology Timeline | Analook">
+<meta property="og:description" content="A competitor's website, version by version — the fossil record of their growth: slogan, pricing and structure over time.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.analook.com/timeline">
 <meta property="og:image" content="https://www.analook.com/assets/og/growth-audit.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="竞品官网考古时间轴 | Analook">
-<meta name="twitter:description" content="竞品官网逐版本演进，Wayback 考古——slogan、定价、结构的化石。">
+<meta name="twitter:title" content="Competitor Website Archaeology Timeline | Analook">
+<meta name="twitter:description" content="A competitor's website, version by version — the fossil record of their growth.">
 <meta name="twitter:image" content="https://www.analook.com/assets/og/growth-audit.png">
+<link rel="alternate" hreflang="en" href="https://www.analook.com/timeline">
+<link rel="alternate" hreflang="zh-CN" href="https://www.analook.com/zh/timeline">
 <link rel="icon" href="/favicon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -29,29 +31,28 @@
     font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
   a { color:var(--accent); text-decoration:none; }
   .wrap { max-width:1100px; margin:0 auto; padding:28px 20px 100px; }
-  header.top { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+  header.top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:28px; }
   .logo { font-family:"Instrument Serif",Georgia,serif; font-size:22px; color:var(--ink); }
   .logo em { color:var(--accent); font-style:italic; }
+  .top-right { display:flex; gap:10px; align-items:center; }
   .btn { background:var(--accent); color:#1a1205; border:none; border-radius:10px;
     padding:12px 22px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; }
   .btn:hover { background:var(--accent-soft); }
   .btn.ghost { background:transparent; color:var(--ink-muted); border:1px solid var(--border-strong); font-size:13px; padding:8px 12px; }
+  .lang { font-size:13px; color:var(--ink-faint); }
   h1.hero { font-family:"Instrument Serif",Georgia,serif; font-weight:400; font-size:40px; line-height:1.12; margin:0 0 8px; }
   h1.hero em { font-style:italic; color:var(--accent); }
-  .sub { color:var(--ink-muted); font-size:15px; line-height:1.7; margin:0 0 26px; max-width:640px; }
+  .sub { color:var(--ink-muted); font-size:15px; line-height:1.7; margin:0 0 26px; max-width:660px; }
   .domain-tag { font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--ink-muted); }
-  /* form */
   .form-row { display:flex; gap:10px; max-width:520px; }
   input { flex:1; background:var(--elev); border:1px solid var(--border-strong); border-radius:9px;
     padding:12px 14px; color:var(--ink); font-size:15px; font-family:inherit; }
   input:focus { outline:none; border-color:var(--accent); }
   .hint-sm { font-size:12px; color:var(--ink-faint); margin-top:8px; }
-  /* loading */
   .loading { padding:60px 20px; text-align:center; color:var(--ink-muted); }
   .loading .spin { width:26px; height:26px; border:3px solid var(--border-strong); border-top-color:var(--accent);
     border-radius:50%; margin:0 auto 16px; animation:sp 0.8s linear infinite; }
   @keyframes sp { to { transform:rotate(360deg); } }
-  /* timeline */
   .tl-head { display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:6px; }
   .tl-meta { font-size:13px; color:var(--ink-faint); margin-bottom:22px; }
   .tl-scroll { overflow-x:auto; padding-bottom:16px; }
@@ -81,30 +82,30 @@
 <div class="wrap">
   <header class="top">
     <a class="logo" href="/">Ana<em>look</em></a>
-    <a class="btn ghost" href="/">← 回首页</a>
+    <div class="top-right">
+      <a class="lang" id="lang-toggle" href="/zh/timeline">中文</a>
+      <a class="btn ghost" id="home-link" href="/">← Home</a>
+    </div>
   </header>
 
-  <!-- FORM -->
   <section id="form-view" class="hidden">
-    <h1 class="hero">竞品官网<em>考古</em>时间轴</h1>
-    <p class="sub">输入一个竞品域名，我从 Wayback 存档把它官网逐版本挖出来——slogan、定价、首屏、页面结构怎么演进，什么时候上的定价页、怎么改的定位。竞品增长路径的化石。</p>
+    <h1 class="hero" data-i18n="hero"></h1>
+    <p class="sub" data-i18n="sub"></p>
     <div class="form-row">
-      <input id="domain" placeholder="competitor.com" autocomplete="off" onkeydown="if(event.key==='Enter')go()">
-      <button class="btn" onclick="go()">生成时间轴 →</button>
+      <input id="domain" autocomplete="off" onkeydown="if(event.key==='Enter')go()">
+      <button class="btn" onclick="go()" data-i18n="cta"></button>
     </div>
-    <div class="hint-sm">例：higgsfield.ai · 只保留视觉变化 >20% 的版本，滤掉噪音。</div>
+    <div class="hint-sm" data-i18n="hint"></div>
   </section>
 
-  <!-- LOADING -->
   <section id="loading" class="hidden">
     <div class="loading">
       <div class="spin"></div>
-      正在从 Wayback 考古 <span id="load-domain" class="domain-tag"></span> …<br>
-      <span class="hint-sm">逐版本抓取存档，首次约需 10-20 秒</span>
+      <span data-i18n="loading"></span> <span id="load-domain" class="domain-tag"></span><br>
+      <span class="hint-sm" data-i18n="loading_sub"></span>
     </div>
   </section>
 
-  <!-- RESULT -->
   <section id="result-view" class="hidden">
     <div class="tl-head">
       <h1 class="hero" id="r-domain" style="font-size:32px"></h1>
@@ -113,10 +114,10 @@
     <div class="tl-meta" id="r-meta"></div>
     <div class="tl-scroll"><div class="tl-track" id="r-track"></div></div>
     <div class="share-bar">
-      <button class="btn ghost" onclick="copyShare()">📋 复制分享链接</button>
-      <a class="btn ghost" href="/timeline">再考古一个 →</a>
-      <a class="btn ghost" id="r-refresh" href="#">↻ 重新抓取</a>
-      <span id="copied" class="hint-sm hidden">已复制</span>
+      <button class="btn ghost" onclick="copyShare()" data-i18n="copy"></button>
+      <a class="btn ghost" id="again-link" data-i18n="again"></a>
+      <a class="btn ghost" id="r-refresh" href="#" data-i18n="refresh"></a>
+      <span id="copied" class="hint-sm hidden" data-i18n="copied"></span>
     </div>
   </section>
 
@@ -124,86 +125,148 @@
 </div>
 
 <script>
+window.__LANG__ = "en";
+const I18N = {
+  en: {
+    hero: 'Competitor website <em>archaeology</em> timeline',
+    sub: "Enter a competitor's domain and I'll reconstruct their website version by version from the Wayback archive — how the slogan, pricing, hero and page structure evolved, when they shipped a pricing page, how they repositioned. The fossil record of a competitor's growth.",
+    placeholder: 'competitor.com', cta: 'Build timeline →',
+    hint: 'e.g. higgsfield.ai · keeps only versions with >20% visual change, filtering out the noise.',
+    loading: 'Digging through the Wayback archive for', loading_sub: 'Fetching snapshots version by version — first run takes ~10-20s',
+    versions: 'key versions', snapshots: 'archived snapshots', withPricing: 'versions with a pricing page',
+    evolution: 'website evolution', pricing: '💰 Pricing', screens: 'screens', archive: 'View archived snapshot →',
+    copy: '📋 Copy share link', again: 'Dig another →', refresh: '↻ Re-fetch', copied: 'Copied',
+    errNone: "Couldn't find usable historical snapshots (try another domain)", errNet: 'Network error, please retry',
+    home: '← Home',
+    feat: {pricing:'💰 Pricing', blog:'Blog', docs:'Docs', changelog:'Changelog', faq:'FAQ', trial:'Free trial', demo:'Demo', logos:'Logo wall', testimonials:'Testimonials', case_study:'Case studies'},
+    ch_slogan:'Slogan → ', ch_add:'Added ', ch_remove:'Removed ',
+    ch_screens:(a,b)=>`Page size ${a}→${b} screens`,
+    ch_first:'First real version', ch_revamp:'Layout revamp', ch_latest:'Latest version'
+  },
+  zh: {
+    hero: '竞品官网<em>考古</em>时间轴',
+    sub: '输入一个竞品域名，我从 Wayback 存档把它官网逐版本挖出来——slogan、定价、首屏、页面结构怎么演进，什么时候上的定价页、怎么改的定位。竞品增长路径的化石。',
+    placeholder: 'competitor.com', cta: '生成时间轴 →',
+    hint: '例：higgsfield.ai · 只保留视觉变化 >20% 的版本，滤掉噪音。',
+    loading: '正在从 Wayback 考古', loading_sub: '逐版本抓取存档，首次约需 10-20 秒',
+    versions: '个关键版本', snapshots: '个存档快照', withPricing: '个版本已有定价页',
+    evolution: '官网演进', pricing: '💰 定价页', screens: '屏', archive: '看存档快照 →',
+    copy: '📋 复制分享链接', again: '再考古一个 →', refresh: '↻ 重新抓取', copied: '已复制',
+    errNone: '没抓到可用的历史快照（换个域名试试）', errNet: '网络错误，请重试',
+    home: '← 回首页',
+    feat: {pricing:'💰 定价页', blog:'博客', docs:'文档', changelog:'Changelog', faq:'FAQ', trial:'免费试用', demo:'Demo', logos:'企业 Logo 墙', testimonials:'用户评价', case_study:'案例'},
+    ch_slogan:'Slogan 改为 ', ch_add:'新增 ', ch_remove:'移除 ',
+    ch_screens:(a,b)=>`页面规模 ${a}→${b} 屏`,
+    ch_first:'首个有效版本', ch_revamp:'版面改版', ch_latest:'最新版本'
+  }
+};
+const T = () => I18N[window.__LANG__] || I18N.en;
+const ZH = () => window.__LANG__ === 'zh';
+const PAGE_BASE = () => ZH() ? '/zh/timeline' : '/timeline';
+
 const $ = id => document.getElementById(id);
+function applyI18n(){
+  const t = T();
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.innerHTML = t[el.getAttribute('data-i18n')] || ''; });
+  $('domain').placeholder = t.placeholder;
+  $('home-link').textContent = t.home;
+  $('lang-toggle').textContent = ZH() ? 'EN' : '中文';
+  $('again-link').href = PAGE_BASE();
+}
 function show(id){ ['form-view','loading','result-view'].forEach(x=>$(x).classList.toggle('hidden', x!==id)); }
 function normDomain(d){ return (d||'').trim().toLowerCase().replace(/^https?:\/\//,'').split('/')[0].replace(/^www\./,''); }
+function pathDomain(){
+  const segs = location.pathname.split('/').filter(Boolean);
+  const last = segs[segs.length-1];
+  return (last && last!=='timeline' && last!=='zh') ? decodeURIComponent(last) : null;
+}
+// lang toggle → counterpart URL (same domain if on a result page)
+function wireLangToggle(){
+  const d = pathDomain();
+  const other = ZH() ? '/timeline' : '/zh/timeline';
+  $('lang-toggle').href = d ? other+'/'+d : other;
+}
 
 function go(){
   const d = normDomain($('domain').value);
-  if(!d){ return; }
-  history.pushState({},'', '/timeline/'+d);
+  if(!d) return;
+  history.pushState({},'', PAGE_BASE()+'/'+d);
   load(d);
 }
-
 async function load(domain){
-  show('loading'); $('load-domain').textContent = domain;
-  $('err').classList.add('hidden');
+  const t = T();
+  show('loading'); $('load-domain').textContent = domain; $('err').classList.add('hidden');
   try {
     const res = await fetch('/api/timeline/'+encodeURIComponent(domain));
     const data = await res.json();
     if(!res.ok || !(data.nodes||[]).length){
       show('form-view'); $('domain').value = domain;
-      $('err').textContent = (data.error||'没抓到可用的历史快照')+'（换个域名试试）';
-      $('err').classList.remove('hidden');
-      return;
+      $('err').textContent = (data.error||t.errNone); $('err').classList.remove('hidden');
+      wireLangToggle(); return;
     }
     render(domain, data);
-  } catch(e){
-    show('form-view');
-    $('err').textContent = '网络错误，请重试'; $('err').classList.remove('hidden');
-  }
+  } catch(e){ show('form-view'); $('err').textContent = t.errNet; $('err').classList.remove('hidden'); }
+  wireLangToggle();
 }
-
 function render(domain, data){
+  const t = T();
   show('result-view');
   const nodes = data.nodes||[];
   $('r-domain').textContent = domain;
   const years = nodes.map(n=>(n.date||'').slice(0,4)).filter(Boolean);
   const span = years.length ? (years[0]===years[years.length-1]?years[0]:years[0]+'–'+years[years.length-1]) : '';
-  $('r-span').textContent = span + ' 官网演进';
+  $('r-span').textContent = span+' '+t.evolution;
   const priced = nodes.filter(n=>n.has_pricing).length;
-  $('r-meta').textContent = `${nodes.length} 个关键版本 · 共 ${data.total_snapshots||nodes.length} 个存档快照` +
-    (priced?` · ${priced} 个版本已有定价页`:'');
-  $('r-refresh').href = '#'; $('r-refresh').onclick = (e)=>{ e.preventDefault(); refresh(domain); };
-
+  $('r-meta').textContent = `${nodes.length} ${t.versions} · ${data.total_snapshots||nodes.length} ${t.snapshots}` +
+    (priced?` · ${priced} ${t.withPricing}`:'');
+  $('r-refresh').onclick = (e)=>{ e.preventDefault(); refresh(domain); };
   const track = $('r-track'); track.innerHTML='';
   nodes.forEach(n=>{
     const el = document.createElement('div');
-    el.className = 'tl-node' + (n.has_pricing?' priced':'');
+    el.className = 'tl-node'+(n.has_pricing?' priced':'');
     const badges = [];
-    if(n.has_pricing) badges.push('<span class="badge price">💰 定价页</span>');
-    if(n.screens) badges.push(`<span class="badge">${n.screens} 屏</span>`);
+    if(n.has_pricing) badges.push(`<span class="badge price">${t.pricing}</span>`);
+    if(n.screens) badges.push(`<span class="badge">${n.screens} ${t.screens}</span>`);
     (n.sections||[]).slice(0,2).forEach(s=>{ if(s) badges.push(`<span class="badge">${esc(s.slice(0,14))}</span>`); });
-    const changes = (n.changes||[]).map(c=>`<li>${esc(c)}</li>`).join('');
-    el.innerHTML = `
-      <div class="tl-date">${esc(n.date||'')}</div>
-      <div class="tl-card">
-        <div class="tl-slogan">${esc(n.slogan||n.title||'—')}</div>
-        <div class="tl-badges">${badges.join('')}</div>
-        <ul class="tl-changes">${changes}</ul>
-        ${n.preview_url?`<a class="tl-archive" href="${esc(n.preview_url)}" target="_blank" rel="noopener">看存档快照 →</a>`:''}
-      </div>`;
+    const changes = (n.changes||[]).map(c=>`<li>${esc(changeText(c))}</li>`).join('');
+    el.innerHTML = `<div class="tl-date">${esc(n.date||'')}</div>
+      <div class="tl-card"><div class="tl-slogan">${esc(n.slogan||n.title||'—')}</div>
+      <div class="tl-badges">${badges.join('')}</div>
+      <ul class="tl-changes">${changes}</ul>
+      ${n.preview_url?`<a class="tl-archive" href="${esc(n.preview_url)}" target="_blank" rel="noopener">${t.archive}</a>`:''}</div>`;
     track.appendChild(el);
   });
+  wireLangToggle();
 }
 function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
+function changeText(c){
+  const t = T();
+  if(typeof c === 'string') return c;               // 向后兼容旧缓存
+  switch(c.t){
+    case 'slogan': return t.ch_slogan + (ZH()?'「':'"') + (c.v||'') + (ZH()?'」':'"');
+    case 'add': return t.ch_add + (t.feat[c.f]||c.f);
+    case 'remove': return t.ch_remove + (t.feat[c.f]||c.f);
+    case 'screens': return t.ch_screens(c.from, c.to);
+    case 'first': return t.ch_first;
+    case 'revamp': return t.ch_revamp;
+    case 'latest': return t.ch_latest;
+    default: return '';
+  }
+}
 async function refresh(domain){
-  show('loading'); $('load-domain').textContent = domain+'（重新抓取）';
-  try {
-    const res = await fetch('/api/timeline/'+encodeURIComponent(domain)+'?refresh=1');
+  const t = T();
+  show('loading'); $('load-domain').textContent = domain;
+  try { const res = await fetch('/api/timeline/'+encodeURIComponent(domain)+'?refresh=1');
     const data = await res.json();
-    if(res.ok && (data.nodes||[]).length) render(domain, data);
-    else load(domain);
+    if(res.ok && (data.nodes||[]).length) render(domain, data); else load(domain);
   } catch(e){ load(domain); }
 }
-
 function copyShare(){ navigator.clipboard.writeText(location.href).then(()=>{ $('copied').classList.remove('hidden'); setTimeout(()=>$('copied').classList.add('hidden'),1800); }); }
-
 function boot(){
-  const parts = location.pathname.split('/').filter(Boolean); // ["timeline", "<domain>"]
-  if(parts.length>=2 && parts[1]) load(decodeURIComponent(parts[1]));
-  else show('form-view');
+  document.documentElement.lang = ZH() ? 'zh-CN' : 'en';
+  applyI18n();
+  const d = pathDomain();
+  if(d) load(d); else { show('form-view'); wireLangToggle(); }
 }
 window.addEventListener('popstate', boot);
 boot();

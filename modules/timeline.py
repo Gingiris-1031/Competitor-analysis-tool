@@ -54,21 +54,20 @@ def _to_node(snap: dict) -> dict:
 
 
 def _diff_changes(prev: dict, curr: dict) -> list:
-    """curr 相对 prev 变了什么（人话列表）。"""
+    """curr 相对 prev 变了什么——返回「结构化代码」列表（语言中性），前端按语言本地化。
+    形态：{"t":"slogan","v":...} / {"t":"add"|"remove","f":feature} / {"t":"screens","from":x,"to":y}"""
     ch = []
     if prev.get("slogan") and curr.get("slogan") and prev["slogan"] != curr["slogan"]:
-        ch.append(f"Slogan 改为「{curr['slogan'][:48]}」")
-    pf, cf = _active_features({"features": prev.get("features")}), _active_features({"features": curr.get("features")})
-    _labels = {"pricing": "💰 定价页", "blog": "博客", "docs": "文档", "changelog": "Changelog",
-               "faq": "FAQ", "trial": "免费试用", "demo": "Demo", "logos": "企业 Logo 墙",
-               "testimonials": "用户评价", "case_study": "案例"}
-    for f in cf - pf:
-        ch.append(f"新增 {_labels.get(f, f)}")
-    for f in pf - cf:
-        ch.append(f"移除 {_labels.get(f, f)}")
+        ch.append({"t": "slogan", "v": curr["slogan"][:48]})
+    pf = _active_features({"features": prev.get("features")})
+    cf = _active_features({"features": curr.get("features")})
+    for f in sorted(cf - pf):
+        ch.append({"t": "add", "f": f})
+    for f in sorted(pf - cf):
+        ch.append({"t": "remove", "f": f})
     ps, cs = curr.get("screens", 0), prev.get("screens", 0)
     if ps and cs and abs(ps - cs) >= max(2, cs * 0.5):
-        ch.append(f"页面规模 {cs}→{ps} 屏")
+        ch.append({"t": "screens", "from": cs, "to": ps})
     return ch
 
 
@@ -129,16 +128,16 @@ async def build_timeline(domain: str) -> dict:
     kept = []
     for node in snaps:
         if not kept:
-            node["changes"] = ["首个有效版本"]
+            node["changes"] = [{"t": "first"}]
             kept.append(node)
             continue
         if _is_significant(kept[-1], node):
-            node["changes"] = _diff_changes(kept[-1], node) or ["版面改版"]
+            node["changes"] = _diff_changes(kept[-1], node) or [{"t": "revamp"}]
             kept.append(node)
     # 保证最后一个版本在（哪怕它与上一保留版差异 <20%）
     if snaps and kept and kept[-1]["timestamp"] != snaps[-1]["timestamp"]:
         last = snaps[-1]
-        last["changes"] = _diff_changes(kept[-1], last) or ["最新版本"]
+        last["changes"] = _diff_changes(kept[-1], last) or [{"t": "latest"}]
         kept.append(last)
 
     return {"domain": domain, "total_snapshots": len(timestamps), "nodes": kept}
