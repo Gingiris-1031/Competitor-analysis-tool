@@ -44,8 +44,8 @@ def _key() -> str:
     return os.environ.get("INSFORGE_API_KEY", "").strip()
 
 
-def _records_url() -> str:
-    return f"{_base()}/api/database/records/{TABLE}"
+def _records_url(table: str = TABLE) -> str:
+    return f"{_base()}/api/database/records/{table}"
 
 
 def _headers(write: bool = False) -> dict:
@@ -116,3 +116,39 @@ async def mark_scorecard_unlocked(card_hash: str) -> bool:
     except Exception as e:
         log.error("InsForge 评分卡解锁异常 hash=%s: %s", card_hash, e)
         return False
+
+
+# ── 时间轴（timelines 表，id=归一化域名，每域名一条 canonical 时间轴）────────
+async def save_timeline(domain: str, data: dict, is_public: bool = True) -> bool:
+    """upsert 一个域名的考古时间轴。先删同 id 再插（简化幂等）。"""
+    url = _records_url("timelines")
+    row = {"id": domain, "domain": domain, "data": data or {}, "is_public": bool(is_public)}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            await c.delete(url, params={"id": f"eq.{domain}"}, headers=_headers())
+            resp = await c.post(url, json=[row], headers=_headers(write=True))
+            if resp.status_code >= 300:
+                log.error("InsForge 时间轴写入失败 domain=%s status=%s body=%s",
+                          domain, resp.status_code, resp.text[:300])
+                return False
+        return True
+    except Exception as e:
+        log.error("InsForge 时间轴写入异常 domain=%s: %s", domain, e)
+        return False
+
+
+async def get_timeline(domain: str) -> Optional[dict]:
+    """按域名读时间轴整行（含 data / created_at）。"""
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            resp = await c.get(_records_url("timelines"),
+                               params={"id": f"eq.{domain}", "limit": 1},
+                               headers=_headers())
+            if resp.status_code >= 300:
+                log.error("InsForge 时间轴读取失败 domain=%s status=%s", domain, resp.status_code)
+                return None
+            rows = resp.json() or []
+            return rows[0] if rows else None
+    except Exception as e:
+        log.error("InsForge 时间轴读取异常 domain=%s: %s", domain, e)
+        return None

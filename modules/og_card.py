@@ -306,6 +306,65 @@ def render_scorecard_card(
     return buf.getvalue()
 
 
+def render_timeline_card(
+    domain: str,
+    span: str,
+    node_count: int,
+    url: str,
+) -> bytes:
+    """Dynamic share card for /timeline/{domain} — website evolution.
+
+        Analook  ·  WEBSITE EVOLUTION
+        WEBSITE EVOLUTION TIMELINE
+        <domain>                     ← Instrument Serif italic
+        <span>  ·  <n> versions tracked
+        Slogan, pricing and structure, version by version, from the Wayback archive.
+    """
+    img = _make_backdrop()
+    _draw_top_stripe(img)
+    draw = ImageDraw.Draw(img)
+    _draw_brand_header(draw, chip_text="Website evolution · Analook")
+
+    eyebrow_font = _font_sans(16, bold=True)
+    draw.text((80, 196), "WEBSITE EVOLUTION TIMELINE", font=eyebrow_font, fill=INK_FAINT)
+
+    dom = (domain or "your competitor").strip()
+    dom = dom[:40] + "…" if len(dom) > 40 else dom
+    dom_font = None
+    for s in (120, 104, 90, 78, 66, 56):
+        f = _font_ital(s)
+        bb = f.getbbox(dom)
+        if (bb[2] - bb[0]) <= W - 160:
+            dom_font = f
+            break
+    dom_font = dom_font or _font_ital(56)
+    draw.text((80, 228), dom, font=dom_font, fill=INK)
+
+    # Span + node count line, accent
+    meta_bits = []
+    if span:
+        meta_bits.append(span)
+    if node_count:
+        meta_bits.append(f"{node_count} versions tracked")
+    if meta_bits:
+        meta_font = _font_sans(30, bold=True)
+        draw.text((80, 396), "   ·   ".join(meta_bits), font=meta_font, fill=ACCENT_ORANGE)
+
+    tag_font = _font_sans(16, bold=False)
+    draw.text((80, H - 80), "Slogan, pricing and page structure, version by version, from the Wayback archive.",
+              font=tag_font, fill=INK_MUTED)
+    url_font = _font_sans(14, bold=True)
+    url_display = (url or "analook.com")
+    for pfx in ("https://", "http://"):
+        if url_display.startswith(pfx):
+            url_display = url_display[len(pfx):]
+    draw.text((80, H - 48), url_display[:60].upper(), font=url_font, fill=INK_FAINT)
+
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 def render_generic_card(
     title: str,
     accent: Optional[str],
