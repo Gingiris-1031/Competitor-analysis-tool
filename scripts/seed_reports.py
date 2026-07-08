@@ -61,6 +61,38 @@ _BAD_HOST = re.compile(
     r"herokuapp\.com|railway\.app|fly\.dev|streamlit\.app|"
     r"web\.app|firebaseapp\.com|glitch\.me|replit\.(app|dev)|surge\.sh)", re.I)
 
+# App-store / download / social hosts: a PH "Website" link is sometimes an app
+# store or a direct binary download, not a homepage — those can't be analysed
+# as a website (and a big .dmg/.zip download OOM-kills the analysis pipeline).
+# Matched as exact host or subdomain suffix (NOT a loose substring — else
+# "cubesandbox.com" would match "x.com").
+_NON_SITE_SUFFIXES = (
+    "apps.apple.com", "itunes.apple.com", "apple.co", "play.google.com",
+    "testflight.apple.com", "chrome.google.com", "apps.microsoft.com",
+    "addons.mozilla.org", "twitter.com", "x.com", "linkedin.com",
+    "facebook.com", "fb.com", "youtube.com", "youtu.be", "discord.gg",
+    "discord.com", "t.me", "instagram.com", "tiktok.com")
+# Direct-download / non-HTML file extensions on the URL path.
+_BAD_EXT = re.compile(
+    r"\.(dmg|zip|pkg|exe|deb|appimage|msi|rpm|apk|ipa|tar\.gz|tgz|gz|7z|"
+    r"pdf|mp4|mov)(?:$|\?)", re.I)
+
+
+def _host_suffix(host: str, suffixes) -> bool:
+    return any(host == s or host.endswith("." + s) for s in suffixes)
+
+
+def _analyzable(url: str) -> bool:
+    """True only if the URL looks like a real, analysable website homepage."""
+    if not url or not url.startswith("http"):
+        return False
+    d = _domain(url)
+    if not d or _BAD_HOST.search(d) or _host_suffix(d, _NON_SITE_SUFFIXES):
+        return False
+    if _BAD_EXT.search(urllib.parse.urlparse(url).path):
+        return False
+    return True
+
 
 def _req(url, *, data=None, headers=None, method=None, timeout=25, allow_redirects=True):
     h = {"User-Agent": UA}
@@ -126,7 +158,7 @@ def ph_top(n: int = 5) -> list[dict]:
         if not web:
             continue
         real = resolve_ph_redirect(web)
-        if real and not _BAD_HOST.search(_domain(real)):
+        if real and _analyzable(real):
             out.append({"name": node["name"], "url": real,
                         "source": f"PH #{len(out)+1} ({node.get('votesCount')} votes)"})
     return out
@@ -157,9 +189,7 @@ def gh_trending(n: int = 12) -> list[dict]:
         except Exception:
             continue
         hp = (info.get("homepage") or "").strip()
-        if not hp or not hp.startswith("http"):
-            continue
-        if _BAD_HOST.search(_domain(hp)):
+        if not _analyzable(hp):
             continue
         out.append({"name": info.get("name") or repo.split("/")[-1],
                     "url": hp, "source": f"GitHub trending ({info.get('stargazers_count')}★)"})
