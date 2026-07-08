@@ -432,8 +432,20 @@ async def _grant_credits(user_id: str, plan: str) -> None:
         if not sb:
             return
         if plan == "single_report":
-            sb.rpc("add_credits", {"p_user_id": user_id, "p_amount": credits}).execute()
-            log.info("Clink granted %d single-report credit(s) to %s", credits, user_id)
+            # One-time top-up: increment the balance. The add_credits() Postgres
+            # RPC was never created in the DB (PGRST202 "function not found"), so
+            # the old sb.rpc("add_credits") call threw, got swallowed by the
+            # except below, and $5 single-report buyers received 0 credits.
+            # Do the add in application code instead (read-modify-write; concurrent
+            # single-report webhooks for the same user are rare enough that the
+            # lack of atomicity is acceptable, and matches the subscription path).
+            cur = sb.table("profiles").select("credits_balance").eq("id", user_id).single().execute()
+            current = (cur.data or {}).get("credits_balance") or 0
+            sb.table("profiles").update(
+                {"credits_balance": current + credits}
+            ).eq("id", user_id).execute()
+            log.info("Clink granted %d single-report credit(s) to %s: %d→%d",
+                     credits, user_id, current, current + credits)
             return
 
         cur = sb.table("profiles").select("credits_balance").eq("id", user_id).single().execute()
