@@ -77,7 +77,35 @@ async def _analook_lifespan(app_):
         )
         yield
 
-app = FastAPI(title="Analook — 竞品情报分析", lifespan=_analook_lifespan)
+# Interactive API docs + the OpenAPI schema hand an attacker a full map of
+# every endpoint/parameter/model. Disable them in production by default; set
+# EXPOSE_API_DOCS=1 to re-enable locally when you need the Swagger UI.
+_EXPOSE_API_DOCS = os.environ.get("EXPOSE_API_DOCS", "").lower() in ("1", "true", "yes")
+app = FastAPI(
+    title="Analook — 竞品情报分析",
+    lifespan=_analook_lifespan,
+    docs_url="/docs" if _EXPOSE_API_DOCS else None,
+    redoc_url="/redoc" if _EXPOSE_API_DOCS else None,
+    openapi_url="/openapi.json" if _EXPOSE_API_DOCS else None,
+)
+
+
+# ── Security response headers ────────────────────────────────────────────────
+# Added on every response (defends clickjacking, MIME sniffing, protocol
+# downgrade, referrer leakage). CSP is scoped to frame-ancestors only so it
+# can't break inline scripts/styles the site relies on.
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'self'")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+    response.headers.setdefault(
+        "Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    return response
 
 
 # ── apex → www canonical redirect ────────────────────────────────────────
