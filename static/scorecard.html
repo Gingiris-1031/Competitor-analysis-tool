@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>增长诊断评分卡 | Analook</title>
+<meta name="description" content="输入你的官网 + 竞品，对着行业基准线自动诊断增长健康分：UV→注册、注册→付费、获客成本、SEO 基建。免费看分数，付费看逐项修复方案。">
+<meta property="og:title" content="我的增长健康分 | Analook 增长诊断评分卡">
+<meta property="og:description" content="对着 Knowhow 基准线自动诊断你的增长漏斗，红黄绿灯一眼看漏水点。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://www.analook.com/assets/og/growth-audit.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0D0D0F; --card:#16161A; --elev:#1C1C21;
+    --ink:#F5F1EB; --ink-muted:rgba(245,241,235,0.72); --ink-faint:rgba(245,241,235,0.50);
+    --border:rgba(255,255,255,0.06); --border-strong:rgba(255,255,255,0.16);
+    --accent:#FB923C; --accent-soft:#FDBA74;
+    --green:#4ade80; --yellow:#fbbf24; --red:#f87171;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--accent); text-decoration:none; }
+  .wrap { max-width:820px; margin:0 auto; padding:28px 20px 100px; }
+  header.top { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+  .logo { font-family:"Instrument Serif",Georgia,serif; font-size:22px; color:var(--ink); }
+  .logo em { color:var(--accent); font-style:italic; }
+  h1.hero { font-family:"Instrument Serif",Georgia,serif; font-weight:400;
+    font-size:38px; line-height:1.15; margin:0 0 10px; }
+  h1.hero em { font-style:italic; color:var(--accent); }
+  .sub { color:var(--ink-muted); font-size:15px; line-height:1.7; margin:0 0 28px; max-width:600px; }
+  /* form */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; margin-bottom:18px; }
+  label { display:block; font-size:13px; color:var(--ink-faint); margin:0 0 6px; }
+  .field { margin-bottom:16px; }
+  input, select { width:100%; background:var(--elev); border:1px solid var(--border-strong);
+    border-radius:9px; padding:11px 13px; color:var(--ink); font-size:14px; font-family:inherit; }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .hint-sm { font-size:12px; color:var(--ink-faint); margin-top:4px; }
+  .comp-row { display:grid; grid-template-columns:1fr auto; gap:10px; margin-bottom:8px; }
+  .btn { background:var(--accent); color:#1a1205; border:none; border-radius:10px;
+    padding:13px 22px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .btn:hover { background:var(--accent-soft); }
+  .btn.ghost { background:transparent; color:var(--ink-muted); border:1px solid var(--border-strong); }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-sm { padding:8px 12px; font-size:13px; }
+  /* result */
+  .gauge { display:flex; align-items:center; gap:22px; margin-bottom:8px; }
+  .score-num { font-family:"Instrument Serif",Georgia,serif; font-size:72px; line-height:1; }
+  .score-den { color:var(--ink-faint); font-size:22px; }
+  .score-label { font-size:14px; color:var(--ink-muted); }
+  .domain-tag { font-family:"JetBrains Mono",monospace; font-size:13px; color:var(--ink-muted); }
+  table.metrics { width:100%; border-collapse:collapse; margin-top:10px; font-size:14px; }
+  table.metrics th { text-align:left; font-weight:600; color:var(--ink-faint); font-size:12px;
+    padding:8px 10px; border-bottom:1px solid var(--border); }
+  table.metrics td { padding:11px 10px; border-bottom:1px solid var(--border); color:var(--ink-muted); }
+  .light { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+  .light.green { background:var(--green); box-shadow:0 0 8px rgba(74,222,128,.5); }
+  .light.yellow { background:var(--yellow); box-shadow:0 0 8px rgba(251,191,36,.5); }
+  .light.red { background:var(--red); box-shadow:0 0 8px rgba(248,113,113,.5); }
+  .metric-val { font-family:"JetBrains Mono",monospace; color:var(--ink); }
+  .fixes h2, .metrics-wrap h2 { font-family:"Instrument Serif",Georgia,serif; font-weight:400; font-size:24px; margin:28px 0 12px; }
+  .fix { border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:10px;
+    padding:14px 16px; margin-bottom:12px; background:var(--elev); }
+  .fix .msg { font-size:14.5px; line-height:1.7; color:var(--ink); margin-bottom:8px; }
+  .fix .hint { font-size:13px; color:var(--ink-muted); line-height:1.6; margin-bottom:10px; }
+  .fix .cta-line { font-size:13px; }
+  .locked { text-align:center; padding:30px 20px; border:1px dashed var(--border-strong);
+    border-radius:12px; background:var(--elev); }
+  .locked .lock-title { font-size:17px; color:var(--ink); margin-bottom:6px; }
+  .locked .lock-sub { font-size:14px; color:var(--ink-muted); margin-bottom:16px; }
+  .share-bar { display:flex; gap:10px; align-items:center; margin-top:22px; flex-wrap:wrap; }
+  .msg-err { color:var(--red); font-size:14px; margin-top:10px; }
+  .hidden { display:none; }
+  @media (max-width:560px) {
+    .row3 { grid-template-columns:1fr; } .row2 { grid-template-columns:1fr; }
+    h1.hero { font-size:30px; } .score-num { font-size:56px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="logo" href="/">Ana<em>look</em></a>
+    <a class="btn ghost btn-sm" href="/">← 回首页</a>
+  </header>
+
+  <!-- ── FORM VIEW ── -->
+  <section id="form-view">
+    <h1 class="hero">你的增长健康分是<em>多少</em>？</h1>
+    <p class="sub">输入自己的官网 + 竞品，对着行业基准线自动诊断：UV→注册、注册→付费、获客成本、SEO 基建。免费看分数和红黄绿灯，付费解锁逐项修复方案。第一版手填三个漏斗数，不接 GA，30 秒出结果。</p>
+    <div class="card">
+      <div class="field">
+        <label>你的官网域名 *</label>
+        <input id="domain" placeholder="yourdomain.com" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>产品品类（决定付费转化基准）</label>
+        <select id="category">
+          <option value="pro_c">专业型 2C（Pro-Consumer，付费转化 5-8%）</option>
+          <option value="smb">中小企业工具 SMB（付费转化 10-15%）</option>
+          <option value="b2b">企业/销售驱动 B2B（自助漏斗参考）</option>
+          <option value="default">不确定 / 通用（合格线 5%）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>近 30 天漏斗三个数（至少填一个）</label>
+        <div class="row3">
+          <div><input id="uv" type="number" min="0" placeholder="UV 访客"></div>
+          <div><input id="signups" type="number" min="0" placeholder="注册数"></div>
+          <div><input id="paid" type="number" min="0" placeholder="付费数"></div>
+        </div>
+        <div class="hint-sm">例：UV 20000 / 注册 1800 / 付费 54</div>
+      </div>
+      <div class="field">
+        <label>可选：投流获客成本（USD）</label>
+        <div class="row2">
+          <div><input id="cac_signup" type="number" min="0" step="0.01" placeholder="注册 CAC（红线 $8）"></div>
+          <div><input id="cac_paid" type="number" min="0" step="0.01" placeholder="付费 CAC（红线 $50）"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>可选：站内 SEO 分（0-100，未过 85 不配铺内容）</label>
+        <input id="seo_score" type="number" min="0" max="100" placeholder="如 72">
+      </div>
+      <div class="field">
+        <label>可选：竞品域名（最多 3 个，有对照数据可一起填在自己那栏之外，v1 先做公开信号对照）</label>
+        <div id="comp-list">
+          <div class="comp-row"><input class="comp-domain" placeholder="competitor.com"><button class="btn ghost btn-sm" onclick="removeComp(this)">删除</button></div>
+        </div>
+        <button class="btn ghost btn-sm" onclick="addComp()">+ 加竞品</button>
+      </div>
+      <button class="btn" id="submit-btn" onclick="submitCard()">生成我的增长健康分 →</button>
+      <div id="form-err" class="msg-err hidden"></div>
+    </div>
+  </section>
+
+  <!-- ── RESULT VIEW ── -->
+  <section id="result-view" class="hidden">
+    <div class="card">
+      <div class="domain-tag" id="r-domain"></div>
+      <div class="gauge">
+        <div><span class="score-num" id="r-score">–</span><span class="score-den">/100</span></div>
+        <div>
+          <div class="score-label">增长健康分</div>
+          <div class="score-label" id="r-category"></div>
+        </div>
+      </div>
+      <div class="metrics-wrap">
+        <table class="metrics">
+          <thead><tr><th>指标</th><th>你</th><th>行业基准</th><th>状态</th></tr></thead>
+          <tbody id="r-metrics"></tbody>
+        </table>
+        <div id="r-comp-note" class="hint-sm hidden"></div>
+      </div>
+    </div>
+
+    <div class="fixes">
+      <h2>修复优先级<span style="font-size:14px;color:var(--ink-faint)">（按「离钱近」排序）</span></h2>
+      <div id="r-fixes"></div>
+      <div id="r-locked" class="locked hidden">
+        <div class="lock-title">🔒 <span id="r-fixcount">0</span> 个失分项的逐项修复方案已生成</div>
+        <div class="lock-sub">免费层只给分数和红黄绿灯。解锁后看到每个失分项的具体修复动作 + 对应方法论 skill + 服务落点。</div>
+        <button class="btn" onclick="unlockCard()">解锁修复方案（$79 / 1 积分）</button>
+        <div id="unlock-err" class="msg-err hidden"></div>
+      </div>
+    </div>
+
+    <div class="share-bar">
+      <button class="btn ghost btn-sm" onclick="copyShare()">📋 复制分享链接</button>
+      <a class="btn ghost btn-sm" href="/scorecard">再测一个 →</a>
+      <span id="copied" class="hint-sm hidden">已复制</span>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const gradeText = {green:"达标", yellow:"待优化", red:"漏水"};
+
+function addComp() {
+  const row = document.createElement('div');
+  row.className = 'comp-row';
+  row.innerHTML = '<input class="comp-domain" placeholder="competitor.com"><button class="btn ghost btn-sm" onclick="removeComp(this)">删除</button>';
+  $('comp-list').appendChild(row);
+}
+function removeComp(btn) { btn.parentElement.remove(); }
+
+function numOrNull(id) {
+  const v = $(id).value.trim();
+  return v === '' ? null : Number(v);
+}
+
+async function submitCard() {
+  $('form-err').classList.add('hidden');
+  const domain = $('domain').value.trim();
+  if (!domain) { showFormErr('请填写你的官网域名'); return; }
+  const uv = numOrNull('uv'), signups = numOrNull('signups'), paid = numOrNull('paid'), seo = numOrNull('seo_score');
+  if (uv === null && signups === null && paid === null && seo === null) {
+    showFormErr('至少填一个漏斗数字（UV / 注册 / 付费）或 SEO 分'); return;
+  }
+  const competitors = [...document.querySelectorAll('.comp-domain')]
+    .map(i => i.value.trim()).filter(Boolean).map(d => ({domain:d}));
+  const body = {
+    domain, category:$('category').value,
+    uv, signups, paid,
+    cac_signup:numOrNull('cac_signup'), cac_paid:numOrNull('cac_paid'), seo_score:seo,
+    competitors,
+  };
+  const btn = $('submit-btn'); btn.disabled = true; btn.textContent = '诊断中…';
+  try {
+    const res = await fetch('/api/scorecard', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const data = await res.json();
+    if (!res.ok) { showFormErr(data.error || '生成失败'); btn.disabled=false; btn.textContent='生成我的增长健康分 →'; return; }
+    history.pushState({}, '', '/scorecard/' + data.hash);
+    renderResult(data);
+  } catch(e) { showFormErr('网络错误，请重试'); btn.disabled=false; btn.textContent='生成我的增长健康分 →'; }
+}
+function showFormErr(m) { const e=$('form-err'); e.textContent=m; e.classList.remove('hidden'); }
+
+function renderResult(data) {
+  $('form-view').classList.add('hidden');
+  $('result-view').classList.remove('hidden');
+  $('r-domain').textContent = data.domain || '';
+  $('r-score').textContent = data.overall_score;
+  const catMap = {pro_c:'专业型 2C', smb:'中小企业工具', b2b:'企业/销售驱动', default:'通用品类'};
+  $('r-category').textContent = catMap[data.category] || '';
+
+  const tbody = $('r-metrics'); tbody.innerHTML = '';
+  (data.metrics||[]).forEach(m => {
+    const tr = document.createElement('tr');
+    const bench = m.lower_is_better
+      ? `≤ ${fmtVal(m,m.benchmark_pass)}`
+      : `≥ ${fmtVal(m,m.benchmark_pass)}`;
+    tr.innerHTML = `<td>${m.label}</td>
+      <td class="metric-val">${fmtVal(m,m.value)}</td>
+      <td>${bench}</td>
+      <td><span class="light ${m.grade}"></span>${gradeText[m.grade]||''}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const comps = data.competitors||[];
+  if (comps.length) {
+    const note = $('r-comp-note'); note.classList.remove('hidden');
+    note.textContent = '竞品对照分：' + comps.map(c => `${c.domain} ${c.overall_score}/100`).join(' · ');
+  }
+
+  const fixesEl = $('r-fixes'); fixesEl.innerHTML = '';
+  if (data.fixes_locked) {
+    $('r-locked').classList.remove('hidden');
+    $('r-fixcount').textContent = data.fix_count || 0;
+  } else {
+    $('r-locked').classList.add('hidden');
+    (data.fixes||[]).forEach(f => {
+      const div = document.createElement('div'); div.className = 'fix';
+      let cta = '';
+      if (f.skill) cta = `<div class="cta-line">→ 装方法论 skill：<code>${f.skill}</code> · <a href="${f.cta}" target="_blank">让 Iris 装进你的团队</a></div>`;
+      div.innerHTML = `<div class="msg"><span class="light ${f.grade}"></span>${f.message}</div>
+        ${f.hint?`<div class="hint">${f.hint}</div>`:''}${cta}`;
+      fixesEl.appendChild(div);
+    });
+    if (!(data.fixes||[]).length) fixesEl.innerHTML = '<div class="hint" style="color:var(--green)">🎉 各项都达标，没有失分项。</div>';
+  }
+}
+function fmtVal(m, v) {
+  if (m.key === 'paid_conversion' || m.key === 'signup_conversion') return (v*100).toFixed(1)+'%';
+  if (m.key === 'cac') return '$'+v;
+  return v;
+}
+
+async function unlockCard() {
+  $('unlock-err').classList.add('hidden');
+  const hash = location.pathname.split('/').pop();
+  try {
+    const res = await fetch('/api/scorecard/'+hash+'/unlock', {method:'POST', headers:{'Content-Type':'application/json'}});
+    const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 401) { showUnlockErr('请先登录再解锁'); return; }
+      if (res.status === 402) { showUnlockErr('积分不足，请先充值'); return; }
+      showUnlockErr(data.error || '解锁失败'); return;
+    }
+    renderResult(data);
+  } catch(e) { showUnlockErr('网络错误，请重试'); }
+}
+function showUnlockErr(m){ const e=$('unlock-err'); e.textContent=m; e.classList.remove('hidden'); }
+
+function copyShare() {
+  navigator.clipboard.writeText(location.href).then(()=>{ $('copied').classList.remove('hidden'); setTimeout(()=>$('copied').classList.add('hidden'),1800); });
+}
+
+// route: /scorecard/<hash> → fetch & render; /scorecard → form
+async function boot() {
+  const parts = location.pathname.split('/').filter(Boolean); // ["scorecard", "<hash>"]
+  if (parts.length >= 2 && parts[1]) {
+    try {
+      const res = await fetch('/api/scorecard/'+parts[1]);
+      const data = await res.json();
+      if (res.ok) { renderResult(data); return; }
+    } catch(e) {}
+    // fall through to form on any error
+  }
+  $('form-view').classList.remove('hidden');
+}
+window.addEventListener('popstate', boot);
+boot();
+</script>
+</body>
+</html>

@@ -146,3 +146,77 @@ async def save_report_to_db(
     except Exception as e:
         log.error("报告写入 Supabase 失败 job=%s: %s", job_id, e)
         return False
+
+
+async def save_scorecard(
+    card_hash: str,
+    user_id: str | None,
+    domain: str,
+    category: str,
+    inputs: dict,
+    result: dict,
+    competitors: list | None = None,
+    is_public: bool = True,
+    unlocked: bool = False,
+) -> bool:
+    """将增长诊断评分卡写入。免费预览层与付费解锁层共用一行，unlocked 标记是否已解锁。
+    设了 INSFORGE_URL+KEY 则走 InsForge（评分卡迁移的第一块），否则回落 Supabase。"""
+    from modules import insforge_client as _insforge
+    if _insforge.enabled():
+        return await _insforge.save_scorecard(
+            card_hash, user_id, domain, category, inputs, result,
+            competitors=competitors, is_public=is_public, unlocked=unlocked)
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("scorecards").upsert({
+            "id":          card_hash,
+            "user_id":     user_id,
+            "domain":      domain,
+            "category":    category,
+            "inputs":      inputs,
+            "result":      result,
+            "competitors": competitors or [],
+            "is_public":   is_public,
+            "unlocked":    unlocked,
+        }).execute()
+        return True
+    except Exception as e:
+        log.error("评分卡写入 Supabase 失败 hash=%s: %s", card_hash, e)
+        return False
+
+
+async def get_scorecard(card_hash: str) -> dict | None:
+    """按 hash 读取评分卡整行（含 result / competitors / unlocked）。"""
+    from modules import insforge_client as _insforge
+    if _insforge.enabled():
+        return await _insforge.get_scorecard(card_hash)
+    sb = get_supabase()
+    if not sb:
+        return None
+    try:
+        result = sb.table("scorecards").select(
+            "id,user_id,domain,category,inputs,result,competitors,is_public,unlocked,created_at"
+        ).eq("id", card_hash).limit(1).execute()
+        rows = result.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        log.error("评分卡读取失败 hash=%s: %s", card_hash, e)
+        return None
+
+
+async def mark_scorecard_unlocked(card_hash: str) -> bool:
+    """把评分卡标记为已解锁（付费后调用）。"""
+    from modules import insforge_client as _insforge
+    if _insforge.enabled():
+        return await _insforge.mark_scorecard_unlocked(card_hash)
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        sb.table("scorecards").update({"unlocked": True}).eq("id", card_hash).execute()
+        return True
+    except Exception as e:
+        log.error("评分卡解锁标记失败 hash=%s: %s", card_hash, e)
+        return False

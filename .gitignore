@@ -5,3 +5,18 @@ reports/*.json
 .venv/
 
 # Railway redeploy trigger: 2026-04-27T05:02:13Z
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
