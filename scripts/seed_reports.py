@@ -269,6 +269,11 @@ async def main():
     for c in cands:
         log.info("candidate: %s  <%s>  [%s]", c["name"], c["url"], c["source"])
     # Import the app in-process so we can drive the analysis pipeline directly.
+    # `python3 /app/scripts/seed_reports.py` puts /app/scripts on sys.path[0],
+    # not /app — so add the repo root explicitly before importing app.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if root not in sys.path:
+        sys.path.insert(0, root)
     try:
         import app as A
     except Exception as e:
