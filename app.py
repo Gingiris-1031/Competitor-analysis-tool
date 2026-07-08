@@ -3582,6 +3582,19 @@ async def ask_question(req: QARequest):
 # Claude Desktop / Cursor / other MCP clients. Auth via Bearer header.
 try:
     from modules.mcp_app import build_mcp_app
+
+    # The MCP streamable-HTTP endpoint lives at /mcp/ (trailing slash). A bare
+    # POST /mcp — which is exactly the URL our docs tell clients to use —
+    # otherwise 405s. Register a 307 (method + body preserving) redirect so the
+    # documented no-slash URL works. Must be added BEFORE the mount so the
+    # exact-path route wins over the /mcp/* prefix mount.
+    from starlette.responses import RedirectResponse as _RR
+
+    @app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"], include_in_schema=False)
+    async def _mcp_trailing_slash(request: Request):
+        qs = ("?" + request.url.query) if request.url.query else ""
+        return _RR(url=f"/mcp/{qs}", status_code=307)
+
     app.mount("/mcp", build_mcp_app(), name="mcp")
 except Exception as _mcp_err:
     # Non-fatal: if mcp dep is missing or mounting fails, keep HTTP API running.
