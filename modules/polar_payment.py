@@ -307,8 +307,16 @@ async def _grant_credits(user_id: str, plan: str):
         if not sb:
             return
         if plan == "single_report":
-            sb.rpc("add_credits", {"p_user_id": user_id, "p_amount": credits}).execute()
-            log.info("Granted %d single-report credits to %s", credits, user_id)
+            # add_credits() RPC does not exist in the DB (PGRST202) — increment
+            # the balance in application code so single-report buyers actually
+            # get their credit. See clink_payment._grant_credits for details.
+            cur = sb.table("profiles").select("credits_balance").eq("id", user_id).single().execute()
+            current = (cur.data or {}).get("credits_balance") or 0
+            sb.table("profiles").update(
+                {"credits_balance": current + credits}
+            ).eq("id", user_id).execute()
+            log.info("Granted %d single-report credits to %s: %d→%d",
+                     credits, user_id, current, current + credits)
             return
 
         # Subscription path: max(current_balance, new_quota) — never down.
