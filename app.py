@@ -314,7 +314,7 @@ async def get_pricing():
         "plans": [
             {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 2, "features": ["2 reports/month", "Basic analysis"]},
             {"key": "pro", "name": "Pro", "price": 19, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
-            {"key": "team", "name": "Team", "price": 79, "period": "month", "credits": 999999, "features": ["Unlimited reports", "Full analysis", "AI insights", "Export", "Priority support"]},
+            {"key": "team", "name": "Team", "price": 79, "period": "month", "credits": 100, "features": ["100 reports/month", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
             # Growth Audit is a CREDIT-PRICED tool (10 credits / use). It's not a
             # standalone purchase tier — to run it you buy Pro ($19/mo → 3 audits/mo)
@@ -328,7 +328,7 @@ async def get_pricing():
                 "30 audit credits (covers Pro audit usage too)",
                 "Full /api/autopilot access",
             ]},
-            {"key": "autopilot_team", "name": "Autopilot Team", "price": 149, "period": "month", "credits": 999999, "features": [
+            {"key": "autopilot_team", "name": "Autopilot Team", "price": 149, "period": "month", "credits": 100, "features": [
                 "30 tracked products (daily audit + diff)",
                 "20 competitors / product",
                 "Daily digest + Slack/Discord webhook",
@@ -847,7 +847,7 @@ async def cancel_job(job_id: str):
 # Growth Audit jobs (separate from regular analysis jobs)
 _growth_audit_jobs: dict = {}
 
-GROWTH_AUDIT_CREDITS = 10  # Growth Audit $19/mo (15 credits) = exactly 1.5 audits/month; Pro $19/mo (30 credits) = exactly 3 audits/month
+GROWTH_AUDIT_CREDITS = 10  # Pro $29/mo (30 credits) = exactly 3 audits/month
 
 
 @app.post("/api/growth-audit")
