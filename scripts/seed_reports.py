@@ -46,6 +46,8 @@ SB_KEY          = os.environ.get("SUPABASE_SERVICE_KEY", "")
 PH_TOKEN        = os.environ.get("PRODUCTHUNT_TOKEN", "")
 GH_TOKEN        = os.environ.get("GITHUB_TOKEN", "")  # optional, raises rate limit
 INDEXNOW_KEY    = os.environ.get("INDEXNOW_KEY", "ceb743f3910e42b0ab39db1c7481abb8")
+TG_BOT_TOKEN    = os.environ.get("TELEGRAM_BOT_TOKEN", "")   # from @BotFather
+TG_CHAT_ID      = os.environ.get("TELEGRAM_CHAT_ID", "")     # analookgroup chat id (negative for groups)
 SEED_EMAIL      = os.environ.get("SEED_EMAIL", "seed-bot@analook.internal")
 SEED_PASSWORD   = os.environ.get("SEED_PASSWORD", "")  # required
 DAILY_COUNT     = int(os.environ.get("SEED_DAILY_COUNT", "3"))
@@ -269,6 +271,32 @@ def ping_indexnow(job_ids: list[str]):
         log.warning("IndexNow ping failed: %s", e)
 
 
+def notify_telegram(reports: list):
+    """Post the day's new reports to the Telegram community group. No-ops if
+    TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID aren't set (safe to deploy before the
+    bot exists). `reports` is a list of {name, url, job_id}."""
+    if not (TG_BOT_TOKEN and TG_CHAT_ID and reports):
+        if not (TG_BOT_TOKEN and TG_CHAT_ID):
+            log.info("Telegram not configured — skipping notification")
+        return
+    lines = ["\U0001F4CA <b>New competitor reports on Analook</b>", ""]
+    for r in reports:
+        lines.append(f'• <a href="{BASE}/report/{r["job_id"]}">{r["name"]}</a>  '
+                     f'<i>{_domain(r["url"])}</i>')
+    lines += ["",
+              f'\U0001F50D Browse all: {BASE}/reports/',
+              f'⚡ Run your own free analysis: {BASE}/']
+    text = "\n".join(lines)
+    payload = {"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "HTML",
+               "disable_web_page_preview": True}
+    try:
+        _req(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage",
+             data=payload, headers={"Content-Type": "application/json"})
+        log.info("Telegram notified: %d reports", len(reports))
+    except Exception as e:
+        log.warning("Telegram notify failed: %s", e)
+
+
 # ── Orchestrate ──────────────────────────────────────────────────────────────
 def pick_candidates(count: int) -> list[dict]:
     have = existing_domains()
@@ -309,16 +337,17 @@ async def main():
     except Exception as e:
         log.error("could not import analook app (must run inside the image): %s", e)
         return 1
-    done = []
+    done = []  # list of {name, url, job_id}
     for c in cands:
         log.info("→ analysing %s (%s)", c["name"], c["url"])
         job = await run_audit_inprocess(A, c["url"], c["name"])
         if job:
-            done.append(job)
+            done.append({"name": c["name"], "url": c["url"], "job_id": job})
             log.info("  ✓ %s → /report/%s", c["name"], job)
         else:
             log.info("  ✗ %s skipped", c["name"])
-    ping_indexnow(done)
+    ping_indexnow([d["job_id"] for d in done])
+    notify_telegram(done)
     log.info("=== done: %d/%d reports created ===", len(done), len(cands))
     return 0
 
