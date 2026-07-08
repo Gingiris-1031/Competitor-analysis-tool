@@ -76,7 +76,14 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 # FastMCP serves at settings.streamable_http_path (default "/mcp") inside
 # its own app. We mount that app at "/mcp" on FastAPI, so to avoid the
 # full path becoming "/mcp/mcp" we flatten the inner path to "/".
-mcp = FastMCP("Analook", streamable_http_path="/")
+# stateless_http=True: no server-side MCP session state. analook runs on 2 Fly
+# machines behind a round-robin proxy; with the default (stateful) mode a
+# client's initialize lands on machine A but its follow-up tools/call can be
+# load-balanced to machine B, which has never seen that session → intermittent
+# "Bad Request: No valid session ID provided". Stateless makes every request
+# self-contained so either machine can serve it. (Same class of split-brain as
+# the in-memory jobs dict we fixed with fly-replay.)
+mcp = FastMCP("Analook", streamable_http_path="/", stateless_http=True)
 
 
 async def _resolve_user() -> Optional[dict]:
