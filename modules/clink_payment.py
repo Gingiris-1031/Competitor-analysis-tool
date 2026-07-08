@@ -80,7 +80,7 @@ PLAN_AMOUNTS_CENTS: dict[str, int] = {
     "pro":           19,    # $19/mo
     "team":          79,    # $79/mo
     "single_report":  5,    # $5 one-time
-    "growth_audit":  49,    # $49 one-time
+    "growth_audit":  19,    # $19/mo (Growth Audit subscription, 3 audits/mo)
     "autopilot":     49,    # $49/mo
     "autopilot_team":149,   # $149/mo
 }
