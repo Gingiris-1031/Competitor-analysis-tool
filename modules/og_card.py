@@ -292,7 +292,7 @@ def render_scorecard_card(
 
     # Bottom: tagline + url
     tag_font = _font_sans(16, bold=False)
-    draw.text((80, H - 80), "Signup rate, paid conversion, CAC and SEO — scored against industry benchmarks.",
+    draw.text((80, H - 80), "Signup rate, paid conversion, CAC and SEO, scored against industry benchmarks.",
               font=tag_font, fill=INK_MUTED)
     url_font = _font_sans(14, bold=True)
     url_display = (url or "analook.com")
