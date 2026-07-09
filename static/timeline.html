@@ -266,7 +266,13 @@ function boot(){
   document.documentElement.lang = ZH() ? 'zh-CN' : 'en';
   applyI18n();
   const d = pathDomain();
-  if(d) load(d); else { show('form-view'); wireLangToggle(); }
+  if(d){
+    // Server-side-injected data on share pages → render instantly, no fetch/cold-build wait.
+    const pre = window.__TIMELINE_DATA__;
+    window.__TIMELINE_DATA__ = null;  // consume once; later in-page navigations fetch fresh
+    if(pre && (pre.nodes||[]).length){ render(d, pre); wireLangToggle(); }
+    else load(d);
+  } else { show('form-view'); wireLangToggle(); }
 }
 window.addEventListener('popstate', boot);
 boot();

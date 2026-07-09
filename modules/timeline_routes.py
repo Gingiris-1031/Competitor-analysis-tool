@@ -40,6 +40,7 @@ async def _render_timeline_share(domain: str, zh: bool):
         with open("static/timeline.html", "r", encoding="utf-8") as f:
             doc = f.read()
         span = ""
+        _pre_data = None
         try:
             from modules.insforge_client import get_timeline, enabled as _ins_enabled
             if _ins_enabled():
@@ -48,6 +49,9 @@ async def _render_timeline_share(domain: str, zh: bool):
                     data = row.get("data") or {}
                     if isinstance(data, str):
                         data = _json.loads(data)
+                    if data.get("nodes"):
+                        data["cached"] = True
+                        _pre_data = data
                     span = _timeline_span(data.get("nodes") or [])
         except Exception:
             pass
@@ -68,6 +72,13 @@ async def _render_timeline_share(domain: str, zh: bool):
         if zh:
             doc = doc.replace('<html lang="en">', '<html lang="zh-CN">', 1)
             doc = doc.replace('window.__LANG__ = "en";', 'window.__LANG__ = "zh";', 1)
+        # SSR-inject the persisted timeline data so the share page renders instantly —
+        # no cold Wayback fetch on view (avoids the 10-20s first-load wait). The client
+        # falls back to fetching /api/timeline/{domain} when this is absent.
+        if _pre_data:
+            _lang_line = 'window.__LANG__ = "zh";' if zh else 'window.__LANG__ = "en";'
+            _payload = _json.dumps(_pre_data, ensure_ascii=False).replace("</", "<\\/")
+            doc = doc.replace(_lang_line, _lang_line + f"\nwindow.__TIMELINE_DATA__ = {_payload};", 1)
         doc = _tl_re.sub(r"<title>.*?</title>", f"<title>{e(title)}</title>", doc, count=1, flags=_tl_re.S)
         for attr, val in (
             (r'name="description"', desc), (r'property="og:title"', title),
