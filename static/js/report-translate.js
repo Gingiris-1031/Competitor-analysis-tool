@@ -122,3 +122,4 @@
 
 // redeploy marker 2026-07-09 (restore after concurrent deploy dropped it from prod image)
 // trigger fix 2026-07-09: poll for render (report-section no longer uses hidden class)
+// auto-deploy probe 2026-07-09
