@@ -94,14 +94,26 @@
     label();
   }
 
+  // Trigger by POLLING, not by watching #report-section's `hidden` class:
+  // the report shell no longer starts hidden (className can be ""), so a
+  // class-toggle observer never fires. Poll until the report is actually
+  // rendered (job id resolved + share button present + insights populated),
+  // then inject once. Robust to report-shell/render refactors.
+  var _injecting = false;
   function watch() {
-    var sec = document.getElementById("report-section");
-    if (!sec) return;
-    var obs = new MutationObserver(function () {
-      if (!sec.classList.contains("hidden")) inject();
-    });
-    obs.observe(sec, { attributes: true, attributeFilter: ["class"] });
-    if (!sec.classList.contains("hidden")) inject();
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (document.getElementById("report-lang-toggle")) { clearInterval(iv); return; }
+      if (tries > 240) { clearInterval(iv); return; } // ~2 min cap
+      if (_injecting) return;
+      var host = document.getElementById("share-btn");
+      var ins = document.getElementById("section-insights");
+      if (jobId() && host && host.parentElement && ins && ins.textContent.trim().length > 100) {
+        _injecting = true;
+        Promise.resolve(inject()).finally(function () { _injecting = false; });
+      }
+    }, 500);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
@@ -109,3 +121,4 @@
 })();
 
 // redeploy marker 2026-07-09 (restore after concurrent deploy dropped it from prod image)
+// trigger fix 2026-07-09: poll for render (report-section no longer uses hidden class)
