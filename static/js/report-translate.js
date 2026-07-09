@@ -107,3 +107,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
   else watch();
 })();
+
+// redeploy marker 2026-07-09 (restore after concurrent deploy dropped it from prod image)
