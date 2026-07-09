@@ -279,6 +279,91 @@ def _fix_message(metric: dict, category: str) -> str:
     return ""
 
 
+# ── 公开信号增长成熟度分（主分析报告的 Thesis 头条用）────────────────────────
+# 与漏斗版 score_growth 互补：那个要私有漏斗数据；这个只用竞品分析已抓的公开信号。
+# 口径经 Iris 批准（2026-07-08）：流量25 / SEO20 / 商业化20 / 分发20 / 势能15。
+_PUBLIC_WEIGHTS = {
+    "traffic": 25, "seo": 20, "commercialization": 20, "distribution": 20, "momentum": 15,
+}
+_PUBLIC_LABEL = {
+    "traffic": "流量体量", "seo": "SEO 强度", "commercialization": "商业化成熟度",
+    "distribution": "分发/社媒矩阵", "momentum": "社区/势能",
+}
+
+
+def _tier(value: float, tiers: list) -> int:
+    """tiers=[(threshold, subscore), ...] 升序；返回 value 达到的最高档 subscore。"""
+    s = tiers[0][1]
+    for t, sc in tiers:
+        if value >= t:
+            s = sc
+    return s
+
+
+def extract_public_signals(data: dict) -> dict:
+    """从竞品分析聚合数据里抽取可打分的公开信号（容错，缺就 0/None）。"""
+    seo = data.get("seo_metrics") or data.get("traffic") or {}
+    website = data.get("website") or data.get("website_analysis") or {}
+    current = website.get("current") or website.get("current_site") or {}
+    features = current.get("features") or {}
+    social = data.get("social") or {}
+    channels = social.get("channels") or {}
+    gh = data.get("github_oss") or data.get("github") or {}
+    ph = data.get("producthunt") or {}
+    return {
+        "organic_traffic": seo.get("organic_traffic_estimate") or data.get("organic_traffic_estimate") or 0,
+        "domain_authority": seo.get("domain_authority") or data.get("domain_authority") or 0,
+        "referring_domains": seo.get("referring_domains") or data.get("referring_domains") or 0,
+        "has_pricing": bool(features.get("pricing") or website.get("has_pricing")),
+        "social_channels": len([k for k, v in channels.items() if v]) if isinstance(channels, dict) else 0,
+        "github_stars": (gh.get("stars") or gh.get("star_count") or 0) if isinstance(gh, dict) else 0,
+        "ph_launched": bool(ph.get("launched") or ph.get("posts") or ph.get("found")) if isinstance(ph, dict) else False,
+    }
+
+
+def score_public(signals: dict) -> dict:
+    """公开信号增长成熟度分。返回 {overall_score, dimensions:[{key,label,value,grade,subscore}], source}。
+    signals 可直接来自 extract_public_signals()。"""
+    traffic = float(signals.get("organic_traffic") or 0)
+    da = float(signals.get("domain_authority") or 0)
+    refd = float(signals.get("referring_domains") or 0)
+    has_pricing = bool(signals.get("has_pricing"))
+    channels = int(signals.get("social_channels") or 0)
+    stars = float(signals.get("github_stars") or 0)
+    ph = bool(signals.get("ph_launched"))
+
+    dims = []
+
+    def _add(key, value, subscore):
+        dims.append({"key": key, "label": _PUBLIC_LABEL[key], "value": value,
+                     "subscore": int(subscore)})
+
+    _add("traffic", int(traffic),
+         _tier(traffic, [(0, 15), (1000, 40), (10000, 60), (100000, 80), (1000000, 95)]))
+    # SEO：优先 DA，退回 referring_domains 近似
+    seo_val = da if da else min(100.0, refd / 5.0)
+    _add("seo", int(da or refd),
+         _tier(seo_val, [(0, 15), (10, 35), (25, 55), (40, 72), (60, 90)]))
+    _add("commercialization", has_pricing, 85 if has_pricing else 35)
+    _add("distribution", channels,
+         _tier(channels, [(0, 20), (2, 55), (4, 80), (6, 92)]))
+    mom = stars + (300 if ph else 0)
+    _add("momentum", int(stars),
+         _tier(mom, [(0, 25), (100, 50), (1000, 72), (10000, 90)]))
+
+    weighted = sum(d["subscore"] * _PUBLIC_WEIGHTS[d["key"]] for d in dims)
+    total_w = sum(_PUBLIC_WEIGHTS.values())
+    overall = int(round(weighted / total_w)) if total_w else 0
+    for d in dims:
+        d["grade"] = "green" if d["subscore"] >= 75 else ("yellow" if d["subscore"] >= 50 else "red")
+
+    return {
+        "overall_score": overall,
+        "dimensions": dims,
+        "source": "公开信号（流量 / SEO / 商业化 / 分发 / 社区势能）",
+    }
+
+
 # 便于前端/API 直接取用的基准快照（只读，不含内部文档）
 def benchmark_snapshot(category: Optional[str] = None) -> dict:
     cat = normalize_category(category)

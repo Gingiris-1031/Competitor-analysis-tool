@@ -1,4 +1,4 @@
-function renderWebsite(ws) {
+function renderWebsite(ws, evolutionSummary, lang) {
     const container = document.getElementById('section-website');
     const timeline = ws.deep_timeline || [];
     const current = ws.current || {};
@@ -19,8 +19,17 @@ function renderWebsite(ws) {
     const hasSnapshots = allPoints.filter(p => !p.is_current && p.date).length > 0;
     if (allPoints.length > 0 && hasSnapshots) {
         html += `<div class="mb-6">
-            <h4 class="text-sm font-semibold text-gray-300 mb-3">📸 Website Evolution Timeline</h4>
-            <div class="ws-timeline-scroll" style="display:flex; gap:16px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;">`;
+            <h4 class="text-sm font-semibold text-gray-300 mb-3">📸 Website Evolution Timeline</h4>`;
+
+        // 商业化演变阶段总结（结合演变节奏，判断先行）
+        if (evolutionSummary) {
+            const zh = !(lang || '').startsWith('en');
+            const summaryHtml = esc(evolutionSummary).replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fbbf24;">$1</strong>');
+            html += `<div style="background:rgba(251,146,60,0.08); border-left:3px solid #FB923C; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:13px; line-height:1.7; color:#d1d5db;">
+                <span style="font-size:11px; font-weight:700; color:#FB923C; letter-spacing:0.05em;">${zh ? '商业化演变节奏' : 'COMMERCIALIZATION RHYTHM'}</span><br>${summaryHtml}</div>`;
+        }
+
+        html += `<div class="ws-timeline-scroll" style="display:flex; gap:16px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;">`;
 
         for (let i = 0; i < allPoints.length; i++) {
             const p = allPoints[i];

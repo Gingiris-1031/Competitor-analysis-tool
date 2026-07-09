@@ -36,7 +36,71 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
     }
     # Strategy Radar — computed from all sections
     report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"])
+
+    # ── 总分总的「总（头条）」：公开增长成熟度分 + Thesis 核心论断 + 时间轴阶段总结 ──
+    try:
+        report["sections"]["growth_score"] = _compute_growth_score(website, traffic, social, producthunt)
+        report["sections"]["thesis"] = _build_thesis(product_name, report["sections"], lang)
+        _ws_raw = website.get("website_analysis", website) if isinstance(website, dict) else {}
+        from modules.timeline import summarize_evolution
+        report["sections"]["evolution_summary"] = summarize_evolution(
+            _ws_raw.get("deep_timeline") or website.get("deep_timeline") or [],
+            first_seen=_ws_raw.get("first_seen") or website.get("first_seen") or "",
+            lang=lang)
+    except Exception as _e:
+        pass
+
     return report
+
+
+def _compute_growth_score(website: dict, traffic: dict, social: dict, producthunt: dict) -> dict:
+    """从竞品分析已抓的公开信号算「公开增长成熟度分」（Iris 批准口径）。"""
+    from modules import benchmarks as _bm
+    combined = dict(traffic or {})
+    combined["seo_metrics"] = traffic or {}
+    combined["website"] = website or {}
+    combined["social"] = social or {}
+    combined["producthunt"] = producthunt or {}
+    signals = _bm.extract_public_signals(combined)
+    return _bm.score_public(signals)
+
+
+def _build_thesis(product_name: str, sections: dict, lang: str = "zh") -> dict:
+    """核心论断 Thesis（判断先行）：综合成熟度分 + 最强/最该补维度 → 一句话判断。"""
+    zh = not (lang or "").startswith("en")
+    gs = sections.get("growth_score") or {}
+    score = gs.get("overall_score", 0)
+    dims = gs.get("dimensions") or []
+    strong = max(dims, key=lambda d: d.get("subscore", 0), default=None) if dims else None
+    weak = min(dims, key=lambda d: d.get("subscore", 0), default=None) if dims else None
+    # 维度标签按语言本地化（key 语言中性；避免 EN thesis 混中文）
+    _dim_label = {
+        "traffic": ("流量体量", "Traffic"), "seo": ("SEO 强度", "SEO strength"),
+        "commercialization": ("商业化成熟度", "Commercialization"),
+        "distribution": ("分发/社媒矩阵", "Distribution"), "momentum": ("社区/势能", "Community & momentum"),
+    }
+
+    def _dl(d):
+        if not d:
+            return ""
+        return _dim_label.get(d.get("key"), (d.get("label", ""), d.get("label", "")))[0 if zh else 1]
+
+    if zh:
+        band = ("强（护城河成型）" if score >= 80 else "健康（可持续）" if score >= 65
+                else "成长中（有单点强项）" if score >= 45 else "早期/虚火（地基薄）")
+        headline = f"{product_name} 公开增长成熟度 {score}/100（{band}）。"
+        if strong and weak:
+            headline += f"最强项：{_dl(strong)}；最该补的洞：{_dl(weak)}。"
+        headline += "详见下文分维度诊断。"
+    else:
+        band = ("Strong (moat forming)" if score >= 80 else "Healthy (sustainable)" if score >= 65
+                else "Growing (one strong lever)" if score >= 45 else "Early / fragile foundation")
+        headline = f"{product_name} public growth maturity: {score}/100 ({band}). "
+        if strong and weak:
+            headline += f"Strongest: {_dl(strong)}; biggest gap: {_dl(weak)}. "
+        headline += "See the dimensional diagnosis below."
+    return {"score": score, "band": band, "headline": headline,
+            "strongest": strong, "weakest": weak}
 
 
 def _format_website(data: dict, lang: str = "zh") -> dict:
@@ -192,6 +256,40 @@ def _generate_summary(name: str, website: dict, social: dict, traffic: dict, pro
     }
 
 
+def _thesis_markdown(sections: dict, en: bool = False) -> str:
+    """总分总的「总」——报告顶部的核心论断 + 公开分 + 商业化演变节奏（Markdown）。"""
+    thesis = sections.get("thesis") or {}
+    gs = sections.get("growth_score") or {}
+    evo = sections.get("evolution_summary") or ""
+    if not thesis.get("headline"):
+        return ""
+    dim_label = {
+        "traffic": ("流量体量", "Traffic"), "seo": ("SEO 强度", "SEO strength"),
+        "commercialization": ("商业化", "Commercialization"),
+        "distribution": ("分发/社媒", "Distribution"), "momentum": ("社区/势能", "Community & momentum"),
+    }
+    dot = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
+    lights = " · ".join(
+        f"{dot.get(d.get('grade'), '⚪')} {dim_label.get(d.get('key'), (d.get('label', ''), d.get('label', '')))[1 if en else 0]}"
+        for d in gs.get("dimensions", []))
+    out = []
+    if en:
+        out.append("## Verdict — Public Growth Maturity\n")
+        out.append(f"**{thesis['headline']}**\n")
+        if lights:
+            out.append(lights + "\n")
+        if evo:
+            out.append(f"**Commercialization rhythm:** {evo}\n")
+    else:
+        out.append("## 核心论断 — 公开增长成熟度\n")
+        out.append(f"**{thesis['headline']}**\n")
+        if lights:
+            out.append(lights + "\n")
+        if evo:
+            out.append(f"**商业化演变节奏：** {evo}\n")
+    return "\n".join(out) + "\n"
+
+
 def report_to_markdown(report: dict) -> str:
     """Render the structured report dict as Markdown.
 
@@ -212,7 +310,7 @@ def report_to_markdown(report: dict) -> str:
 
 ---
 
-## 1. Website Evolution Analysis 🔍
+{_thesis_markdown(s, True)}## 1. Website Evolution Analysis 🔍
 
 > 🔍 **Wayback Machine exclusive data** — deep evolution analysis across multi-year historical snapshots
 
@@ -226,7 +324,7 @@ def report_to_markdown(report: dict) -> str:
 
 ---
 
-## 1. 官网演变分析 🔍
+{_thesis_markdown(s, False)}## 1. 官网演变分析 🔍
 
 > 🔍 **Wayback Machine 独家数据** — 基于多年历史快照的深度演变分析
 

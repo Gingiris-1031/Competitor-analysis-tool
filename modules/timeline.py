@@ -141,3 +141,63 @@ async def build_timeline(domain: str) -> dict:
         kept.append(last)
 
     return {"domain": domain, "total_snapshots": len(timestamps), "nodes": kept}
+
+
+def summarize_evolution(snapshots: list, first_seen: str = "", lang: str = "zh") -> str:
+    """从官网历史快照生成「商业化演变阶段总结」——结合不同产品的演变节奏，
+    给主分析报告的时间轴段加一段人话判断。规则驱动、不烧 LLM。
+
+    snapshots: deep_timeline 的原始快照列表（含 date/slogan/features）。
+    返回一段中/英文叙述；无足够数据返回空串。
+    """
+    pts = sorted(
+        [s for s in (snapshots or []) if s.get("date") and not s.get("error")],
+        key=lambda s: s.get("date", ""))
+    if len(pts) < 2:
+        return ""
+    zh = not (lang or "").startswith("en")
+
+    first, last = pts[0], pts[-1]
+    fdate, ldate = first.get("date", "")[:7], last.get("date", "")[:7]
+    fslogan = (first.get("slogan") or "").strip()[:50]
+    lslogan = (last.get("slogan") or "").strip()[:50]
+
+    # 首次出现定价页 = 商业化拐点
+    priced = next((s for s in pts if (s.get("features") or {}).get("pricing")), None)
+    # slogan 改版次数
+    pivots = 0
+    prev = None
+    for s in pts:
+        sl = (s.get("slogan") or "").strip()
+        if prev is not None and sl and sl != prev:
+            pivots += 1
+        prev = sl or prev
+
+    bits = []
+    if zh:
+        bits.append(f"从 {fdate} 首个有效版本（“{fslogan}”）到 {ldate}，共追踪 {len(pts)} 个关键版本。")
+        if priced:
+            pdate = priced.get("date", "")[:7]
+            bits.append(f"**{pdate} 首次出现定价页 = 商业化拐点**——此前是产品/流量优先，之后开始变现。")
+        else:
+            bits.append("全程未见公开定价页，仍处产品/流量优先阶段（或走销售驱动、定价不公开）。")
+        if pivots >= 2:
+            bits.append(f"定位飘移较大：slogan 改版 {pivots} 次，最终收敛到“{lslogan}”，说明还在找 PMF 表达。")
+        elif pivots == 1:
+            bits.append(f"定位一次调整，收敛到“{lslogan}”，方向渐清晰。")
+        else:
+            bits.append("定位稳定，slogan 基本没变——早定方向或迭代克制。")
+    else:
+        bits.append(f"From the first real version in {fdate} (“{fslogan}”) to {ldate}, {len(pts)} key versions tracked.")
+        if priced:
+            pdate = priced.get("date", "")[:7]
+            bits.append(f"**Pricing page first appeared {pdate} = the commercialization inflection** — product/traffic-first before, monetizing after.")
+        else:
+            bits.append("No public pricing page across the timeline — still product/traffic-first (or sales-led with private pricing).")
+        if pivots >= 2:
+            bits.append(f"Heavy repositioning: {pivots} slogan pivots, converging on “{lslogan}” — still finding its PMF wording.")
+        elif pivots == 1:
+            bits.append(f"One repositioning, converging on “{lslogan}”.")
+        else:
+            bits.append("Stable positioning — slogan barely changed.")
+    return " ".join(bits)
