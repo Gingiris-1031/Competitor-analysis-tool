@@ -453,6 +453,7 @@ async function loadReport() {
 
         // Render all sections
         if (typeof renderThesis === 'function') renderThesis(report.sections.thesis || {}, report.sections.growth_score || {}, meta.lang);
+        if (typeof renderReferences === 'function') renderReferences(report.sections.references || [], meta.lang);
         if (typeof renderStrategyRadar === 'function') renderStrategyRadar(report.sections.strategy_radar || {});
         renderWebsite(report.sections.website_analysis || {}, report.sections.evolution_summary || '', meta.lang);
         if (typeof renderGithub === 'function') renderGithub(report.sections.github_oss || {});
