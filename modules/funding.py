@@ -3,6 +3,8 @@ import httpx
 import re
 import asyncio
 
+from .i18n import _T
+
 
 def _extract_brand(domain: str) -> str:
     brand = re.sub(r'^www\.', '', domain.lower().strip())
@@ -47,7 +49,8 @@ async def analyze_funding(domain: str, product_name: str) -> dict:
     if not merged.get("found"):
         return {
             "found": False,
-            "note": "未找到公开融资信息（可能为 Bootstrapped 或未公开融资）",
+            "note": _T("No public funding information found (may be bootstrapped or undisclosed)",
+                       "未找到公开融资信息（可能为 Bootstrapped 或未公开融资）"),
         }
 
     merged["insights"] = _gen_insights(merged)
@@ -218,21 +221,26 @@ def _gen_insights(data: dict) -> list:
     investors = data.get("investors", [])
 
     if total:
-        insights.append(f"💰 累计融资 **{_fmt_money(total)}**（最近轮次：{latest}）")
+        insights.append(_T(f"💰 Total raised **{_fmt_money(total)}** (latest round: {latest})",
+                           f"💰 累计融资 **{_fmt_money(total)}**（最近轮次：{latest}）"))
     elif latest:
-        insights.append(f"📋 已完成 **{latest}** 轮融资（金额未公开）")
+        insights.append(_T(f"📋 Completed **{latest}** funding round(s) (amount undisclosed)",
+                           f"📋 已完成 **{latest}** 轮融资（金额未公开）"))
 
     if investors:
-        insights.append(f"🤝 已知投资方：{', '.join(investors[:5])}")
+        insights.append(_T(f"🤝 Known investors: {', '.join(investors[:5])}",
+                           f"🤝 已知投资方：{', '.join(investors[:5])}"))
 
     rounds = data.get("rounds", [])
     if len(rounds) >= 2:
-        insights.append(f"📈 共 {len(rounds)} 轮融资记录，显示持续获得机构认可")
+        insights.append(_T(f"📈 {len(rounds)} funding rounds on record — sustained institutional backing",
+                           f"📈 共 {len(rounds)} 轮融资记录，显示持续获得机构认可"))
 
     source = data.get("source", "")
     if source == "crunchbase":
         cb_url = data.get("crunchbase_url", "")
         if cb_url:
-            insights.append(f"🔗 数据来源：Crunchbase（{cb_url}）")
+            insights.append(_T(f"🔗 Source: Crunchbase ({cb_url})",
+                               f"🔗 数据来源：Crunchbase（{cb_url}）"))
 
     return insights

@@ -1817,6 +1817,12 @@ async def _run_analysis(job_id: str):
     domain = urlparse(url).netloc
     product_name = job["product_name"]
 
+    # Propagate report language into a ContextVar so analysis modules
+    # (funding/bizmodel/traffic_peaks/growth_strategy/github_oss) — which run
+    # before report assembly and take no lang param — emit EN or ZH correctly.
+    from modules.i18n import set_report_lang
+    set_report_lang(job.get("lang"))
+
     def _cancelled():
         return job.get("cancelled", False)
 

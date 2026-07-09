@@ -289,6 +289,10 @@ _PUBLIC_LABEL = {
     "traffic": "流量体量", "seo": "SEO 强度", "commercialization": "商业化成熟度",
     "distribution": "分发/社媒矩阵", "momentum": "社区/势能",
 }
+_PUBLIC_LABEL_EN = {
+    "traffic": "Traffic Volume", "seo": "SEO Strength", "commercialization": "Monetization Maturity",
+    "distribution": "Distribution / Social Matrix", "momentum": "Community / Momentum",
+}
 
 
 def _tier(value: float, tiers: list) -> int:
@@ -321,9 +325,11 @@ def extract_public_signals(data: dict) -> dict:
     }
 
 
-def score_public(signals: dict) -> dict:
+def score_public(signals: dict, lang: str = "zh") -> dict:
     """公开信号增长成熟度分。返回 {overall_score, dimensions:[{key,label,value,grade,subscore}], source}。
     signals 可直接来自 extract_public_signals()。"""
+    _en = (lang or "").lower().startswith("en")
+    _labels = _PUBLIC_LABEL_EN if _en else _PUBLIC_LABEL
     traffic = float(signals.get("organic_traffic") or 0)
     da = float(signals.get("domain_authority") or 0)
     refd = float(signals.get("referring_domains") or 0)
@@ -335,7 +341,7 @@ def score_public(signals: dict) -> dict:
     dims = []
 
     def _add(key, value, subscore):
-        dims.append({"key": key, "label": _PUBLIC_LABEL[key], "value": value,
+        dims.append({"key": key, "label": _labels[key], "value": value,
                      "subscore": int(subscore)})
 
     _add("traffic", int(traffic),
@@ -360,7 +366,8 @@ def score_public(signals: dict) -> dict:
     return {
         "overall_score": overall,
         "dimensions": dims,
-        "source": "公开信号（流量 / SEO / 商业化 / 分发 / 社区势能）",
+        "source": ("Public signals (traffic / SEO / monetization / distribution / community momentum)"
+                   if _en else "公开信号（流量 / SEO / 商业化 / 分发 / 社区势能）"),
     }
 
 

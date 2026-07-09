@@ -1,4 +1,5 @@
 """流量峰值分析模块 — Google Trends 周级别数据检测品牌搜索热度峰值"""
+from .i18n import _T, report_lang
 import asyncio
 import httpx
 import json
@@ -325,15 +326,15 @@ def _classify_growth_phases(data: list) -> list:
 
     def _get_phase(value: float, trend: str) -> str:
         if value < 10:
-            return "冷启动期"
+            return _T("Cold Start", "冷启动期")
         elif value < 30:
-            return "爬坡期" if trend != "down" else "回落期"
+            return _T("Ramp-up", "爬坡期") if trend != "down" else _T("Decline", "回落期")
         elif trend == "up":
-            return "爆发期"
+            return _T("Breakout", "爆发期")
         elif trend == "down":
-            return "回落期"
+            return _T("Decline", "回落期")
         else:
-            return "高位运行期"
+            return _T("High Plateau", "高位运行期")
 
     # Classify each week using smoothed values and 3-week trend
     raw_phases = []
@@ -423,7 +424,7 @@ def _enrich_phases_with_insights(phases: list, peaks: list, producthunt: dict, s
                 if ch:
                     channels.append(ch)
                 if evt:
-                    insights.append(f"🔥 {ch} 热议：{evt[:60]}")
+                    insights.append(_T(f"🔥 {ch} buzz: {evt[:60]}", f"🔥 {ch} 热议：{evt[:60]}"))
                 # Secondary sources
                 for src in attr.get("all_sources", [])[1:]:
                     if src.get("impact_score", 0) > 10:
@@ -454,7 +455,7 @@ def _enrich_phases_with_insights(phases: list, peaks: list, producthunt: dict, s
                 likes = tweet.get("likes", 0)
                 if likes > 50:
                     text_preview = (tweet.get("text", "") or "")[:50]
-                    insights.append(f"🐦 Twitter 爆帖 ({likes} likes): {text_preview}")
+                    insights.append(_T(f"🐦 Viral tweet ({likes} likes): {text_preview}", f"🐦 Twitter 爆帖 ({likes} likes): {text_preview}"))
                     channels.append("Twitter/X")
 
         rd = social.get("channels", {}).get("reddit", {})
@@ -471,16 +472,21 @@ def _enrich_phases_with_insights(phases: list, peaks: list, producthunt: dict, s
         # 4. Phase-specific generic insight based on phase type
         phase_name = phase.get("phase", "")
         if not insights:
-            if phase_name == "冷启动期":
-                insights.append("📊 品牌搜索热度极低，市场认知尚未建立")
-            elif phase_name == "爬坡期":
-                insights.append("📈 品牌热度开始上升，可能有早期用户口碑或内容营销见效")
-            elif phase_name == "爆发期":
-                insights.append("💥 品牌热度急剧上升，通常伴随重大事件（launch/融资/媒体报道）")
-            elif phase_name == "高位运行期":
-                insights.append("🏔️ 品牌热度维持高位，产品已进入主流认知")
-            elif phase_name == "回落期":
-                insights.append("📉 品牌热度下降，可能需要新的增长引擎")
+            if phase_name == _T("Cold Start", "冷启动期"):
+                insights.append(_T("📊 Very low brand-search interest — market awareness not yet established",
+                                   "📊 品牌搜索热度极低，市场认知尚未建立"))
+            elif phase_name == _T("Ramp-up", "爬坡期"):
+                insights.append(_T("📈 Brand interest starting to rise — early word-of-mouth or content marketing may be working",
+                                   "📈 品牌热度开始上升，可能有早期用户口碑或内容营销见效"))
+            elif phase_name == _T("Breakout", "爆发期"):
+                insights.append(_T("💥 Brand interest spiking — usually tied to a major event (launch / funding / press)",
+                                   "💥 品牌热度急剧上升，通常伴随重大事件（launch/融资/媒体报道）"))
+            elif phase_name == _T("High Plateau", "高位运行期"):
+                insights.append(_T("🏔️ Brand interest holding high — the product has entered mainstream awareness",
+                                   "🏔️ 品牌热度维持高位，产品已进入主流认知"))
+            elif phase_name == _T("Decline", "回落期"):
+                insights.append(_T("📉 Brand interest declining — may need a new growth engine",
+                                   "📉 品牌热度下降，可能需要新的增长引擎"))
 
         # Deduplicate channels
         unique_channels = list(dict.fromkeys(channels))
@@ -628,7 +634,8 @@ def _correlate(peak_events: list, known_launches: list) -> tuple[list, list]:
             correlated.append(entry)
         else:
             entry["status"] = "unmatched"
-            entry["hypothesis"] = (
+            entry["hypothesis"] = _T(
+                "Likely a launch event — possibly HN front page / press / paid ads / viral spread",
                 "疑似 launch 事件——可能来自 HN 首页/媒体报道/付费投放/病毒传播"
             )
             unmatched.append(entry)
@@ -833,18 +840,18 @@ def _match_github_milestones(github_oss: dict, window_start: int, window_end: in
 
         # Classify the event
         if gain >= 3000:
-            event_type = "🚀 开源首发/病毒传播"
+            event_type = _T("🚀 OSS debut / viral spread", "🚀 开源首发/病毒传播")
         elif gain >= 1000:
-            event_type = "⭐ Star 爆发"
+            event_type = _T("⭐ Star burst", "⭐ Star 爆发")
         else:
-            event_type = "📈 持续增长"
+            event_type = _T("📈 Sustained growth", "📈 持续增长")
 
         # Detect milestones
         milestone = ""
         for threshold in [1000, 5000, 10000, 20000, 50000]:
             prev = cumulative - gain
             if prev < threshold <= cumulative:
-                milestone = f"突破 {threshold:,} Stars"
+                milestone = _T(f"Passed {threshold:,} Stars", f"突破 {threshold:,} Stars")
                 break
 
         events.append({
@@ -867,7 +874,7 @@ def _match_github_milestones(github_oss: dict, window_start: int, window_end: in
 def _generate_attribution_summary(sources: list, peak: dict) -> str:
     """根据归因来源生成自然语言摘要。"""
     if not sources:
-        return "未找到明确的流量来源。"
+        return _T("No clear traffic source found.", "未找到明确的流量来源。")
 
     primary = sources[0]
     channel = primary["channel"]
@@ -880,52 +887,58 @@ def _generate_attribution_summary(sources: list, peak: dict) -> str:
     # Build primary attribution sentence
     if channel == "Hacker News":
         points = top_event.get("points", 0)
-        event_type = top_event.get("event_type", "品牌提及")
+        event_type = top_event.get("event_type", _T("brand mention", "品牌提及"))
         # Find the actual direct driver if top event is derivative
         direct_events = [e for e in primary.get("events", []) if e.get("event_type_en") == "direct"]
         derivative_events = [e for e in primary.get("events", []) if e.get("event_type_en") == "derivative"]
         if direct_events:
             de = direct_events[0]
-            summary = f"主要由行业事件驱动（{de.get('title', '')[:50]}，{de.get('points', 0)} points）"
+            summary = _T(f"Mainly driven by an industry event ({de.get('title', '')[:50]}, {de.get('points', 0)} points)",
+                         f"主要由行业事件驱动（{de.get('title', '')[:50]}，{de.get('points', 0)} points）")
             if derivative_events:
-                summary += f"，引发 {len(derivative_events)} 个衍生讨论（替代品/clone）"
+                summary += _T(f", sparking {len(derivative_events)} derivative discussions (alternatives/clones)",
+                              f"，引发 {len(derivative_events)} 个衍生讨论（替代品/clone）")
         elif derivative_events and len(derivative_events) > 1:
-            summary = f"品牌热度溢出期——{len(derivative_events)} 个'替代品/clone'讨论集中出现"
             best = derivative_events[0]
-            summary += f"，最热：「{best.get('title', '')[:50]}」({best.get('points', 0)} pts)"
+            summary = _T(f"Brand-interest spillover — {len(derivative_events)} 'alternative/clone' discussions clustered",
+                         f"品牌热度溢出期——{len(derivative_events)} 个'替代品/clone'讨论集中出现")
+            summary += _T(f", top: \"{best.get('title', '')[:50]}\" ({best.get('points', 0)} pts)",
+                          f"，最热：「{best.get('title', '')[:50]}」({best.get('points', 0)} pts)")
         else:
-            summary = f"主要由 Hacker News 讨论驱动（最高 {points} points）"
+            summary = _T(f"Mainly driven by Hacker News discussion (top {points} points)",
+                         f"主要由 Hacker News 讨论驱动（最高 {points} points）")
             if title:
-                summary += f"：「{title[:60]}」"
+                summary += _T(f": \"{title[:60]}\"", f"：「{title[:60]}」")
     elif channel == "Product Hunt":
         votes = top_event.get("votes", 0)
-        summary = f"主要由 Product Hunt 发布驱动（{votes} votes）"
+        summary = _T(f"Mainly driven by a Product Hunt launch ({votes} votes)", f"主要由 Product Hunt 发布驱动（{votes} votes）")
         if title:
-            summary += f"：「{title[:60]}」"
+            summary += _T(f": \"{title[:60]}\"", f"：「{title[:60]}」")
     elif channel == "Twitter/X":
         likes = top_event.get("likes", 0)
-        summary = f"主要由 Twitter/X 病毒传播驱动（最高 {likes} likes）"
+        summary = _T(f"Mainly driven by Twitter/X virality (top {likes} likes)", f"主要由 Twitter/X 病毒传播驱动（最高 {likes} likes）")
         if title:
-            summary += f"：「{title[:60]}」"
+            summary += _T(f": \"{title[:60]}\"", f"：「{title[:60]}」")
     elif channel == "Reddit":
         upvotes = top_event.get("upvotes", 0)
         subreddit = top_event.get("subreddit", "")
-        summary = f"主要由 Reddit 讨论驱动（{upvotes} upvotes，r/{subreddit}）"
+        summary = _T(f"Mainly driven by Reddit discussion ({upvotes} upvotes, r/{subreddit})",
+                     f"主要由 Reddit 讨论驱动（{upvotes} upvotes，r/{subreddit}）")
         if title:
-            summary += f"：「{title[:60]}」"
+            summary += _T(f": \"{title[:60]}\"", f"：「{title[:60]}」")
     elif channel == "GitHub":
         stars = top_event.get("stars_gained", 0)
         milestone = top_event.get("milestone", "")
-        summary = f"主要由 GitHub 开源热度驱动（+{stars:,} stars）"
+        summary = _T(f"Mainly driven by GitHub OSS momentum (+{stars:,} stars)", f"主要由 GitHub 开源热度驱动（+{stars:,} stars）")
         if milestone:
-            summary += f"，{milestone}"
+            summary += f", {milestone}" if report_lang() == "en" else f"，{milestone}"
     else:
-        summary = f"主要由 {channel} 驱动"
+        summary = _T(f"Mainly driven by {channel}", f"主要由 {channel} 驱动")
 
     # Add secondary channels
     if len(sources) > 1:
         secondary = [s["channel"] for s in sources[1:]]
-        summary += f"，次要渠道：{' / '.join(secondary)}"
+        summary += _T(f", secondary channels: {' / '.join(secondary)}", f"，次要渠道：{' / '.join(secondary)}")
 
     return summary
 
@@ -977,13 +990,13 @@ async def _attribute_peak(
                 "ipo", "acqui", "partner", "series ",
             ])
             if is_derivative and not is_direct:
-                h["event_type"] = "衍生讨论"
+                h["event_type"] = _T("derivative discussion", "衍生讨论")
                 h["event_type_en"] = "derivative"
             elif is_direct:
-                h["event_type"] = "直接驱动"
+                h["event_type"] = _T("direct driver", "直接驱动")
                 h["event_type_en"] = "direct"
             else:
-                h["event_type"] = "品牌提及"
+                h["event_type"] = _T("brand mention", "品牌提及")
                 h["event_type_en"] = "mention"
 
         # Sort: direct drivers first, then by points
@@ -1043,14 +1056,15 @@ async def _attribute_peak(
         # Deep investigation: Brave Search for news/events near this peak date
         deep_events = await _brave_investigate_peak(brand, domain, peak)
         if deep_events:
+            _media = _T("Media/News", "媒体/新闻")
             sources.append({
-                "channel": "媒体/新闻",
+                "channel": _media,
                 "events": deep_events,
                 "impact_score": len(deep_events) * 10,
             })
             return {
                 "attributed": True,
-                "primary_channel": "媒体/新闻",
+                "primary_channel": _media,
                 "primary_event": deep_events[0].get("title", ""),
                 "confidence": "medium",
                 "all_sources": sources,
@@ -1062,9 +1076,10 @@ async def _attribute_peak(
             "primary_channel": "Unknown",
             "confidence": "low",
             "all_sources": [],
-            "summary": (
-                "未找到明确的流量来源。"
-                "可能来自：付费广告投放、线下活动、口碑传播、或数据源未覆盖的渠道。"
+            "summary": _T(
+                "No clear traffic source found. Could be paid ads, offline events, "
+                "word-of-mouth, or a channel not covered by our data sources.",
+                "未找到明确的流量来源。可能来自：付费广告投放、线下活动、口碑传播、或数据源未覆盖的渠道。"
             ),
         }
 
@@ -1121,7 +1136,7 @@ async def _brave_investigate_peak(brand: str, domain: str, peak: dict) -> list:
                     "source": source,
                     "snippet": desc[:150],
                     "date": peak_date,
-                    "event_type": "媒体报道/新闻",
+                    "event_type": _T("Press/News", "媒体报道/新闻"),
                 })
         except Exception:
             continue
@@ -1132,17 +1147,17 @@ async def _brave_investigate_peak(brand: str, domain: str, peak: dict) -> list:
 def _generate_news_summary(events: list, peak: dict) -> str:
     """Generate summary for peaks attributed via Brave news search."""
     if not events:
-        return "未找到明确来源。"
+        return _T("No clear source found.", "未找到明确来源。")
     top = events[0]
     source = top.get("source", "")
     title = top.get("title", "")
-    summary = f"疑似由媒体报道/产品更新驱动"
+    summary = _T("Likely driven by press coverage / a product update", "疑似由媒体报道/产品更新驱动")
     if source:
-        summary += f"（来源：{source}）"
+        summary += _T(f" (source: {source})", f"（来源：{source}）")
     if title:
-        summary += f"：「{title[:50]}」"
+        summary += _T(f": \"{title[:50]}\"", f"：「{title[:50]}」")
     if len(events) > 1:
-        summary += f"，另有 {len(events)-1} 条相关报道"
+        summary += _T(f", plus {len(events)-1} related reports", f"，另有 {len(events)-1} 条相关报道")
     return summary
 
 
@@ -1166,14 +1181,14 @@ def _build_summary(data: list, peaks: list, unmatched: list, phases: list) -> di
         if prior > 0:
             pct = (recent - prior) / prior * 100
             if pct > 10:
-                trend = "上升"
+                trend = "up"
             elif pct < -10:
-                trend = "下降"
+                trend = "down"
             else:
-                trend = "平稳"
+                trend = "flat"
 
     # Current phase
-    current_phase = phases[-1]["phase"] if phases else "未知"
+    current_phase = phases[-1]["phase"] if phases else _T("Unknown", "未知")
 
     # Count by new status values
     attributed_count = sum(1 for p in peaks if p.get("status") == "attributed")
@@ -1202,11 +1217,11 @@ def _build_summary(data: list, peaks: list, unmatched: list, phases: list) -> di
     diversity_score = min(100, int(len(all_channels) / 5 * 100)) if all_channels else 20
 
     # 4. Brand moat: momentum trend (sustained growth = strong moat)
-    if trend == "上升":
+    if trend == "up":
         moat_score = 80
-    elif trend == "平稳":
+    elif trend == "flat":
         moat_score = 60
-    elif trend == "下降":
+    elif trend == "down":
         moat_score = 30
     else:
         moat_score = 50
@@ -1216,7 +1231,8 @@ def _build_summary(data: list, peaks: list, unmatched: list, phases: list) -> di
         "max_interest": max_val,
         "max_interest_date": data[max_idx]["date_label"],
         "avg_interest": round(avg_val, 1),
-        "recent_trend": trend,
+        "recent_trend": {"up": _T("Rising", "上升"), "down": _T("Declining", "下降"),
+                         "flat": _T("Flat", "平稳")}.get(trend, _T("Insufficient data", "数据不足")),
         "current_phase": current_phase,
         "total_peaks_detected": total_peaks,
         "matched_peaks": matched_count,
@@ -1310,7 +1326,8 @@ async def analyze_traffic_peaks(
         secondary_timeline = timeline_brand
 
     if not primary_timeline and not secondary_timeline:
-        empty["error"] = "Google Trends API 调用失败（两次查询均无数据）"
+        empty["error"] = _T("Google Trends API call failed (no data for either query)",
+                             "Google Trends API 调用失败（两次查询均无数据）")
         return empty
 
     # Use primary; if primary empty, fall back to secondary
@@ -1320,7 +1337,7 @@ async def analyze_traffic_peaks(
     # --- Step 3: parse ---
     data = _parse_timeline(active_timeline, active_query)
     if not data:
-        empty["error"] = "无法解析 Trends 时间序列数据"
+        empty["error"] = _T("Could not parse Trends time-series data", "无法解析 Trends 时间序列数据")
         return empty
 
     # --- Step 3b: clip data to product launch date ---

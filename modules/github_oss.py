@@ -1,4 +1,5 @@
 """GitHub OSS 分析模块 — Stars 增长历史、贡献者、发版、里程碑"""
+from .i18n import _T
 import asyncio
 import math
 import os
@@ -43,7 +44,8 @@ async def analyze_github_oss(domain: str, product_name: str,
     # ── Step 1: Find repo (Brave Search → website hint → domain guess) ──
     owner, repo = await _resolve_repo(domain, product_name, website_social_links or {})
     if not (owner and repo):
-        return {"found": False, "note": "未找到 GitHub 仓库，可能不是开源项目"}
+        return {"found": False, "note": _T("No GitHub repository found — likely not an open-source project",
+                                            "未找到 GitHub 仓库，可能不是开源项目")}
 
     async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
         # ── Step 2: Fetch core stats + star history + contributors in parallel ──
@@ -55,7 +57,8 @@ async def analyze_github_oss(domain: str, product_name: str,
         latest_release = stats_results[1] if isinstance(stats_results[1], dict) else None
 
         if not repo_info.get("stars"):
-            return {"found": False, "note": f"GitHub 仓库 {owner}/{repo} 无法访问"}
+            return {"found": False, "note": _T(f"GitHub repo {owner}/{repo} is unreachable",
+                                                f"GitHub 仓库 {owner}/{repo} 无法访问")}
 
         stars = repo_info["stars"]
 
@@ -521,16 +524,20 @@ def _gen_insights(repo_info: dict, star_history: list, milestones: list) -> list
     license_  = repo_info.get("license", "")
 
     if stars >= 50_000:
-        insights.append(f"⭐ {stars:,} GitHub Stars — 顶级开源项目，开发者社区影响力极高")
+        insights.append(_T(f"⭐ {stars:,} GitHub Stars — top-tier OSS project, exceptional developer-community reach",
+                           f"⭐ {stars:,} GitHub Stars — 顶级开源项目，开发者社区影响力极高"))
     elif stars >= 10_000:
-        insights.append(f"⭐ {stars:,} GitHub Stars — 已进入开源主流视野")
+        insights.append(_T(f"⭐ {stars:,} GitHub Stars — firmly in the OSS mainstream",
+                           f"⭐ {stars:,} GitHub Stars — 已进入开源主流视野"))
     elif stars >= 1_000:
-        insights.append(f"⭐ {stars:,} GitHub Stars — 有稳定开发者受众")
+        insights.append(_T(f"⭐ {stars:,} GitHub Stars — a stable developer audience",
+                           f"⭐ {stars:,} GitHub Stars — 有稳定开发者受众"))
 
     if forks and stars:
         fork_ratio = forks / stars
         if fork_ratio > 0.1:
-            insights.append(f"🍴 Fork 率 {fork_ratio:.0%}（{forks:,} forks），二次开发活跃，ecosystem 潜力强")
+            insights.append(_T(f"🍴 Fork ratio {fork_ratio:.0%} ({forks:,} forks) — active downstream dev, strong ecosystem potential",
+                               f"🍴 Fork 率 {fork_ratio:.0%}（{forks:,} forks），二次开发活跃，ecosystem 潜力强"))
 
     if star_history:
         gains = [h["gain"] for h in star_history if h.get("gain", 0) > 0]
@@ -538,7 +545,8 @@ def _gen_insights(repo_info: dict, star_history: list, milestones: list) -> list
             peak_gain = max(gains)
             peak_month = next(h["month"] for h in star_history if h.get("gain") == peak_gain)
             if peak_gain >= 1000:
-                insights.append(f"🚀 增长峰值：{peak_month} 单月新增 {peak_gain:,} stars（对应重大发布事件）")
+                insights.append(_T(f"🚀 Growth peak: {peak_month} added {peak_gain:,} stars in one month (major release event)",
+                                   f"🚀 增长峰值：{peak_month} 单月新增 {peak_gain:,} stars（对应重大发布事件）"))
 
     if milestones:
         first_k = next((m for m in milestones if m["stars"] >= 1_000), None)
@@ -549,16 +557,20 @@ def _gen_insights(repo_info: dict, star_history: list, milestones: list) -> list
                 hit_dt     = datetime.strptime(first_k["month"], "%Y-%m")
                 months = (hit_dt.year - created_dt.year) * 12 + (hit_dt.month - created_dt.month)
                 if months <= 3:
-                    insights.append(f"⚡ {months} 个月内突破 1K Stars（爆发式冷启动）")
+                    insights.append(_T(f"⚡ Broke 1K stars within {months} month(s) (explosive cold start)",
+                                       f"⚡ {months} 个月内突破 1K Stars（爆发式冷启动）"))
                 elif months <= 12:
-                    insights.append(f"📈 {months} 个月达到 1K Stars（健康增长曲线）")
+                    insights.append(_T(f"📈 Reached 1K stars in {months} months (healthy growth curve)",
+                                       f"📈 {months} 个月达到 1K Stars（健康增长曲线）"))
             except Exception:
                 pass
 
     if license_:
         if "MIT" in license_ or "Apache" in license_:
-            insights.append(f"📄 {license_} 协议 — 商业友好，有利于企业采用")
+            insights.append(_T(f"📄 {license_} license — commercially friendly, eases enterprise adoption",
+                               f"📄 {license_} 协议 — 商业友好，有利于企业采用"))
         elif "GPL" in license_ or "AGPL" in license_:
-            insights.append(f"📄 {license_} 协议 — Copyleft，SaaS 场景需要商业授权")
+            insights.append(_T(f"📄 {license_} license — copyleft, SaaS use needs a commercial license",
+                               f"📄 {license_} 协议 — Copyleft，SaaS 场景需要商业授权"))
 
     return insights

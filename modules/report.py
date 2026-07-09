@@ -35,11 +35,11 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
         },
     }
     # Strategy Radar — computed from all sections
-    report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"])
+    report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"], lang)
 
     # ── 总分总的「总（头条）」：公开增长成熟度分 + Thesis 核心论断 + 时间轴阶段总结 ──
     try:
-        report["sections"]["growth_score"] = _compute_growth_score(website, traffic, social, producthunt)
+        report["sections"]["growth_score"] = _compute_growth_score(website, traffic, social, producthunt, lang)
         report["sections"]["thesis"] = _build_thesis(product_name, report["sections"], lang)
         _ws_raw = website.get("website_analysis", website) if isinstance(website, dict) else {}
         from modules.timeline import summarize_evolution
@@ -55,7 +55,7 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
     return report
 
 
-def _compute_growth_score(website: dict, traffic: dict, social: dict, producthunt: dict) -> dict:
+def _compute_growth_score(website: dict, traffic: dict, social: dict, producthunt: dict, lang: str = "zh") -> dict:
     """从竞品分析已抓的公开信号算「公开增长成熟度分」（Iris 批准口径）。"""
     from modules import benchmarks as _bm
     combined = dict(traffic or {})
@@ -64,7 +64,7 @@ def _compute_growth_score(website: dict, traffic: dict, social: dict, producthun
     combined["social"] = social or {}
     combined["producthunt"] = producthunt or {}
     signals = _bm.extract_public_signals(combined)
-    return _bm.score_public(signals)
+    return _bm.score_public(signals, lang)
 
 
 def _build_references(sections: dict, gen_date: str, lang: str = "zh") -> list:
@@ -1096,7 +1096,7 @@ def report_to_markdown(report: dict) -> str:
 
 import math as _math
 
-def _compute_strategy_radar(sections: dict) -> dict:
+def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
     """Compute 6-dimension strategy radar scores (0-100) from report data."""
 
     def _clamp(v): return max(0, min(100, int(v)))
@@ -1161,12 +1161,12 @@ def _compute_strategy_radar(sections: dict) -> dict:
     )
 
     dimensions = [
-        {"key": "product", "label": "产品力", "score": product_score, "emoji": "🎯"},
-        {"key": "social", "label": "社交影响力", "score": social_score, "emoji": "📢"},
-        {"key": "seo", "label": "SEO 权威度", "score": seo_score, "emoji": "🔍"},
-        {"key": "community", "label": "开源/社区", "score": community_score, "emoji": "💻"},
-        {"key": "content", "label": "内容引擎", "score": content_score, "emoji": "📝"},
-        {"key": "launch", "label": "Launch 执行力", "score": launch_score, "emoji": "🚀"},
+        {"key": "product", "label": _T(lang, "Product Power", "产品力"), "score": product_score, "emoji": "🎯"},
+        {"key": "social", "label": _T(lang, "Social Influence", "社交影响力"), "score": social_score, "emoji": "📢"},
+        {"key": "seo", "label": _T(lang, "SEO Authority", "SEO 权威度"), "score": seo_score, "emoji": "🔍"},
+        {"key": "community", "label": _T(lang, "Open Source / Community", "开源/社区"), "score": community_score, "emoji": "💻"},
+        {"key": "content", "label": _T(lang, "Content Engine", "内容引擎"), "score": content_score, "emoji": "📝"},
+        {"key": "launch", "label": _T(lang, "Launch Execution", "Launch 执行力"), "score": launch_score, "emoji": "🚀"},
     ]
 
     total = sum(d["score"] for d in dimensions)
