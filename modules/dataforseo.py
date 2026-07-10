@@ -108,7 +108,7 @@ async def analyze_domain(domain: str) -> dict:
 
     try:
         from .audit_cache import cached_fetch, TTL
-        return await cached_fetch(
+        res = await cached_fetch(
             source="dataforseo",
             cache_key=resolved,
             ttl_seconds=TTL.DATAFORSEO,
@@ -116,7 +116,16 @@ async def analyze_domain(domain: str) -> dict:
         )
     except Exception:
         # Defensive — cache layer failures must never block the audit.
-        return await _fetch_and_annotate()
+        res = await _fetch_and_annotate()
+
+    # Recompute growth_analysis OUTSIDE the cache: it produces language-sensitive
+    # text (via the report-lang ContextVar), but the cache key is domain-only, so
+    # a cached copy would freeze whatever language the first caller used. The raw
+    # DataForSEO metrics stay cached (the expensive part); only this cheap
+    # derivation runs fresh each call so EN/ZH reports always match.
+    if isinstance(res, dict) and not res.get("error"):
+        res["growth_analysis"] = _analyze_growth(res)
+    return res
 
 
 async def _analyze_domain_uncached(domain: str) -> dict:
@@ -150,8 +159,9 @@ async def _analyze_domain_uncached(domain: str) -> dict:
         results["top_keywords"] = keywords if not isinstance(keywords, Exception) else {"error": str(keywords)[:100]}
         results["historical"] = history if not isinstance(history, Exception) else {"error": str(history)[:100]}
 
-    # Generate growth analysis from historical data
-    results["growth_analysis"] = _analyze_growth(results)
+    # NOTE: growth_analysis is computed in analyze_domain() AFTER the cache layer,
+    # not here — it emits language-sensitive text and must not be frozen into the
+    # domain-keyed cache. See analyze_domain() for the post-cache recompute.
     results["total_cost"] = sum(r.get("cost", 0) for r in results.values() if isinstance(r, dict))
 
     return results
