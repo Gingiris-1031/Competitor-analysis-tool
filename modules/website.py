@@ -8,6 +8,8 @@ from urllib.parse import urlparse, urljoin
 import asyncio
 import re
 
+from .i18n import _T
+
 # ---------------------------------------------------------------------------
 # Wayback cache — disk (fast) + Supabase (persistent across Railway restarts)
 # ---------------------------------------------------------------------------
@@ -218,10 +220,12 @@ async def analyze_website(url: str) -> dict:
         "first_seen_raw": raw_first_seen,
         "current_owner_since": current_owner_since,
         "ownership_gap_years": ownership_gap_years,
-        "ownership_note": (
+        "ownership_note": (_T(
+            f"Wayback shows the domain first seen at {first_seen}, but with a {ownership_gap_years}-year snapshot gap; "
+            f"current operation likely started around {current_owner_since}, not {first_seen}",
             f"Wayback 显示域名最早 {first_seen}，但有 {ownership_gap_years} 年快照空档,"
             f"当前运营可能从 {current_owner_since} 起,不是 {first_seen}"
-        ) if current_owner_since else None,
+        )) if current_owner_since else None,
         "total_snapshots": wayback_meta.get("total_count", 0),
         "deep_timeline": real_snapshots,
         "current_site": current,
@@ -766,19 +770,19 @@ def _extract_page_structure(html: str, timestamp: str, url: str) -> dict:
     # === Structure summary ===
     structure_parts = []
     if nav_links:
-        structure_parts.append(f"导航栏: {' / '.join(nav_links[:8])}")
+        structure_parts.append(_T(f"Nav: {' / '.join(nav_links[:8])}", f"导航栏: {' / '.join(nav_links[:8])}"))
     if h1s:
-        structure_parts.append(f"首屏: {h1s[0][:50]}")
+        structure_parts.append(_T(f"Hero: {h1s[0][:50]}", f"首屏: {h1s[0][:50]}"))
     for h in h2s[:8]:
         structure_parts.append(h)
     if has_pricing:
-        structure_parts.append("💰 定价页面")
+        structure_parts.append(_T("💰 Pricing page", "💰 定价页面"))
     if has_faq:
         structure_parts.append("❓ FAQ")
     if has_logos:
-        structure_parts.append("🏢 企业 Logo 墙")
+        structure_parts.append(_T("🏢 Customer logo wall", "🏢 企业 Logo 墙"))
     if has_testimonials or has_case_study:
-        structure_parts.append("📝 用户案例/评价")
+        structure_parts.append(_T("📝 Case studies / testimonials", "📝 用户案例/评价"))
     
     # Construct Wayback iframe-safe preview URL from timestamp + original domain
     preview_url = ""
@@ -834,31 +838,31 @@ def _detect_changes(snapshots: list, current: dict) -> list:
         
         # Slogan change
         if prev.get("slogan", "") != curr.get("slogan", ""):
-            change_items.append(f"Slogan 变更: \"{curr.get('slogan', '')[:50]}\"")
-        
+            change_items.append(_T(f"Slogan changed: \"{curr.get('slogan', '')[:50]}\"", f"Slogan 变更: \"{curr.get('slogan', '')[:50]}\""))
+
         # New features
         prev_features = prev.get("features", {})
         curr_features = curr.get("features", {})
-        for key, label in [
-            ("pricing", "定价页"), ("blog", "博客"), ("docs", "文档"),
-            ("changelog", "Changelog"), ("faq", "FAQ"), ("trial", "免费试用"),
-            ("demo", "Demo"), ("logos", "企业 Logo 墙"), ("case_study", "用户案例"),
+        for key, label_en, label_zh in [
+            ("pricing", "Pricing page", "定价页"), ("blog", "Blog", "博客"), ("docs", "Docs", "文档"),
+            ("changelog", "Changelog", "Changelog"), ("faq", "FAQ", "FAQ"), ("trial", "Free trial", "免费试用"),
+            ("demo", "Demo", "Demo"), ("logos", "Customer logo wall", "企业 Logo 墙"), ("case_study", "Case studies", "用户案例"),
         ]:
             if curr_features.get(key) and not prev_features.get(key):
-                change_items.append(f"新增: {label}")
-        
+                change_items.append(_T(f"Added: {label_en}", f"新增: {label_zh}"))
+
         # Social links change
         prev_social = set(prev.get("social_links", {}).keys())
         curr_social = set(curr.get("social_links", {}).keys())
         new_social = curr_social - prev_social
         if new_social:
-            change_items.append(f"社媒外链新增: {', '.join(new_social)}")
-        
+            change_items.append(_T(f"New social links: {', '.join(new_social)}", f"社媒外链新增: {', '.join(new_social)}"))
+
         # Section count change
         prev_count = prev.get("section_count", 0)
         curr_count = curr.get("section_count", 0)
         if curr_count > prev_count + 2:
-            change_items.append(f"页面板块增加: {prev_count} → {curr_count}")
+            change_items.append(_T(f"Page sections increased: {prev_count} → {curr_count}", f"页面板块增加: {prev_count} → {curr_count}"))
         
         if change_items:
             changes.append({

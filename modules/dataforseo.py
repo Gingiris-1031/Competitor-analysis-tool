@@ -5,6 +5,8 @@ import base64
 import asyncio
 import logging
 
+from .i18n import _T
+
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://api.dataforseo.com/v3"
@@ -440,28 +442,28 @@ def _analyze_growth(results: dict) -> dict:
         growth_pct = ((curr_etv - prev_etv) / prev_etv) * 100
 
         if growth_pct > 50:
-            analysis["milestones"].append(f"🚀 {h['date']}: 流量暴涨 {growth_pct:.0f}%（{prev_etv:,} → {curr_etv:,}）")
+            analysis["milestones"].append(_T(f"🚀 {h['date']}: traffic surged {growth_pct:.0f}% ({prev_etv:,} → {curr_etv:,})", f"🚀 {h['date']}: 流量暴涨 {growth_pct:.0f}%（{prev_etv:,} → {curr_etv:,}）"))
         elif growth_pct < -30:
-            analysis["milestones"].append(f"📉 {h['date']}: 流量下降 {growth_pct:.0f}%（{prev_etv:,} → {curr_etv:,}）")
+            analysis["milestones"].append(_T(f"📉 {h['date']}: traffic dropped {growth_pct:.0f}% ({prev_etv:,} → {curr_etv:,})", f"📉 {h['date']}: 流量下降 {growth_pct:.0f}%（{prev_etv:,} → {curr_etv:,}）"))
 
     # Overall trend
     if len(hist) >= 2:
         first = hist[0].get("organic_traffic", 0) or 1
         last = hist[-1].get("organic_traffic", 0)
         total_growth = ((last - first) / first) * 100
-        analysis["insights"].append(f"📊 总体增长: {first:,} → {last:,}（{total_growth:+.0f}%，{len(hist)} 个月）")
+        analysis["insights"].append(_T(f"📊 Overall growth: {first:,} → {last:,} ({total_growth:+.0f}%, {len(hist)} months)", f"📊 总体增长: {first:,} → {last:,}（{total_growth:+.0f}%，{len(hist)} 个月）"))
 
     # Current metrics
     rank = results.get("domain_rank", {})
     if rank.get("organic_traffic"):
-        analysis["insights"].append(f"🔍 当前有机流量: {rank['organic_traffic']:,}/月")
-        analysis["insights"].append(f"📝 排名关键词: {rank.get('total_keywords', 0):,} 个（Top 1: {rank.get('keywords_top1', 0)}，Top 10: {rank.get('keywords_top10', 0)}）")
-        analysis["insights"].append(f"💰 等效付费流量成本: ${rank.get('estimated_paid_cost', 0):,}/月")
+        analysis["insights"].append(_T(f"🔍 Current organic traffic: {rank['organic_traffic']:,}/mo", f"🔍 当前有机流量: {rank['organic_traffic']:,}/月"))
+        analysis["insights"].append(_T(f"📝 Ranking keywords: {rank.get('total_keywords', 0):,} (Top 1: {rank.get('keywords_top1', 0)}, Top 10: {rank.get('keywords_top10', 0)})", f"📝 排名关键词: {rank.get('total_keywords', 0):,} 个（Top 1: {rank.get('keywords_top1', 0)}，Top 10: {rank.get('keywords_top10', 0)}）"))
+        analysis["insights"].append(_T(f"💰 Equivalent paid-traffic cost: ${rank.get('estimated_paid_cost', 0):,}/mo", f"💰 等效付费流量成本: ${rank.get('estimated_paid_cost', 0):,}/月"))
 
     bl = results.get("backlinks", {})
     if bl.get("backlinks"):
-        analysis["insights"].append(f"🔗 反向链接: {bl['backlinks']:,}（{bl.get('referring_domains', 0):,} 引用域名）")
-        analysis["insights"].append(f"📈 域名排名: {bl.get('domain_rank', 0)}")
+        analysis["insights"].append(_T(f"🔗 Backlinks: {bl['backlinks']:,} ({bl.get('referring_domains', 0):,} referring domains)", f"🔗 反向链接: {bl['backlinks']:,}（{bl.get('referring_domains', 0):,} 引用域名）"))
+        analysis["insights"].append(_T(f"📈 Domain rank: {bl.get('domain_rank', 0)}", f"📈 域名排名: {bl.get('domain_rank', 0)}"))
 
     # Detect phases
     if hist:
@@ -473,9 +475,9 @@ def _analyze_growth(results: dict) -> dict:
         launch_idx = next((i for i, v in enumerate(etv_values) if v > max_etv * 0.05), 0)
         if launch_idx > 0:
             analysis["phases"].append({
-                "name": "🌱 探索与初步验证期",
+                "name": _T("🌱 Exploration & early validation", "🌱 探索与初步验证期"),
                 "period": f"{hist[0]['date']} — {hist[launch_idx]['date']}",
-                "description": f"流量在 {etv_values[0]:,} — {etv_values[launch_idx]:,} 间波动",
+                "description": _T(f"Traffic fluctuated between {etv_values[0]:,} — {etv_values[launch_idx]:,}", f"流量在 {etv_values[0]:,} — {etv_values[launch_idx]:,} 间波动"),
             })
 
         # Find explosive growth (>50% MoM)
@@ -486,9 +488,9 @@ def _analyze_growth(results: dict) -> dict:
             start_idx = explosive[0][0] - 1
             end_idx = explosive[-1][0]
             analysis["phases"].append({
-                "name": "🚀 爆发增长期",
+                "name": _T("🚀 Explosive growth", "🚀 爆发增长期"),
                 "period": f"{hist[start_idx]['date']} — {hist[min(end_idx+1, len(hist)-1)]['date']}",
-                "description": f"流量从 {etv_values[start_idx]:,} 飙升至 {etv_values[min(end_idx+1, len(hist)-1)]:,}",
+                "description": _T(f"Traffic surged from {etv_values[start_idx]:,} to {etv_values[min(end_idx+1, len(hist)-1)]:,}", f"流量从 {etv_values[start_idx]:,} 飙升至 {etv_values[min(end_idx+1, len(hist)-1)]:,}"),
             })
 
     return analysis

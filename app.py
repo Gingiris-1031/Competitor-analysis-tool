@@ -2252,7 +2252,7 @@ async def _run_analysis(job_id: str):
 
         # Recompute strategy radar now that ALL sections are available
         from modules.report import _compute_strategy_radar
-        report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"])
+        report["sections"]["strategy_radar"] = _compute_strategy_radar(report["sections"], _lang)
 
         job["report"] = report
         try:

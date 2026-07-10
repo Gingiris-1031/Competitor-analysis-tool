@@ -28,6 +28,8 @@ import logging
 import os
 import re
 
+from .i18n import _T as _TC  # ContextVar-based translator for lang-less helpers
+
 log = logging.getLogger(__name__)
 
 
@@ -461,7 +463,11 @@ def _detect_source_conflicts(facts: dict) -> list:
             "kind": "social_dominant_distribution",
             "severity": "high",
             "sources": ["dataforseo", "social"],
-            "message": (
+            "message": _TC(
+                f"Twitter / social following ({int(largest_social):,}) far exceeds monthly organic visits "
+                f"({int(traffic):,}, ratio {largest_social / max(traffic, 1):.1f}x). "
+                "→ Users mainly arrive via social media, not an SEO funnel. A clear signal of a social-led or "
+                "community-led product — when replicating, weight social investment over content SEO.",
                 f"Twitter / 社交粉丝（{int(largest_social):,}）远超月有机访问"
                 f"（{int(traffic):,}，比例 {largest_social / max(traffic, 1):.1f}x）。"
                 "→ 用户主要从社交媒体进入，不是 SEO 漏斗。这是 social-led 或 "
@@ -475,7 +481,11 @@ def _detect_source_conflicts(facts: dict) -> list:
             "kind": "oss_launch_synergy",
             "severity": "medium",
             "sources": ["github", "producthunt"],
-            "message": (
+            "message": _TC(
+                f"GitHub {int(gh_stars):,} stars + PH total upvotes {int(ph_total_upvotes):,}"
+                f" (best rank #{int(ph_best_rank) if ph_best_rank else '?'}) — "
+                "a classic open-source + PH launch dual-engine combo. Study their "
+                "«pre-launch README optimization» + HN/Reddit supporting cadence.",
                 f"GitHub {int(gh_stars):,} stars + PH 总票数 {int(ph_total_upvotes):,}"
                 f"（最佳排名 #{int(ph_best_rank) if ph_best_rank else '?'}） — "
                 "经典的开源 + PH launch 双引擎组合。建议研究他们的"
@@ -495,7 +505,11 @@ def _detect_source_conflicts(facts: dict) -> list:
                     "kind": "site_predates_ph",
                     "severity": "medium",
                     "sources": ["wayback", "producthunt"],
-                    "message": (
+                    "message": _TC(
+                        f"Domain first seen {wb_d.date()}, {delta_days} days before the PH debut"
+                        f" ({ph_d.date()}). "
+                        "→ Not a day-one PH launch; they polished for ~{} months before shipping to PH. "
+                        "When replicating, don't rush the launch — this product type may need traction first.",
                         f"域名首次出现 {wb_d.date()} 比 PH 首发"
                         f"（{ph_d.date()}）早 {delta_days} 天。"
                         "→ 不是 day-one PH launch，先打磨 ~{}个月后才发 PH。"
@@ -507,7 +521,10 @@ def _detect_source_conflicts(facts: dict) -> list:
                     "kind": "day_zero_ph_launch",
                     "severity": "medium",
                     "sources": ["wayback", "producthunt"],
-                    "message": (
+                    "message": _TC(
+                        f"Domain registered {wb_d.date()}, PH launch {ph_d.date()} — "
+                        "almost a day-zero launch. "
+                        "→ MVP-first play: ship first, use PH as the PR engine.",
                         f"域名 {wb_d.date()} 注册，PH {ph_d.date()} 发布 — "
                         f"几乎是 day-zero launch。"
                         "→ MVP-first 打法：先 ship，PH 当 PR 引擎。"
@@ -524,7 +541,10 @@ def _detect_source_conflicts(facts: dict) -> list:
                 "kind": "concentrated_backlinks",
                 "severity": "low",
                 "sources": ["dataforseo"],
-                "message": (
+                "message": _TC(
+                    f"{int(backlinks):,} backlinks from {int(referring_domains)} referring domains"
+                    f" ({ratio:.0f} links/domain). Such a high ratio usually indicates "
+                    "PBN / templated links / forum signatures — low link quality, higher penalty risk.",
                     f"反链 {int(backlinks):,} 来自 {int(referring_domains)} 个引用域名"
                     f"（每域 {ratio:.0f} 条链接）。这种高比率通常意味着 "
                     "PBN / 模板链接 / 论坛签名 — 链接质量偏低，被惩罚风险较高。"
@@ -535,7 +555,9 @@ def _detect_source_conflicts(facts: dict) -> list:
                 "kind": "diverse_backlinks",
                 "severity": "low",
                 "sources": ["dataforseo"],
-                "message": (
+                "message": _TC(
+                    f"{int(backlinks):,} backlinks spread across {int(referring_domains)} domains"
+                    f" ({ratio:.1f} links/domain). Diverse link sources — a healthy sign of organic growth.",
                     f"反链 {int(backlinks):,} 分布在 {int(referring_domains)} 个域名"
                     f"（每域 {ratio:.1f} 条）。链接源多样 — 自然增长的健康信号。"
                 ),
@@ -547,7 +569,10 @@ def _detect_source_conflicts(facts: dict) -> list:
             "kind": "active_oss_community",
             "severity": "medium",
             "sources": ["github", "homepage"],
-            "message": (
+            "message": _TC(
+                f"GitHub {int(gh_contribs)} external contributors + free tier — "
+                "an active OSS community has formed. This means the contributor-onboarding flow works well; "
+                "when replicating, copy their CONTRIBUTING.md + first-time-PR labeling strategy.",
                 f"GitHub {int(gh_contribs)} 名外部贡献者 + 免费层 — "
                 "活跃的 OSS 社区已经形成。这意味着 contributor onboarding 流程做得不错，"
                 "复刻时务必抄他们的 CONTRIBUTING.md + first-time-PR 标签策略。"
@@ -714,6 +739,16 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
             "is being scanned by an automated reviewer that will reject any Chinese character "
             "(including 一-鿿, Chinese punctuation, and fullwidth forms like ＋)."
         )
+    # Verdict JSON schema — enum values must match the report language so the
+    # LLM doesn't copy Chinese options verbatim into an EN report's verdict.
+    if (lang or "en").lower() == "zh":
+        _verdict_schema = ('{"killer_move": "一句话描述竞品的核心杀手锏（15字以内）", '
+                           '"growth_pattern": "从以下选一个：开源社区驱动|PLG 产品驱动|内容 SEO 驱动|社交病毒传播|模板飞轮驱动|企业销售驱动", '
+                           '"replicability": "高|中|低", "one_line_verdict": "一句话战略判定（20字以内）"}')
+    else:
+        _verdict_schema = ('{"killer_move": "one-line description of the competitor\'s core killer advantage (<=12 words)", '
+                           '"growth_pattern": "pick one: OSS community-driven|PLG product-driven|Content/SEO-driven|Social viral|Template flywheel|Enterprise sales-driven", '
+                           '"replicability": "High|Medium|Low", "one_line_verdict": "one-line strategic verdict (<=16 words)"}')
     prompt = f"""{_lang_note}你是一位顶级出海产品增长顾问，曾帮助多个开源产品从 0 到 60K+ GitHub stars，参与过多个 PLG 产品的 0→1 阶段策略制定。
 
 以下是对竞品 **{product_name}** ({url}) 的系统化调研数据，来源包括 Wayback Machine 历史快照、Product Hunt 发布记录、DataForSEO 流量数据、社交媒体数据以及 Gingiris Playbook 智能匹配。
@@ -884,7 +919,7 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 ## 最后，额外输出一个 JSON 块（用 ```json 包裹），格式如下：
 
 ```json
-{{"killer_move": "一句话描述竞品的核心杀手锏（15字以内）", "growth_pattern": "从以下选一个：开源社区驱动|PLG 产品驱动|内容 SEO 驱动|社交病毒传播|模板飞轮驱动|企业销售驱动", "replicability": "高|中|低", "one_line_verdict": "一句话战略判定（20字以内）"}}
+{_verdict_schema}
 ```
 
 这个 JSON 会被程序自动提取，必须严格遵守格式。""" + _lang_tail
@@ -1530,7 +1565,7 @@ def _build_github_insight(github_oss: dict, lang: str = "zh") -> str:
     # Auto insights
     insights = g.get("insights", [])
     if insights:
-        parts.append("- 自动洞察：")
+        parts.append(_T(lang, "- Auto insights:", "- 自动洞察："))
         for ins in insights[:5]:
             parts.append(f"  · {ins}")
 
@@ -1628,14 +1663,15 @@ async def _call_llm(prompt: str) -> dict:
             return result
 
     return {"success": False, "content": "",
-            "note": ("LLM 调用失败: " + " / ".join(errs))[:250], "source": "error"}
+            "note": (_TC("LLM call failed: ", "LLM 调用失败: ") + " / ".join(errs))[:250], "source": "error"}
 
 
 def _fallback_summary() -> dict:
     return {
         "success": False,
         "content": "",
-        "note": "⚙️ AI 分析需配置 DEEPSEEK_API_KEY 或 OPENROUTER_API_KEY 环境变量。",
+        "note": _TC("⚙️ AI analysis requires the DEEPSEEK_API_KEY or OPENROUTER_API_KEY environment variable.",
+                    "⚙️ AI 分析需配置 DEEPSEEK_API_KEY 或 OPENROUTER_API_KEY 环境变量。"),
         "source": "fallback",
     }
 

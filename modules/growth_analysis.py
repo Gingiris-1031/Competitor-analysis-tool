@@ -2,6 +2,8 @@
 import re
 from datetime import datetime
 
+from .i18n import _T
+
 try:
     from .propagation import summarize_propagation_for_growth
 except ImportError:
@@ -234,7 +236,7 @@ def _build_zero_to_one(product_name: str, website: dict, traffic: dict, producth
         events.append({
             "date": first_seen,
             "type": "milestone",
-            "event": f"{product_name} 域名首次出现在 Wayback Machine",
+            "event": _T(f"{product_name} domain first appeared on the Wayback Machine", f"{product_name} 域名首次出现在 Wayback Machine"),
             "source": "Wayback Machine",
         })
 
@@ -261,7 +263,7 @@ def _build_zero_to_one(product_name: str, website: dict, traffic: dict, producth
             events.append({
                 "date": other.get("launch_date", ""),
                 "type": "launch",
-                "event": f"Product Hunt 再次 Launch「{other.get('name', '')}」— ⬆{other.get('votes', 0)} votes",
+                "event": _T(f"Product Hunt re-launch «{other.get('name', '')}» — ⬆{other.get('votes', 0)} votes", f"Product Hunt 再次 Launch「{other.get('name', '')}」— ⬆{other.get('votes', 0)} votes"),
                 "source": "Product Hunt",
             })
 
@@ -283,7 +285,7 @@ def _build_zero_to_one(product_name: str, website: dict, traffic: dict, producth
                     events.append({
                         "date": history[i].get("date", ""),
                         "type": "traffic_spike",
-                        "event": f"有机流量激增 +{growth_pct:.0f}%（{prev:,} → {curr:,}/月）",
+                        "event": _T(f"Organic traffic surged +{growth_pct:.0f}% ({prev:,} → {curr:,}/mo)", f"有机流量激增 +{growth_pct:.0f}%（{prev:,} → {curr:,}/月）"),
                         "source": "DataForSEO",
                         "metrics": {"from": prev, "to": curr, "growth_pct": round(growth_pct)},
                     })
@@ -303,7 +305,7 @@ def _build_zero_to_one(product_name: str, website: dict, traffic: dict, producth
                 events.append({
                     "date": date,
                     "type": "seo_milestone",
-                    "event": f"排名关键词突破 {kw_count:,}（从 {first_kw:,} 翻倍）",
+                    "event": _T(f"Ranking keywords broke {kw_count:,} (doubled from {first_kw:,})", f"排名关键词突破 {kw_count:,}（从 {first_kw:,} 翻倍）"),
                     "source": "DataForSEO",
                 })
                 break
@@ -380,8 +382,8 @@ def _detect_launch_waves(product_name: str, website: dict, social: dict, traffic
                 launches.append({
                     "date": history[i].get("date", ""),
                     "channel": "Organic Traffic Spike",
-                    "name": f"流量激增 +{growth_pct:.0f}%",
-                    "tagline": f"{prev:,} → {curr:,}/月",
+                    "name": _T(f"Traffic surge +{growth_pct:.0f}%", f"流量激增 +{growth_pct:.0f}%"),
+                    "tagline": _T(f"{prev:,} → {curr:,}/mo", f"{prev:,} → {curr:,}/月"),
                     "metrics": {"traffic_before": prev, "traffic_after": curr, "growth_pct": round(growth_pct)},
                 })
 
@@ -438,11 +440,11 @@ def _detect_launch_waves(product_name: str, website: dict, social: dict, traffic
             if days > 0:
                 avg_interval = days // (len(dates) - 1)
                 if avg_interval < 60:
-                    waves["launch_cadence"] = f"高频（约每 {avg_interval} 天一波）"
+                    waves["launch_cadence"] = _T(f"High frequency (~one wave every {avg_interval} days)", f"高频（约每 {avg_interval} 天一波）")
                 elif avg_interval < 180:
-                    waves["launch_cadence"] = f"中频（约每 {avg_interval // 30} 个月一波）"
+                    waves["launch_cadence"] = _T(f"Medium frequency (~one wave every {avg_interval // 30} months)", f"中频（约每 {avg_interval // 30} 个月一波）")
                 else:
-                    waves["launch_cadence"] = f"低频（约每 {avg_interval // 30} 个月一波）"
+                    waves["launch_cadence"] = _T(f"Low frequency (~one wave every {avg_interval // 30} months)", f"低频（约每 {avg_interval // 30} 个月一波）")
 
     return waves
 
