@@ -55,6 +55,43 @@ def generate_report(product_name: str, url: str, website: dict, social: dict, tr
     return report
 
 
+def reconcile_github_channel(sections: dict, github_oss: dict) -> None:
+    """修 bug：开源分析（github_oss）找到了 GitHub repo，但「账号匹配」(social_media.channels.github)
+    因精确匹配 handle 失败而标 detected=False，导致同一份报告里两处对 GitHub 判断不一致
+    （AFFiNE report/53b9c7ca：开源分析匹配到 toeverything/affine，账号匹配却不显示 GitHub）。
+    以 github_oss 的确凿结果为准，回填 github channel。原地修改 sections。"""
+    if not isinstance(github_oss, dict) or not github_oss.get("found"):
+        return
+    soc = sections.get("social_media")
+    if not isinstance(soc, dict):
+        return
+    ch = soc.get("channels")
+    if not isinstance(ch, dict):
+        return
+    gh = ch.get("github")
+    if not isinstance(gh, dict) or gh.get("detected"):
+        return  # 已匹配到就不覆盖
+    owner = github_oss.get("owner") or ""
+    repo = github_oss.get("repo") or ""
+    url = github_oss.get("repo_url") or (f"https://github.com/{owner}" if owner else None)
+    if not url:
+        return
+    stars = github_oss.get("stars") or 0
+    slug = f"{owner}/{repo}" if owner and repo else (repo or owner)
+    gh.update({
+        "detected": True,
+        "url": url,
+        "type": "org" if owner else "user",
+        "handle": owner or repo,
+        "stars_total": stars,
+        "public_repos": gh.get("public_repos") or (1 if repo else 0),
+        "followers": github_oss.get("contributors") or gh.get("followers") or 0,
+        "note": f"经开源分析匹配到 {slug}",
+        "top_repos": gh.get("top_repos") or ([{"name": slug, "stars": stars}] if slug else []),
+        "reconciled_from": "github_oss",
+    })
+
+
 def _compute_growth_score(website: dict, traffic: dict, social: dict, producthunt: dict, lang: str = "zh") -> dict:
     """从竞品分析已抓的公开信号算「公开增长成熟度分」（Iris 批准口径）。"""
     from modules import benchmarks as _bm

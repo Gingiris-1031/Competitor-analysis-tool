@@ -2246,6 +2246,13 @@ async def _run_analysis(job_id: str):
         report["sections"]["growth_strategy"] = growth_strategy
         report["sections"]["pricing"] = job["results"].get("pricing", {})
         report["sections"]["github_oss"] = job["results"].get("github_oss", {})
+        # 修 bug：开源分析匹配到 GitHub repo 时，回填「账号匹配」的 github channel，
+        # 避免同一报告里开源分析显示 GitHub、账号匹配却缺 GitHub 的矛盾。
+        try:
+            from modules.report import reconcile_github_channel
+            reconcile_github_channel(report["sections"], report["sections"]["github_oss"])
+        except Exception:
+            pass
         report["sections"]["pr_news"]    = job["results"].get("pr_news", {})
         report["sections"]["funding"]    = job["results"].get("funding", {})
         report["sections"]["bizmodel"]   = job["results"].get("bizmodel", {})
