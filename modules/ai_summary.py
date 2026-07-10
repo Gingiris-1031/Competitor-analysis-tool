@@ -931,6 +931,23 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
 
     _log.warning("generate_ai_summary: _call_llm returned success=%s source=%s", result.get("success"), result.get("source"))
 
+    # EN reports: if the (weaker) LLM echoed Chinese from the prompt/data blocks
+    # into its free text, retry once with a hard English-only directive. Cheap
+    # insurance against the residual CJK-echo leak the ContextVar module fixes
+    # cannot reach (this is model-generated prose, not templated strings).
+    if (lang or "en").lower() != "zh" and result.get("success") and result.get("content") \
+            and re.search(r"[一-鿿]", result["content"]):
+        _log.warning("generate_ai_summary: EN output contained CJK — retrying once, English-only")
+        retry_prompt = prompt + (
+            "\n\n🚨 YOUR PREVIOUS RESPONSE CONTAINED CHINESE CHARACTERS, WHICH IS FORBIDDEN. "
+            "Regenerate the ENTIRE report from scratch in 100% fluent English. Do NOT quote, echo, "
+            "or paraphrase ANY Chinese text from the instructions or data blocks — translate every "
+            "Chinese fragment to English first. Absolutely ZERO CJK characters allowed in the output.")
+        retry = await _call_llm(retry_prompt)
+        if retry.get("success") and retry.get("content") and not re.search(r"[一-鿿]", retry["content"]):
+            result = retry
+            _log.warning("generate_ai_summary: retry produced clean EN output")
+
     # Extract verdict JSON from AI response
     if result.get("success") and result.get("content"):
         json_match = re.search(r'```json\s*(\{.*?\})\s*```', result["content"], re.DOTALL)

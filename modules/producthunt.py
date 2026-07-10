@@ -5,6 +5,8 @@ import re
 import json
 import logging
 
+from .i18n import _T
+
 PH_API = "https://api.producthunt.com/v2/api/graphql"
 PH_PRODUCT_URL = "https://www.producthunt.com/products/{slug}"
 
@@ -180,7 +182,10 @@ async def analyze_producthunt(domain: str, product_name: str) -> dict:
                     "url": result.get("url"),
                     "website": result.get("website"),
                 },
-                "note": (
+                "note": _T(
+                    "No product matching this domain/brand was found on Product Hunt "
+                    "(filtered out a likely mismatch whose name and domain both differed). "
+                    "Manual search: producthunt.com/search?q=" + brand,
                     "未在 Product Hunt 上找到与该域名/品牌匹配的产品"
                     "（已过滤一个名称与域名都不匹配的疑似误匹配结果）。"
                     "可手动搜索：producthunt.com/search?q=" + brand
@@ -392,7 +397,8 @@ async def _analyze_producthunt_impl(domain: str, product_name: str) -> dict:
     return {
         "found": False,
         "slugs_tried": [brand, name_slug, *brave_slugs],
-        "note": "未在 Product Hunt 上找到该产品。可手动搜索：producthunt.com/search?q=" + brand
+        "note": _T("This product was not found on Product Hunt. Manual search: producthunt.com/search?q=" + brand,
+                   "未在 Product Hunt 上找到该产品。可手动搜索：producthunt.com/search?q=" + brand) + ""
     }
 
 
