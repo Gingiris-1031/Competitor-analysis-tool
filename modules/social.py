@@ -7,6 +7,8 @@ import re
 import logging
 from urllib.parse import quote
 
+from .i18n import _T
+
 log = logging.getLogger(__name__)
 
 # 可选：传播深度分析（propagation.py）
@@ -129,8 +131,8 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     results["_tiktok_hint"] = tiktok_hint
     results["_facebook_hint"] = facebook_hint
     # Placeholders — will be filled by app.py Phase 1.5
-    results["channels"]["tiktok"]   = {"platform": "TikTok",    "detected": False, "note": "🔄 采集中…"}
-    results["channels"]["facebook"] = {"platform": "Facebook",  "detected": False, "note": "🔄 采集中…"}
+    results["channels"]["tiktok"]   = {"platform": "TikTok",    "detected": False, "note": _T("🔄 Collecting…", "🔄 采集中…")}
+    results["channels"]["facebook"] = {"platform": "Facebook",  "detected": False, "note": _T("🔄 Collecting…", "🔄 采集中…")}
 
     async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
@@ -148,7 +150,7 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
                 )
             except _aio.TimeoutError:
                 return {"platform": "Twitter/X", "detected": False, "handle": None,
-                        "note": "Twitter 分析超时"}
+                        "note": _T("Twitter analysis timed out", "Twitter 分析超时")}
 
         twitter_task   = _twitter_with_timeout()
         youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint, domain=domain)
@@ -206,7 +208,7 @@ async def run_launch_propagation(social_result: dict) -> dict:
       - 不阻塞主流程；调用方可按需决定是否执行
     """
     if analyze_launch_propagation is None:
-        return {"error": "propagation.py 未找到或导入失败"}
+        return {"error": _T("propagation.py not found or failed to import", "propagation.py 未找到或导入失败")}
 
     brand = social_result.get("brand", "")
     twitter = social_result.get("channels", {}).get("twitter", {})
@@ -215,7 +217,7 @@ async def run_launch_propagation(social_result: dict) -> dict:
     if not top_tweets:
         return {
             "data_mode": "empty",
-            "error": "Twitter top_tweets 为空，无法进行传播分析",
+            "error": _T("Twitter top_tweets is empty — cannot run propagation analysis", "Twitter top_tweets 为空，无法进行传播分析"),
         }
 
     return await analyze_launch_propagation(
@@ -898,13 +900,15 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             # If TwitterAPI.io had errors, say so — user should know follower
             # count couldn't be verified against the source of truth.
             if api_errors and not followers:
-                result["note"] = f"⚠️ TwitterAPI.io 返回错误（{api_errors[0]}），账号存在但粉丝数未抓到。可重试或查看 api_status"
+                result["note"] = _T(f"⚠️ TwitterAPI.io returned an error ({api_errors[0]}); account exists but follower count wasn't fetched. Retry or check api_status",
+                                     f"⚠️ TwitterAPI.io 返回错误（{api_errors[0]}），账号存在但粉丝数未抓到。可重试或查看 api_status")
                 result["api_status"] = "degraded"
             elif followers:
-                result["note"] = "粉丝数来自 Brave Search（TwitterAPI.io 未找到匹配账号）"
+                result["note"] = _T("Follower count from Brave Search (TwitterAPI.io found no matching account)",
+                                     "粉丝数来自 Brave Search（TwitterAPI.io 未找到匹配账号）")
                 result["api_status"] = "brave_fallback"
             else:
-                result["note"] = "仅 Brave 确认账号存在"
+                result["note"] = _T("Only Brave confirms the account exists", "仅 Brave 确认账号存在")
                 result["api_status"] = "partial"
         else:
             tried_str = ", ".join(handles_to_try[:3])
@@ -914,23 +918,26 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             # @costarastrology (1M+ followers) that we just couldn't reach.
             if api_errors and twitterapi_key:
                 err_sample = api_errors[0]
-                result["note"] = (
+                result["note"] = _T(
+                    f"⚠️ Could not detect reliably — all TwitterAPI.io requests failed ({err_sample}, "
+                    f"{len(api_errors)} times). Most likely API rate-limit/auth issues, "
+                    f"not that the account doesn't exist. Retry later or check TWITTERAPI_IO_KEY.",
                     f"⚠️ 未能可靠检测 — TwitterAPI.io 全部请求失败（{err_sample}，"
                     f"共 {len(api_errors)} 次）。大概率是 API 限流/鉴权问题，"
                     f"而非账号不存在。请稍后重试或检查 TWITTERAPI_IO_KEY。"
                 )
                 result["api_status"] = "api_error"
             else:
-                result["note"] = f"未找到 Twitter 账号（尝试了 {tried_str}）"
+                result["note"] = _T(f"No Twitter account found (tried {tried_str})", f"未找到 Twitter 账号（尝试了 {tried_str}）")
                 result["api_status"] = "not_found"
         result["key_posts_framework"] = {
-            "note": "🔍 需 API 充值或手动补充",
+            "note": _T("🔍 Needs API top-up or manual input", "🔍 需 API 充值或手动补充"),
             "needed_data": [
-                "Launch 帖子详情（Views/Likes/Retweets/Quotes/Replies/Bookmarks）",
-                "最高互动帖子 Top 5",
-                "内容分类统计",
-                "发布频次和节奏分析",
-                "KOL 合作帖子列表",
+                _T("Launch post details (Views/Likes/Retweets/Quotes/Replies/Bookmarks)", "Launch 帖子详情（Views/Likes/Retweets/Quotes/Replies/Bookmarks）"),
+                _T("Top 5 most-engaged posts", "最高互动帖子 Top 5"),
+                _T("Content-category breakdown", "内容分类统计"),
+                _T("Posting frequency & cadence analysis", "发布频次和节奏分析"),
+                _T("KOL collaboration post list", "KOL 合作帖子列表"),
             ],
         }
 
@@ -998,17 +1005,17 @@ async def _deep_twitter(client: httpx.AsyncClient, brand: str, name: str) -> dic
                 if following_match:
                     result["following"] = following_match.group(1)
                 
-                result["note"] = "检测到官方账号"
-                
+                result["note"] = _T("Official account detected", "检测到官方账号")
+
                 # Framework for key post analysis (needs Twitter API for full data)
                 result["key_posts_framework"] = {
-                    "note": "🔍 需 Twitter API 或手动补充以下数据",
+                    "note": _T("🔍 Needs Twitter API or manual input for the data below", "🔍 需 Twitter API 或手动补充以下数据"),
                     "needed_data": [
-                        "Launch 帖子详情（Views/Likes/Retweets/Quotes/Replies/Bookmarks）",
-                        "最高互动帖子 Top 5",
-                        "内容分类统计（产品更新/用户案例/教程/招聘/生态合作）",
-                        "发布频次和节奏分析",
-                        "KOL 合作帖子列表",
+                        _T("Launch post details (Views/Likes/Retweets/Quotes/Replies/Bookmarks)", "Launch 帖子详情（Views/Likes/Retweets/Quotes/Replies/Bookmarks）"),
+                        _T("Top 5 most-engaged posts", "最高互动帖子 Top 5"),
+                        _T("Content-category breakdown (product updates / case studies / tutorials / hiring / ecosystem)", "内容分类统计（产品更新/用户案例/教程/招聘/生态合作）"),
+                        _T("Posting frequency & cadence analysis", "发布频次和节奏分析"),
+                        _T("KOL collaboration post list", "KOL 合作帖子列表"),
                     ],
                 }
                 break
@@ -1016,7 +1023,8 @@ async def _deep_twitter(client: httpx.AsyncClient, brand: str, name: str) -> dic
             continue
     
     if not result["detected"]:
-        result["note"] = f"未找到精确匹配（尝试了 {', '.join(handles_to_try[:3])}...），建议手动确认"
+        result["note"] = _T(f"No exact match found (tried {', '.join(handles_to_try[:3])}...) — manual check recommended",
+                             f"未找到精确匹配（尝试了 {', '.join(handles_to_try[:3])}...），建议手动确认")
     
     return result
 
@@ -1069,7 +1077,7 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
             result["subscribers"] = ch.get("numberOfSubscribers") or ch.get("subscriberCount")
             result["video_count"] = ch.get("numberOfVideos") or ch.get("videoCount")
             result["total_views"] = ch.get("channelTotalViews") or ch.get("viewCount")
-            result["note"] = "✅ 通过 Apify 获取 YouTube 频道数据"
+            result["note"] = _T("✅ YouTube channel data fetched via Apify", "✅ 通过 Apify 获取 YouTube 频道数据")
             log.info("YouTube data for @%s fetched via Apify", handle)
             return result
 
@@ -1109,12 +1117,12 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
             sub_m = re.search(r'"subscriberCountText".*?"([\d,.]+[KMB]?)\s*subscriber', r.text, re.I)
             if sub_m:
                 result["subscribers"] = sub_m.group(1)
-            result["note"] = ("✅ 频道页确认链接到 " + domain_clean) if domain_in_page else "检测到频道（来自网站声明）"
+            result["note"] = (_T("✅ Channel page confirms link to ", "✅ 频道页确认链接到 ") + domain_clean) if domain_in_page else _T("Channel detected (from website claim)", "检测到频道（来自网站声明）")
             return result
         except Exception:
             continue
 
-    result["note"] = "未找到精确匹配"
+    result["note"] = _T("No exact match found", "未找到精确匹配")
     return result
 
 
@@ -1457,7 +1465,7 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
                 result["stars_total"] = total_stars
         else:
             tried_str = ", ".join(names_to_try[:3])
-            result["note"] = f"未找到精确匹配（尝试了 {tried_str}…）"
+            result["note"] = _T(f"No exact match found (tried {tried_str}…)", f"未找到精确匹配（尝试了 {tried_str}…）")
 
     except Exception as e:
         result["note"] = f"Error: {str(e)[:100]}"
@@ -1471,7 +1479,7 @@ def _check_linkedin(brand: str) -> dict:
         "platform": "LinkedIn",
         "detected": None,
         "url": f"https://www.linkedin.com/company/{brand}",
-        "note": "🔍 LinkedIn 需登录验证，建议手动检查",
+        "note": _T("🔍 LinkedIn requires login to verify — manual check recommended", "🔍 LinkedIn 需登录验证，建议手动检查"),
     }
 
 
@@ -1519,7 +1527,7 @@ async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dic
                     "detected": True,
                     "url": link,
                     "handle": slug,
-                    "note": f"✅ 经 Google 索引确认（标题: {(res.get('title') or '')[:60]}）",
+                    "note": _T(f"✅ Confirmed via Google index (title: {(res.get('title') or '')[:60]})", f"✅ 经 Google 索引确认（标题: {(res.get('title') or '')[:60]}）"),
                 }
         # Indexed pages exist but none match the brand → likely no LinkedIn
         if results:
@@ -1527,7 +1535,7 @@ async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dic
                 "platform": "LinkedIn",
                 "detected": False,
                 "url": None,
-                "note": "Google 索引中未找到匹配该品牌的 LinkedIn 公司页",
+                "note": _T("No LinkedIn company page matching this brand found in the Google index", "Google 索引中未找到匹配该品牌的 LinkedIn 公司页"),
             }
     except Exception as e:
         log.warning("LinkedIn SerpAPI lookup failed: %s", str(e)[:80])
@@ -1560,7 +1568,7 @@ async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> 
         # so the renderer doesn't link to a guessed URL that may belong to a
         # totally unrelated TikTok user. Iris 2026-06-18: TikTok page on
         # analook report linked to @analook but note said "not found".
-        result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
+        result["note"] = _T("⚠️ APIFY_API_TOKEN not configured", "⚠️ 未配置 APIFY_API_TOKEN")
         return result
 
     for handle in handles:
@@ -1593,13 +1601,13 @@ async def _deep_tiktok_apify(brand: str, name: str, handle_hint: str = None) -> 
         result["likes"] = prof.get("heart") or prof.get("heartCount") or prof.get("diggCount")
         result["video_count"] = prof.get("video") or prof.get("videoCount")
         result["verified"] = bool(prof.get("verified"))
-        result["note"] = "✅ 通过 Apify 获取 TikTok 账号数据"
+        result["note"] = _T("✅ TikTok account data fetched via Apify", "✅ 通过 Apify 获取 TikTok 账号数据")
         log.info("TikTok data for @%s fetched via Apify", uid)
         return result
 
     # No verified match — leave url=None so the share page doesn't link
     # to a guessed URL. Iris 2026-06-18 false-positive fix.
-    result["note"] = f"未找到匹配 TikTok 账号（尝试了 {', '.join(handles[:3])}）"
+    result["note"] = _T(f"No matching TikTok account found (tried {', '.join(handles[:3])})", f"未找到匹配 TikTok 账号（尝试了 {', '.join(handles[:3])}）")
     return result
 
 
@@ -1624,7 +1632,7 @@ async def _deep_facebook_apify(brand: str, name: str, handle_hint: str = None) -
 
     if not _get_apify_token():
         # detected=False → leave url=None (no guessed URL)
-        result["note"] = "⚠️ 未配置 APIFY_API_TOKEN"
+        result["note"] = _T("⚠️ APIFY_API_TOKEN not configured", "⚠️ 未配置 APIFY_API_TOKEN")
         return result
 
     # Try first 2 handles — Facebook scraping is slow, limit scope
@@ -1655,12 +1663,12 @@ async def _deep_facebook_apify(brand: str, name: str, handle_hint: str = None) -
         result["followers"] = page.get("followers") or page.get("followersCount")
         result["likes"] = page.get("likes") or page.get("likesCount")
         result["about"] = (page.get("about") or page.get("description") or "")[:200]
-        result["note"] = "✅ 通过 Apify 获取 Facebook 页面数据"
+        result["note"] = _T("✅ Facebook page data fetched via Apify", "✅ 通过 Apify 获取 Facebook 页面数据")
         log.info("Facebook data for %s fetched via Apify", handle)
         return result
 
     # No verified match — leave url=None (Iris 2026-06-18 false-positive fix)
-    result["note"] = f"未找到匹配 Facebook 页面（尝试了 {', '.join(handles[:2])}）"
+    result["note"] = _T(f"No matching Facebook page found (tried {', '.join(handles[:2])})", f"未找到匹配 Facebook 页面（尝试了 {', '.join(handles[:2])}）")
     return result
 
 
@@ -1696,7 +1704,7 @@ async def _deep_instagram_caravo(brand: str, name: str, handle_hint: str = None)
             if not resp.get("success"):
                 # Stop trying if it's a balance issue — no point burning more API calls
                 if resp.get("need_topup"):
-                    result["note"] = "⚠️ Caravo 余额不足，Instagram 数据未采集"
+                    result["note"] = _T("⚠️ Caravo balance insufficient — Instagram data not collected", "⚠️ Caravo 余额不足，Instagram 数据未采集")
                     return result
                 continue
             data = resp.get("data", {})
@@ -1735,7 +1743,7 @@ async def _deep_instagram_caravo(brand: str, name: str, handle_hint: str = None)
             continue
 
     if not found_handle or not account_data:
-        result["note"] = f"未通过 Caravo API 找到 Instagram（尝试了 {', '.join(handles_to_try[:3])}...）"
+        result["note"] = _T(f"Instagram not found via Caravo API (tried {', '.join(handles_to_try[:3])}...)", f"未通过 Caravo API 找到 Instagram（尝试了 {', '.join(handles_to_try[:3])}...）")
         return result
 
     # Populate account fields (Caravo returns varied key names; try multiple)
@@ -1753,7 +1761,7 @@ async def _deep_instagram_caravo(brand: str, name: str, handle_hint: str = None)
                              or account_data.get("edge_owner_to_timeline_media", {}).get("count"))
     result["bio"] = (account_data.get("biography") or account_data.get("bio") or "")[:200]
     result["verified"] = bool(account_data.get("is_verified") or account_data.get("verified"))
-    result["note"] = "✅ 通过 Caravo Instagram API 获取到账号数据"
+    result["note"] = _T("✅ Account data fetched via Caravo Instagram API", "✅ 通过 Caravo Instagram API 获取到账号数据")
 
     # Fetch recent posts only for accounts with meaningful follower counts (control cost)
     follower_count = result["followers"] or 0
@@ -1890,7 +1898,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
         )
 
     if not metrics["data_sources"]:
-        metrics["note"] = "⚠️ 未能自动采集到社交媒体数据。建议手动补充。"
+        metrics["note"] = _T("⚠️ Could not auto-collect social media data. Manual input recommended.", "⚠️ 未能自动采集到社交媒体数据。建议手动补充。")
     else:
         missing = []
         if not twitter.get("detected"):  missing.append("Twitter/X")
@@ -1898,6 +1906,6 @@ def _calc_propagation_metrics(data: dict) -> dict:
         if not tiktok.get("detected"):   missing.append("TikTok")
         if not facebook.get("detected"): missing.append("Facebook")
         missing.append("LinkedIn")
-        metrics["note"] = f"📊 已采集: {', '.join(metrics['data_sources'])}。" + (f" 未采集: {', '.join(missing)}。" if missing else "")
+        metrics["note"] = _T(f"📊 Collected: {', '.join(metrics['data_sources'])}.", f"📊 已采集: {', '.join(metrics['data_sources'])}。") + (_T(f" Not collected: {', '.join(missing)}.", f" 未采集: {', '.join(missing)}。") if missing else "")
     
     return metrics

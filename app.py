@@ -1820,7 +1820,7 @@ async def _run_analysis(job_id: str):
     # Propagate report language into a ContextVar so analysis modules
     # (funding/bizmodel/traffic_peaks/growth_strategy/github_oss) — which run
     # before report assembly and take no lang param — emit EN or ZH correctly.
-    from modules.i18n import set_report_lang
+    from modules.i18n import set_report_lang, _T
     set_report_lang(job.get("lang"))
 
     def _cancelled():
@@ -2055,22 +2055,29 @@ async def _run_analysis(job_id: str):
         ph_comments = ph.get("comments", 0)
         ph_date = ph.get("featured_date") or ph.get("launch_date") or ""
         if ph_votes:
-            signals.append(f"Product Hunt 上线：{ph_votes} 票，{ph_comments} 评论" + (f"（{ph_date}）" if ph_date else ""))
+            signals.append(_T(
+                f"Product Hunt launch: {ph_votes} votes, {ph_comments} comments" + (f" ({ph_date})" if ph_date else ""),
+                f"Product Hunt 上线：{ph_votes} 票，{ph_comments} 评论" + (f"（{ph_date}）" if ph_date else "")))
 
         gh_stars = gh.get("stars", 0)
         gh_growth = (gh.get("insights") or {}).get("peak_growth_rate") or ""
         if gh_stars:
-            signals.append(f"GitHub Stars：{gh_stars:,}" + (f"，峰值增速 {gh_growth}" if gh_growth else ""))
+            signals.append(_T(
+                f"GitHub Stars: {gh_stars:,}" + (f", peak growth {gh_growth}" if gh_growth else ""),
+                f"GitHub Stars：{gh_stars:,}" + (f"，峰值增速 {gh_growth}" if gh_growth else "")))
 
         reddit_posts = len(reddit.get("top_posts", []))
         reddit_members = reddit.get("subreddit_members", 0)
         if reddit_posts:
-            signals.append(f"Reddit 提及：{reddit_posts} 条帖子" + (f"，社区 {reddit_members:,} 成员" if reddit_members else ""))
+            signals.append(_T(
+                f"Reddit mentions: {reddit_posts} posts" + (f", community {reddit_members:,} members" if reddit_members else ""),
+                f"Reddit 提及：{reddit_posts} 条帖子" + (f"，社区 {reddit_members:,} 成员" if reddit_members else "")))
 
-        errors = [error_msg] if error_msg else ["Twitter API 不可用"]
+        errors = [error_msg] if error_msg else [_T("Twitter API unavailable", "Twitter API 不可用")]
         return {
             "data_mode": "multi_channel_fallback",
-            "note": "⚠️ Twitter API 不可用，以下为多渠道综合传播信号",
+            "note": _T("⚠️ Twitter API unavailable — the following are multi-channel aggregated propagation signals",
+                       "⚠️ Twitter API 不可用，以下为多渠道综合传播信号"),
             "signals": signals,
             "producthunt": {"votes": ph_votes, "comments": ph_comments, "date": ph_date},
             "github": {"stars": gh_stars},

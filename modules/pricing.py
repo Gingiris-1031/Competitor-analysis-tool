@@ -7,6 +7,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import tinyfish
+from .i18n import _T
 
 _HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
@@ -142,15 +143,18 @@ def _extract_pricing(soup: BeautifulSoup, plain: str, source_url: str, product_n
     prices = [t["price_monthly"] for t in tiers if t.get("price_monthly") and t["price_monthly"] > 0]
     if prices:
         if min(prices) < 10:
-            insights.append(f"入门定价 ${min(prices):.0f}/月，低于行业均价，利于获客")
+            insights.append(_T(f"Entry price ${min(prices):.0f}/mo — below the category average, good for acquisition",
+                               f"入门定价 ${min(prices):.0f}/月，低于行业均价，利于获客"))
         if max(prices) > 50:
-            insights.append(f"高端套餐 ${max(prices):.0f}/月，有明确企业客户定位")
+            insights.append(_T(f"Top tier ${max(prices):.0f}/mo — clear enterprise-customer positioning",
+                               f"高端套餐 ${max(prices):.0f}/月，有明确企业客户定位"))
         if len(prices) >= 3:
-            insights.append(f"共 {len(tiers)} 个定价层级，典型'三明治'结构引导用户选中间档")
+            insights.append(_T(f"{len(tiers)} pricing tiers — a classic 'sandwich' structure nudging users to the middle plan",
+                               f"共 {len(tiers)} 个定价层级，典型'三明治'结构引导用户选中间档"))
     if free_plan:
-        insights.append("有免费套餐，PLG 策略明显")
+        insights.append(_T("Has a free plan — clear PLG strategy", "有免费套餐，PLG 策略明显"))
     if free_trial:
-        insights.append("提供免费试用，降低付费门槛")
+        insights.append(_T("Offers a free trial — lowers the payment barrier", "提供免费试用，降低付费门槛"))
     if annual_discount:
         insights.append(annual_discount)
 

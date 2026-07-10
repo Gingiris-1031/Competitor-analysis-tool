@@ -4,6 +4,8 @@ import os
 import re
 import asyncio
 
+from .i18n import _T
+
 
 def _extract_brand(domain: str) -> str:
     brand = re.sub(r'^www\.', '', domain.lower().strip())
@@ -308,16 +310,22 @@ def _gen_insights(hn: list, news: list, press: list) -> list:
         pts = top.get("points", 0)
         cmt = top.get("comments", 0)
         if pts >= 200:
-            insights.append(f"🔥 HN 爆款：「{top['title'][:55]}」{pts} points / {cmt} comments")
+            insights.append(_T(f"🔥 HN hit: «{top['title'][:55]}» {pts} points / {cmt} comments",
+                               f"🔥 HN 爆款：「{top['title'][:55]}」{pts} points / {cmt} comments"))
         elif pts >= 50:
-            insights.append(f"📡 HN 热帖：「{top['title'][:55]}」{pts} points")
-        insights.append(f"💬 HackerNews 共 {len(hn)} 条相关讨论")
+            insights.append(_T(f"📡 HN popular post: «{top['title'][:55]}» {pts} points",
+                               f"📡 HN 热帖：「{top['title'][:55]}」{pts} points"))
+        insights.append(_T(f"💬 {len(hn)} related discussions on HackerNews",
+                           f"💬 HackerNews 共 {len(hn)} 条相关讨论"))
     if news:
-        insights.append(f"📰 Google News 收录 {len(news)} 篇媒体报道")
+        insights.append(_T(f"📰 {len(news)} media articles indexed by Google News",
+                           f"📰 Google News 收录 {len(news)} 篇媒体报道"))
     if press:
         sources = list(dict.fromkeys(p.get("source", "") for p in press if p.get("source")))[:4]
         if sources:
-            insights.append(f"🗞 主要媒体来源：{', '.join(sources)}")
+            insights.append(_T(f"🗞 Top media sources: {', '.join(sources)}",
+                               f"🗞 主要媒体来源：{', '.join(sources)}"))
     if not hn and not news and not press:
-        insights.append("⚠️ 未找到主流媒体曝光记录（可能处于早期或低调运营阶段）")
+        insights.append(_T("⚠️ No mainstream media coverage found (may be early-stage or operating quietly)",
+                           "⚠️ 未找到主流媒体曝光记录（可能处于早期或低调运营阶段）"))
     return insights

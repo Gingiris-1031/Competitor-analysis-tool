@@ -26,6 +26,8 @@ import subprocess
 from datetime import datetime, timezone
 from typing import Optional
 
+from .i18n import _T
+
 
 # ============================================================
 # Caravo 工具函数
@@ -406,12 +408,12 @@ def _bucket_by_time(items: list, launch_time: Optional[datetime]) -> dict:
     每个桶返回: count, items(前5条)
     """
     buckets = {
-        "0_4h":   {"label": "0-4小时", "count": 0, "items": []},
-        "4_24h":  {"label": "4-24小时", "count": 0, "items": []},
-        "1_3d":   {"label": "1-3天", "count": 0, "items": []},
-        "3_7d":   {"label": "3-7天", "count": 0, "items": []},
-        "7d_plus":{"label": "7天以上", "count": 0, "items": []},
-        "unknown":{"label": "时间未知", "count": 0, "items": []},
+        "0_4h":   {"label": _T("0-4h", "0-4小时"), "count": 0, "items": []},
+        "4_24h":  {"label": _T("4-24h", "4-24小时"), "count": 0, "items": []},
+        "1_3d":   {"label": _T("1-3d", "1-3天"), "count": 0, "items": []},
+        "3_7d":   {"label": _T("3-7d", "3-7天"), "count": 0, "items": []},
+        "7d_plus":{"label": _T("7d+", "7天以上"), "count": 0, "items": []},
+        "unknown":{"label": _T("Unknown time", "时间未知"), "count": 0, "items": []},
     }
     for item in items:
         ts = item.get("_ts")
@@ -484,7 +486,8 @@ def _approximate_from_top_tweets(top_tweets: list) -> dict:
 
     return {
         "mode": "approximate",
-        "note": "⚠️ 未能获取 retweet/quote 详情，以下为基于 top_tweets 聚合的近似推断",
+        "note": _T("⚠️ Could not fetch retweet/quote details — the following is an approximation aggregated from top_tweets",
+                   "⚠️ 未能获取 retweet/quote 详情，以下为基于 top_tweets 聚合的近似推断"),
         "top_tweets_analyzed": len(top_tweets),
         "aggregate_metrics": {
             "total_retweets": total_rts,
@@ -565,10 +568,10 @@ async def analyze_launch_propagation(
             "top_influencers": [],
         },
         "four_stage_timeline": {
-            "stage_1_internal":  {"label": "内部点燃 (0-2h)", "count": 0, "users": []},
-            "stage_2_ecosystem": {"label": "生态催化 (2-12h)", "count": 0, "users": []},
-            "stage_3_kol":       {"label": "KOL 引爆 (12h-3d)", "count": 0, "users": []},
-            "stage_4_mass":      {"label": "广泛渗透 (3d+)", "count": 0, "users": []},
+            "stage_1_internal":  {"label": _T("Internal ignition (0-2h)", "内部点燃 (0-2h)"), "count": 0, "users": []},
+            "stage_2_ecosystem": {"label": _T("Ecosystem catalysis (2-12h)", "生态催化 (2-12h)"), "count": 0, "users": []},
+            "stage_3_kol":       {"label": _T("KOL amplification (12h-3d)", "KOL 引爆 (12h-3d)"), "count": 0, "users": []},
+            "stage_4_mass":      {"label": _T("Mass penetration (3d+)", "广泛渗透 (3d+)"), "count": 0, "users": []},
         },
         "propagation_rhythm": {},
         "follow_up_activities": [],
@@ -581,7 +584,7 @@ async def analyze_launch_propagation(
         return await _run_propagation_analysis(result, brand, launch_tweets, all_tweets)
     except Exception as e:
         result["data_mode"] = "empty"
-        result["errors"].append(f"传播分析异常: {str(e)[:200]}")
+        result["errors"].append(_T(f"Propagation analysis error: {str(e)[:200]}", f"传播分析异常: {str(e)[:200]}"))
         return result
 
 
@@ -595,7 +598,7 @@ async def _run_propagation_analysis(result, brand, launch_tweets, all_tweets):
 
     if not launch_post:
         result["data_mode"] = "empty"
-        result["errors"].append("未找到任何推文数据")
+        result["errors"].append(_T("No tweet data found", "未找到任何推文数据"))
         return result
 
     tweet_id = _extract_tweet_id(launch_post)
@@ -858,7 +861,7 @@ def summarize_propagation_for_growth(propagation: dict) -> dict:
     挂载到 growth_analysis._detect_launch_waves 的返回结构上。
     """
     if not propagation or propagation.get("data_mode") == "empty":
-        return {"available": False, "reason": "无传播数据"}
+        return {"available": False, "reason": _T("No propagation data", "无传播数据")}
 
     root = propagation.get("root_post", {})
     inf = propagation.get("influencer_analysis", {})
