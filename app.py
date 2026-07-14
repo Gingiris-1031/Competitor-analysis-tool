@@ -597,10 +597,24 @@ async def api_v1_report(job_id: str):
 
 @app.get("/api/v1/report/{job_id}/markdown")
 async def api_v1_report_markdown(job_id: str):
-    """Agent API: Get the analysis report as Markdown text."""
+    """Agent API: Get the analysis report as Markdown text.
+
+    Same live-render semantics as /api/export: prefer regenerating from the
+    persisted structured report (survives restarts; immune to stale
+    "export failed" stubs), fall back to the in-memory markdown."""
     job = jobs.get(job_id)
-    if job and job.get("markdown"):
-        return PlainTextResponse(job["markdown"])
+    report = (job or {}).get("report") or _load_persisted_report(job_id)
+    if report:
+        try:
+            from modules.report import report_to_markdown
+            fresh = report_to_markdown(report)
+            if fresh and fresh.strip():
+                return PlainTextResponse(fresh)
+        except Exception as _e:
+            log.error("v1 markdown: report_to_markdown failed for %s: %s", job_id, _e)
+    md = (job or {}).get("markdown")
+    if md and "export failed" not in md.lower():
+        return PlainTextResponse(md)
     return JSONResponse({"error": "Markdown not found"}, status_code=404)
 
 
