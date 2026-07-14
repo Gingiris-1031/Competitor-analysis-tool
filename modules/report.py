@@ -2,6 +2,8 @@
 from datetime import datetime
 import json
 
+from .i18n import _T as _T2  # ContextVar-based; for lang-less helpers like reconcile_github_channel
+
 
 def _T(lang: str, en: str, zh: str) -> str:
     """Tiny lang switcher — returns English when lang starts with 'en',
@@ -86,7 +88,7 @@ def reconcile_github_channel(sections: dict, github_oss: dict) -> None:
         "stars_total": stars,
         "public_repos": gh.get("public_repos") or (1 if repo else 0),
         "followers": github_oss.get("contributors") or gh.get("followers") or 0,
-        "note": f"经开源分析匹配到 {slug}",
+        "note": _T2(f"Matched via open-source analysis: {slug}", f"经开源分析匹配到 {slug}"),
         "top_repos": gh.get("top_repos") or ([{"name": slug, "stars": stars}] if slug else []),
         "reconciled_from": "github_oss",
     })

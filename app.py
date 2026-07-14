@@ -2244,6 +2244,19 @@ async def _run_analysis(job_id: str):
     job["progress"]["report"] = "running"
     try:
         _lang = (job.get("lang") or "zh").lower()
+        # Reconcile github_oss into the RAW social data BEFORE generate_report,
+        # so every derived artifact (summary channel lines, growth_score
+        # distribution, strategy_radar, thesis) is computed from the reconciled
+        # channels. Doing it only after generate_report left the summary text
+        # saying "not detected: github" while github_oss showed a 511-star repo
+        # in the same report (0bee037a) — cross-source contradiction.
+        try:
+            from modules.report import reconcile_github_channel
+            reconcile_github_channel(
+                {"social_media": job["results"].get("social", {})},
+                job["results"].get("github_oss", {}))
+        except Exception:
+            pass
         report = generate_report(
             product_name, url,
             job["results"].get("website", {}),
