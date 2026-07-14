@@ -380,11 +380,11 @@ def report_to_markdown(report: dict) -> str:
     lang = (meta.get("lang") or "zh").lower()
 
     if lang.startswith("en"):
-        md = f"""# Competitor Research Report: {meta['product_name']}
+        md = f"""# Competitor Research Report: {meta.get('product_name', '')}
 
-> Generated at: {meta['generated_at'][:19]}
-> Target URL: {meta['url']}
-> Version: {meta['version']}
+> Generated at: {(meta.get('generated_at') or '')[:19]}
+> Target URL: {meta.get('url', '')}
+> Version: {meta.get('version', '')}
 
 ---
 
@@ -394,11 +394,11 @@ def report_to_markdown(report: dict) -> str:
 
 """
     else:
-        md = f"""# 竞品调研报告：{meta['product_name']}
+        md = f"""# 竞品调研报告：{meta.get('product_name', '')}
 
-> 生成时间：{meta['generated_at'][:19]}
-> 目标网址：{meta['url']}
-> 版本：{meta['version']}
+> 生成时间：{(meta.get('generated_at') or '')[:19]}
+> 目标网址：{meta.get('url', '')}
+> 版本：{meta.get('version', '')}
 
 ---
 
