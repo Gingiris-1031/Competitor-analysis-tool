@@ -15,33 +15,43 @@ _SOCIAL_PLATFORM_RE = {
 
 
 async def brave_search(query: str, count: int = 5) -> list:
-    """Brave Search API — returns list of {title, url, description}.
-    Includes retry with exponential backoff for 429/5xx errors."""
+    """通用网页搜索 — Brave 优先，不可用时（无 key / 402 欠费 / 报错）自动 fallback
+    到 DataForSEO organic SERP（_google_search，结果结构相同）。
+    返回 list of {title, url, description}。Brave 429/5xx 带指数退避重试。"""
     import asyncio as _aio
     api_key = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
-    if not api_key:
+    if api_key:
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=8) as client:
+                    resp = await client.get(
+                        "https://api.search.brave.com/res/v1/web/search",
+                        headers={"X-Subscription-Token": api_key, "Accept": "application/json"},
+                        params={"q": query, "count": count},
+                    )
+                if resp.status_code == 200:
+                    results = resp.json().get("web", {}).get("results", [])
+                    return [{"title": r.get("title", ""), "url": r.get("url", ""), "description": r.get("description", "")} for r in results]
+                if resp.status_code in (429, 500, 502, 503) and attempt < 2:
+                    await _aio.sleep(2 ** attempt)
+                    continue
+                break  # 402 欠费等不可重试错误 → fallback
+            except Exception:
+                if attempt < 2:
+                    await _aio.sleep(1)
+                    continue
+                break
+    return await _dataforseo_web_search(query, count)
+
+
+async def _dataforseo_web_search(query: str, count: int = 5) -> list:
+    """DataForSEO organic SERP 作为 brave_search 的兜底，映射成相同结构。"""
+    try:
+        res = await _google_search(query, limit=max(count, 5))
+        return [{"title": i.get("title", ""), "url": i.get("url", ""), "description": i.get("description", "")}
+                for i in res.get("items", [])[:count]]
+    except Exception:
         return []
-    for attempt in range(3):
-        try:
-            async with httpx.AsyncClient(timeout=8) as client:
-                resp = await client.get(
-                    "https://api.search.brave.com/res/v1/web/search",
-                    headers={"X-Subscription-Token": api_key, "Accept": "application/json"},
-                    params={"q": query, "count": count},
-                )
-            if resp.status_code == 200:
-                results = resp.json().get("web", {}).get("results", [])
-                return [{"title": r.get("title", ""), "url": r.get("url", ""), "description": r.get("description", "")} for r in results]
-            if resp.status_code in (429, 500, 502, 503) and attempt < 2:
-                await _aio.sleep(2 ** attempt)
-                continue
-            return []
-        except Exception:
-            if attempt < 2:
-                await _aio.sleep(1)
-                continue
-            return []
-    return []
 
 
 async def brave_find_twitter(brand: str, product_name: str, domain: str = "") -> str | None:
