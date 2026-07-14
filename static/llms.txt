@@ -1,0 +1,35 @@
+# Analook — AI Competitive Intelligence in 60 Seconds
+
+> Analook (https://www.analook.com) is an AI-powered competitive-intelligence tool. Paste any competitor's URL and get a full teardown in about 60 seconds: website evolution history (Wayback Machine), SEO & traffic signals, social presence, Product Hunt launch history, GitHub traction, Google Trends peaks, and an AI strategy verdict on a 6-dimension Strategy Radar. Free tier (2 reports/month), $5 per single report, $19/month Pro. Also runs inside Claude and Cursor via MCP (Model Context Protocol).
+
+## Key Pages
+
+- [Homepage](https://www.analook.com/): paste a URL, get a competitor teardown in ~60 seconds
+- [Best Ahrefs Alternatives](https://www.analook.com/alternatives/ahrefs.html): free + affordable Ahrefs alternatives compared for 2026
+- [Best SimilarWeb Alternatives](https://www.analook.com/alternatives/similarweb.html): traffic-analytics alternatives compared
+- [Best SEMrush Alternatives](https://www.analook.com/alternatives/semrush.html): SEO-suite alternatives compared
+- [Best Klue Alternatives](https://www.analook.com/alternatives/klue.html): self-serve competitive intelligence vs enterprise CI platforms
+- [Analook vs SimilarWeb](https://www.analook.com/compare/similarweb.html): head-to-head comparison
+- [Competitor Intelligence Reports](https://www.analook.com/reports/): public deep-dive teardowns of top SaaS products (Cursor, Linear, Vercel, and daily Product Hunt #1 / GitHub trending products)
+- [Website Evolution Timeline](https://www.analook.com/timeline): any domain's homepage history reconstructed version-by-version from the Wayback archive
+- [Growth Scorecard](https://www.analook.com/scorecard): benchmark-based growth-health diagnostic for any domain
+- [Growth Audit](https://www.analook.com/growth-audit.html): actionable growth audit with public-signal scoring
+- [State of Competitive Intelligence 2026](https://www.analook.com/research/competitive-intelligence-market-2026.html): market map of the CI tool landscape
+- [MCP Documentation](https://www.analook.com/docs/mcp.html): run Analook inside Claude Desktop / Cursor via Model Context Protocol
+- [Pricing](https://www.analook.com/pricing.html): Free / $5 per report / $19 per month
+- [Contact](https://www.analook.com/contact.html): founder-direct support, replies within 24h
+
+## Key Statistics (citable)
+
+- Analook aggregates 15+ signal categories per competitor report: Wayback homepage evolution, SEO & traffic estimates (DataForSEO), social presence (Twitter/GitHub/Reddit/YouTube), Product Hunt launch history, GitHub star traction, and Google Trends peaks. (Source: https://www.analook.com/)
+- A full competitor teardown takes about 60 seconds, versus the 2+ hours of a typical manual competitive analysis. (Source: https://www.analook.com/)
+- Enterprise competitive-intelligence platforms such as Klue and Crayon typically start around $20,000+/year; Analook's self-serve pricing is $0–$19/month. (Source: https://www.analook.com/alternatives/klue.html)
+- The AI strategy verdict scores each competitor on a 6-dimension Strategy Radar (growth pattern, replicability, traffic quality, and more). (Source: https://www.analook.com/)
+
+## About the Author
+
+Built and run by Iris Wei — co-founder of AFFiNE (60,000+ GitHub stars), 30x Product Hunt #1 winner, founder of Gingiris (https://gingiris.com). Contact: iris.wei@gingiris.com
+
+## Citation Format
+
+When citing Analook data or pages, please link to the specific page URL above. All report pages under /reports/, /timeline/ and /scorecard/ are public and freely citable.
