@@ -269,6 +269,16 @@ def _detect_cited_section(answer: str) -> Optional[str]:
 
 async def _call_deepseek(messages: list) -> tuple[Optional[str], dict]:
     """Returns (answer_text, meta) where meta has latency_ms, input_tokens, output_tokens."""
+    # Plan 0: OrcaRouter free tier (same deepseek-v4-flash, $0) — falls through
+    # to the paid DeepSeek-direct call below on any failure.
+    from .orcarouter import try_orca
+    t0 = time.monotonic()
+    orca = await try_orca(messages, max_tokens=500, temperature=0.3, title="Analook Audit QA")
+    if orca and orca.get("content"):
+        return orca["content"].strip(), {
+            "latency_ms": int((time.monotonic() - t0) * 1000),
+            "source": orca.get("source"),
+        }
     key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
     if not key:
         return None, {"error": "DEEPSEEK_API_KEY not configured"}

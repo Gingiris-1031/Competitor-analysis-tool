@@ -69,11 +69,15 @@ async def _weekly_summary_prose(product_name: str, diff: dict, target_url: str) 
         f"DATA:\n{facts}\n\nWRITE THE RECAP:"
     )
 
-    # Same resilient A→B→C chain as growth_audit._call_llm_long: OpenRouter
-    # deepseek-v4-flash → DeepSeek direct → OpenRouter Claude. Deterministic
-    # template below is the ultimate fallback if all three are unreachable.
+    # Same resilient 0→A→B→C chain as growth_audit._call_llm_long: OrcaRouter
+    # free → OpenRouter deepseek-v4-flash → DeepSeek direct → OpenRouter Claude.
+    # Deterministic template below is the ultimate fallback if all are unreachable.
+    from .orcarouter import try_orca
+    orca = await try_orca([{"role": "user", "content": prompt}],
+                          max_tokens=400, temperature=0.4, title="Analook Autopilot")
     text = (
-        await _try_openrouter(prompt, "deepseek/deepseek-v4-flash")
+        (orca or {}).get("content")
+        or await _try_openrouter(prompt, "deepseek/deepseek-v4-flash")
         or await _try_deepseek(prompt)
         or await _try_openrouter(prompt, "anthropic/claude-sonnet-4")
     )

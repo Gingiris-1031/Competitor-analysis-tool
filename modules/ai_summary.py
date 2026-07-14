@@ -1604,6 +1604,7 @@ def _ai_final_content(data: dict) -> str:
 async def _call_llm(prompt: str) -> dict:
     """Multi-path LLM call — same resilient chain as growth_audit._call_llm_long:
 
+      Plan 0: OrcaRouter → orcarouter/free    ($0 — routes to deepseek-v4-flash)
       Plan A: OpenRouter → deepseek-v4-flash   (fast, cheap, multi-host failover)
       Plan B: DeepSeek direct → deepseek-v4-flash  (same model, independent vendor)
       Plan C: OpenRouter → claude-sonnet-4     (different model — quality safety net)
@@ -1611,6 +1612,7 @@ async def _call_llm(prompt: str) -> dict:
     Each path is tried once; a ~10s connect timeout fails over fast so a sick
     provider never stalls the analysis. Returns {success, content, source}.
     """
+    from .orcarouter import try_orca
     messages = [{"role": "user", "content": prompt}]
     or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
     ds_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
@@ -1674,7 +1676,8 @@ async def _call_llm(prompt: str) -> dict:
             errs.append(f"DeepSeek-direct: {str(e)[:60]}")
         return None
 
-    for plan in (lambda: _openrouter(or_primary), _deepseek, lambda: _openrouter(or_fallback)):
+    for plan in (lambda: try_orca(messages, max_tokens=4000, temperature=0.6, title="Analook AI Summary"),
+                 lambda: _openrouter(or_primary), _deepseek, lambda: _openrouter(or_fallback)):
         result = await plan()
         if result:
             return result

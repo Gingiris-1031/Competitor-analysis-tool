@@ -459,15 +459,17 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
     """Multi-path LLM call. Each path is tried once and fails over fast (~10s)
     when a provider is unreachable, so a sick provider never stalls the audit.
 
+      Plan 0: OrcaRouter → orcarouter/free    ($0 — routes to deepseek-v4-flash)
       Plan A: OpenRouter → deepseek-v4-flash   (fast, cheap, multi-host failover)
       Plan B: DeepSeek direct → deepseek-v4-flash  (same model, independent vendor)
       Plan C: OpenRouter → claude-sonnet-4     (different model - quality safety net)
 
-    A and B share the model (identical output quality); C is the last-resort
+    0/A/B share the model (identical output quality); C is the last-resort
     safety net on a different model so a total DeepSeek outage still produces a
     report. Returns {success, content, source}.
     """
     import os as _os
+    from .orcarouter import try_orca
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",   "content": user_prompt},
@@ -476,6 +478,7 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
     or_fallback = _os.environ.get("OPENROUTER_MODEL", "anthropic/claude-sonnet-4")
 
     plans = (
+        ("0", lambda: try_orca(messages, max_tokens=max_tokens, temperature=0.5, title="Analook Growth Audit")),
         ("A", lambda: _try_openrouter(messages, max_tokens, or_primary)),
         ("B", lambda: _try_deepseek(messages, max_tokens)),
         ("C", lambda: _try_openrouter(messages, max_tokens, or_fallback)),
@@ -483,7 +486,7 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
     for label, plan in plans:
         result = await plan()
         if result:
-            if label != "A":
+            if label not in ("0", "A"):
                 log.info("LLM served by Plan %s (%s)", label, result.get("source"))
             return result
 

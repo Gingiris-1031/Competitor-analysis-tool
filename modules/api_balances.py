@@ -77,6 +77,30 @@ async def _deepseek(c: httpx.AsyncClient) -> dict:
         return {"provider": "DeepSeek", "status": "error", "note": str(e)[:120]}
 
 
+async def _orcarouter(c: httpx.AsyncClient) -> dict:
+    key = _key("ORCAROUTER_API_KEY")
+    if not key:
+        return _missing("OrcaRouter")
+    try:
+        r = await c.get(
+            "https://api.orcarouter.ai/v1/balance",
+            headers={"Authorization": f"Bearer {key}"},
+        )
+        if r.status_code != 200:
+            return {"provider": "OrcaRouter", "status": "error", "note": f"HTTP {r.status_code}: {r.text[:120]}"}
+        data = r.json() or {}
+        # {object:"balance", paid_balance: float, free_credit: [], promo_credits: []}
+        paid = float(data.get("paid_balance") or 0)
+        return {
+            "provider":     "OrcaRouter",
+            "status":       "ok",  # free tier works even at $0 paid balance
+            "balance_usd":  paid,
+            "note":         "free tier (orcarouter/free) is $0 — paid balance only backs paid model ids",
+        }
+    except Exception as e:
+        return {"provider": "OrcaRouter", "status": "error", "note": str(e)[:120]}
+
+
 async def _openrouter(c: httpx.AsyncClient) -> dict:
     key = _key("OPENROUTER_API_KEY")
     if not key:
@@ -341,6 +365,7 @@ async def check_all() -> dict:
     async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
         results = await asyncio.gather(
             _deepseek(c),
+            _orcarouter(c),
             _openrouter(c),
             _dataforseo(c),
             _apify(c),
