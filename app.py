@@ -2905,30 +2905,46 @@ async def translate_report(job_id: str, request: Request):
 async def export_markdown(job_id: str):
     job = jobs.get(job_id)
     markdown = None
+    report = None
     product_name = "report"
-    if job and job.get("markdown"):
-        markdown = job["markdown"]
+    if job:
+        markdown = job.get("markdown")
+        report = job.get("report")
         product_name = job.get("product_name", "report")
-    else:
+    if not report and not markdown:
         path = os.path.join(REPORTS_DIR, f"{job_id}.json")
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = _json.load(f)
             markdown = data.get("markdown")
+            report = data.get("report")
             product_name = data.get("product_name", "report")
     # Supabase fallback — survives Fly.io restarts where memory/disk are lost
-    if not markdown:
+    if not report and not markdown:
         try:
             from modules.supabase_client import get_supabase
             sb = get_supabase()
             if sb:
-                result = sb.table("reports").select("markdown,product_name").eq("id", job_id).limit(1).execute()
-                if result.data and result.data[0].get("markdown"):
-                    markdown = result.data[0]["markdown"]
+                result = sb.table("reports").select("markdown,report,product_name").eq("id", job_id).limit(1).execute()
+                if result.data:
+                    markdown = result.data[0].get("markdown")
+                    report = result.data[0].get("report")
                     product_name = result.data[0].get("product_name", "report") or "report"
         except Exception:
             pass
-    if not markdown:
+    # Regenerate markdown fresh from the structured report whenever we have it:
+    # the stored markdown may be a stale "export failed" stub from a past
+    # report_to_markdown crash (e.g. a None cpc/volume in the keyword table).
+    # report_to_markdown is a cheap pure function, so always prefer a live render.
+    if report:
+        try:
+            from modules.report import report_to_markdown
+            fresh = report_to_markdown(report)
+            if fresh and fresh.strip():
+                markdown = fresh
+        except Exception as _e:
+            log.error("export: report_to_markdown failed for %s: %s", job_id, _e)
+    if not markdown or "export failed" in markdown.lower():
         return JSONResponse({"error": "Report not ready"}, status_code=404)
     from urllib.parse import quote
     safe_name = quote(f"{product_name}_竞品调研.md")
@@ -2948,9 +2964,11 @@ async def get_share_info(job_id: str):
     job = jobs.get(job_id)
     product_name = None
     url = None
+    lang = None
     if job:
         product_name = job.get("product_name")
         url = job.get("url")
+        lang = job.get("lang")
     else:
         path = os.path.join(REPORTS_DIR, f"{job_id}.json")
         if os.path.exists(path):
@@ -2958,6 +2976,7 @@ async def get_share_info(job_id: str):
                 data = _json.load(f)
             product_name = data.get("product_name")
             url = data.get("url")
+            lang = ((data.get("report") or {}).get("meta") or {}).get("lang") or data.get("lang")
     # Supabase fallback (survives Railway restarts / cross-instance shares)
     if not product_name:
         try:
@@ -2965,11 +2984,12 @@ async def get_share_info(job_id: str):
             sb = get_supabase()
             if sb:
                 result = sb.table("reports").select(
-                    "product_name,url"
+                    "product_name,url,report"
                 ).eq("id", job_id).limit(1).execute()
                 if result.data:
                     product_name = result.data[0].get("product_name")
                     url = result.data[0].get("url")
+                    lang = ((result.data[0].get("report") or {}).get("meta") or {}).get("lang")
         except Exception as e:
             log.error("Share info fetch from Supabase failed: %s", e)
     if not product_name:
@@ -2988,12 +3008,15 @@ async def get_share_info(job_id: str):
     utm = f"utm_source=gingiris_tool&utm_medium=share&utm_campaign=competitive_analysis&utm_content={quote_plus(product_name)}"
     share_url = f"{base_url}?{utm}"
 
+    _en = (lang or "").lower().startswith("en")
+    share_text = (f"🔍 {product_name} — Competitor Research Report · Powered by Analook"
+                  if _en else f"🔍 {product_name} 竞品调研报告 — Powered by Analook")
     return {
         "job_id": job_id,
         "product_name": product_name,
         "share_url": share_url,
         "utm_params": utm,
-        "share_text": f"🔍 {product_name} 竞品调研报告 — Powered by Analook",
+        "share_text": share_text,
     }
 
 

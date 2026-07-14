@@ -636,7 +636,7 @@ def report_to_markdown(report: dict) -> str:
                     f"### 品牌词排名（{count} 个）\n\n")
                 md += kw_cols
                 for k_item in branded_kw:
-                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                    md += f"| {k_item.get('keyword', '—')} | #{k_item.get('position') or '—'} | {(k_item.get('search_volume') or 0):,} | ${(k_item.get('cpc') or 0):.2f} | {k_item.get('competition') or '—'} |\n"
                 md += "\n"
 
             if non_branded_kw:
@@ -646,7 +646,7 @@ def report_to_markdown(report: dict) -> str:
                     f"### 非品牌词 · 首页高曝光（{count} 个，按搜索量排序）\n\n")
                 md += kw_cols
                 for k_item in non_branded_kw:
-                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                    md += f"| {k_item.get('keyword', '—')} | #{k_item.get('position') or '—'} | {(k_item.get('search_volume') or 0):,} | ${(k_item.get('cpc') or 0):.2f} | {k_item.get('competition') or '—'} |\n"
                 md += "\n"
 
             gap_kw = kw.get("gap_keywords", [])
@@ -659,16 +659,16 @@ def report_to_markdown(report: dict) -> str:
                     "| Keyword | Rank | Search Volume | Competition | Opportunity |\n|--------|----------|----------|--------|------------|\n",
                     "| 关键词 | 当前排名 | 月搜索量 | 竞争度 | 机会评级 |\n|--------|----------|----------|--------|------------|\n")
                 for k_item in gap_kw:
-                    pos = k_item.get('position', 99)
-                    vol = k_item.get('search_volume', 0)
-                    comp = k_item.get('competition', '')
+                    pos = k_item.get('position') or 99
+                    vol = k_item.get('search_volume') or 0
+                    comp = k_item.get('competition') or ''
                     if pos > 10 and comp in ('LOW', ''):
                         opp = _T(lang, '🟢 High', '🟢 高')
                     elif pos > 5 or comp == 'MEDIUM':
                         opp = _T(lang, '🟡 Medium', '🟡 中')
                     else:
                         opp = _T(lang, '🔴 Low', '🔴 低')
-                    md += f"| {k_item['keyword']} | #{pos} | {vol:,} | {comp or '—'} | {opp} |\n"
+                    md += f"| {k_item.get('keyword', '—')} | #{pos} | {vol:,} | {comp or '—'} | {opp} |\n"
                 md += "\n"
 
             elif not branded_kw and legacy_kw:
@@ -678,7 +678,7 @@ def report_to_markdown(report: dict) -> str:
                     f"### Top 排名关键词（共 {total:,} 个）\n\n")
                 md += kw_cols
                 for k_item in legacy_kw:
-                    md += f"| {k_item['keyword']} | #{k_item['position']} | {k_item.get('search_volume', 0):,} | ${k_item.get('cpc', 0):.2f} | {k_item.get('competition', '—')} |\n"
+                    md += f"| {k_item.get('keyword', '—')} | #{k_item.get('position') or '—'} | {(k_item.get('search_volume') or 0):,} | ${(k_item.get('cpc') or 0):.2f} | {k_item.get('competition') or '—'} |\n"
                 md += "\n"
 
             # Error in rank data
