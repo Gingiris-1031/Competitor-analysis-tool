@@ -24,17 +24,51 @@ def _get(url):
     return json.load(urllib.request.urlopen(url, timeout=30))
 
 
-def scan(obj, path=""):
+# Fields that carry VERBATIM QUOTES of external data (tweets, press headlines,
+# search snippets, on-site slogans). When the analyzed product is Chinese
+# (e.g. Amz123), these legitimately contain CJK in an EN report — that is
+# evidence fidelity, not a template leak. The guard's job is templates.
+QUOTE_FIELDS = {"title", "snippet", "text", "text_preview", "slogan",
+                "description", "content", "quote", "body", "summary_quote",
+                "primary_event", "event"}
+
+
+def _is_quote_path(path: str) -> bool:
+    leaf = path.rsplit(".", 1)[-1].split("[")[0]
+    if leaf in QUOTE_FIELDS:
+        return True
+    # LLM prose + attribution summaries may embed quoted titles/slogans.
+    return ".ai_insights.content" in path or ".attribution.summary" in path
+
+
+def _is_template_plus_quote(s: str) -> bool:
+    """'<english template>: <verbatim CJK data>' — e.g.
+    '🔥 Media/News buzz: 亚马逊选品工具…' or 'Slogan changed: "AMZ123…"'.
+    The template half is English (correct); the CJK is quoted evidence.
+    A genuine template leak has CJK before any English 'label:' prefix."""
+    mm = CJK.search(s)
+    if not mm:
+        return False
+    prefix = s[:mm.start()]
+    import re as _re
+    return ":" in prefix and bool(_re.search(r"[A-Za-z]", prefix))
+
+
+def scan(obj, path="", quotes=None):
     hits = []
     if isinstance(obj, str):
         if CJK.search(obj):
-            hits.append((path, obj.strip()[:70]))
+            if _is_quote_path(path) or _is_template_plus_quote(obj):
+                if quotes is not None:
+                    quotes.append((path, obj.strip()[:70]))
+            else:
+                hits.append((path, obj.strip()[:70]))
     elif isinstance(obj, dict):
         for k, v in obj.items():
-            hits += scan(v, f"{path}.{k}")
+            hits += scan(v, f"{path}.{k}", quotes)
     elif isinstance(obj, list):
         for i, v in enumerate(obj):
-            hits += scan(v, f"{path}[{i}]")
+            hits += scan(v, f"{path}[{i}]", quotes)
     return hits
 
 
@@ -67,14 +101,16 @@ def main():
         if (r.get("meta") or {}).get("lang") != "en":
             print(f"  {rid}: not an EN report — skipping")
             continue
-        hits = scan(r.get("sections") or {}, "sections") + scan(r.get("meta") or {}, "meta")
+        quotes: list = []
+        hits = scan(r.get("sections") or {}, "sections", quotes) + scan(r.get("meta") or {}, "meta", quotes)
+        qnote = f" ({len(quotes)} CJK data-quote(s) — evidence verbatim, not counted)" if quotes else ""
         if hits:
             total += len(hits)
-            print(f"❌ {rid}: {len(hits)} CJK leak(s)")
+            print(f"❌ {rid}: {len(hits)} template CJK leak(s){qnote}")
             for p, s in hits[:40]:
                 print(f"     {p}: «{s}»")
         else:
-            print(f"✅ {rid}: 0 CJK")
+            print(f"✅ {rid}: 0 template CJK{qnote}")
     if total:
         print(f"\nFAIL: {total} CJK leak(s) in EN report(s) — English reports must be CJK-clean")
         return 1

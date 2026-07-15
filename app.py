@@ -2114,7 +2114,7 @@ async def _run_analysis(job_id: str):
         # Fallback: PH/GitHub/Reddit signals
         if not propagation or (isinstance(propagation, dict) and propagation.get("data_mode") in ("empty", "error", None)):
             err = propagation.get("error", "") if isinstance(propagation, dict) else ""
-            propagation = _build_multi_channel_fallback(err or "Twitter 传播分析失败")
+            propagation = _build_multi_channel_fallback(err or _T("Twitter propagation analysis failed", "Twitter 传播分析失败"))
 
         job["results"]["propagation"] = propagation
         job["progress"]["propagation"] = "done"
