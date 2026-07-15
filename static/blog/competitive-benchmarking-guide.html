@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <script src="/js/attribution.js?v=20260618"></script>
+
+    <meta charset="UTF-8">
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-QJDYKDLLVY"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-QJDYKDLLVY');</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Competitive Benchmarking: Framework, Metrics &amp; Free Scorecard (2026)</title>
+    <meta name="description" content="Competitive benchmarking done right: the six metric categories that matter, a step-by-step framework, a sample benchmark table, and a free growth scorecard to score any domain against its rivals.">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="canonical" href="https://www.analook.com/blog/competitive-benchmarking-guide.html">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
+<style>
+:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+.font-serif{font-family:"Instrument Serif",Georgia,serif}
+.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+</style>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Competitive Benchmarking: Framework, Metrics & Free Scorecard (2026)",
+        "author": {"@type": "Person", "name": "Iris Wei", "url": "https://x.com/WeiYipei"},
+        "datePublished": "2026-07-14",
+        "publisher": {"@type": "Organization", "name": "Gingiris"},
+        "description": "A practical competitive benchmarking framework: the six metric categories that matter, how to build a benchmark set, a sample scorecard, and a free tool to score any domain against its rivals."
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": "What is competitive benchmarking?", "acceptedAnswer": {"@type": "Answer", "text": "Competitive benchmarking is the practice of measuring your company against direct rivals on a fixed set of metrics — traffic, SEO, social, product velocity, pricing, and community — so you can see where you lead, where you lag, and what to fix first. Unlike a one-off competitor teardown, benchmarking uses the same metrics every quarter so the numbers are comparable over time."}},
+            {"@type": "Question", "name": "What metrics should a competitive benchmark include?", "acceptedAnswer": {"@type": "Answer", "text": "Use six categories: traffic (organic and estimated visits), SEO (ranking keywords and referring domains), social presence (followers and posting cadence across the channels that matter for your category), product velocity (release and changelog frequency), pricing and packaging, and community signals such as GitHub stars, Discord size, or review counts. Pick two or three concrete numbers per category so the benchmark stays comparable quarter over quarter."}},
+            {"@type": "Question", "name": "How is competitive benchmarking different from competitor analysis?", "acceptedAnswer": {"@type": "Answer", "text": "Competitor analysis is a broad, often one-time teardown of a single rival. Competitive benchmarking is narrower and repeatable: the same metrics, the same competitor set, measured on a schedule so trends are visible. Analysis tells you what a competitor is doing now; benchmarking tells you whether you are gaining or losing ground against them over time."}},
+            {"@type": "Question", "name": "How often should you run competitive benchmarking?", "acceptedAnswer": {"@type": "Answer", "text": "Quarterly is the right cadence for most startups. It is frequent enough to catch a competitor's momentum shift — a pricing change, a burst of releases, a spike in traffic — but not so frequent that normal noise swamps the signal. Fast-moving categories or a live launch window can justify monthly checks on a smaller metric set."}},
+            {"@type": "Question", "name": "Is there a free competitive benchmarking tool?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Analook's free growth scorecard scores any domain on public growth signals and returns a benchmark-based health score, so you can compare two or three competitors without a spreadsheet. Its free tier covers two full competitor reports per month; a one-off report is 5 dollars and Pro is 19 dollars per month."}}
+        ]
+    }
+    </script>
+    <style>
+        .prose h2 { font-size: 1.375rem; font-weight: 700; color: #e5e7eb; margin-top: 2.5rem; margin-bottom: 0.75rem; }
+        .prose h3 { font-size: 1.125rem; font-weight: 600; color: #d1d5db; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .prose p { color: #9ca3af; font-size: 0.9375rem; line-height: 1.75; margin-bottom: 1rem; }
+        .prose ul, .prose ol { color: #9ca3af; font-size: 0.9375rem; line-height: 1.75; margin-bottom: 1rem; padding-left: 1.5rem; }
+        .prose li { margin-bottom: 0.25rem; }
+        .prose strong { color: #e5e7eb; }
+        .prose a { color: #60a5fa; }
+        .prose table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+        .prose th { text-align: left; padding: 0.5rem; color: #9ca3af; border-bottom: 1px solid #374151; }
+        .prose td { padding: 0.5rem; color: #d1d5db; border-bottom: 1px solid #1f2937; }
+    </style>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.analook.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.analook.com/blog/"}, {"@type": "ListItem", "position": 3, "name": "Competitive Benchmarking: Framework, Metrics & Free Scorecard (2026)", "item": "https://www.analook.com/blog/competitive-benchmarking-guide.html"}]}
+</script>
+</head>
+<body class="min-h-screen">
+<div class="top-accent"></div>
+    <header class="border-b border-[color:var(--border)] py-5">
+        <div class="max-w-3xl mx-auto px-6 flex items-center gap-3">
+            <a href="/" class="flex items-center gap-2"><span class="font-serif italic text-2xl text-[color:var(--ink)]">Analook</span></a>
+            <span class="text-[color:var(--ink-faint)]">/</span>
+            <span class="text-[color:var(--ink-muted)] text-sm">Blog</span>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-12">
+        <article class="prose">
+            <p class="text-xs text-[color:var(--ink-faint)] mb-2">July 14, 2026 &middot; 9 min read &middot; by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
+
+            <h1 class="font-serif text-4xl md:text-5xl leading-tight tracking-tight text-white mb-4" style="margin-top:0">Competitive Benchmarking: Framework, Metrics &amp; Free Scorecard (2026)</h1>
+
+            <p><em>A founder once told me his product was "way ahead of the competition." I asked him on which metric. He didn't have one &mdash; just a feeling. Two quarters later a rival that shipped twice as often and cut its price had quietly overtaken him on signups. He was ahead on vibes and behind on the scoreboard.</em></p>
+
+            <p><strong>Competitive benchmarking</strong> is how you replace the feeling with a scoreboard. It is the discipline of measuring your company against direct rivals on the same set of metrics, on a schedule, so you can see where you lead, where you lag, and &mdash; most importantly &mdash; whether the gap is opening or closing. This guide gives you the six metric categories that matter, a step-by-step framework, a sample benchmark table, and a free way to score any domain in about a minute.</p>
+
+            <h2>What competitive benchmarking actually is</h2>
+            <p>Most teams confuse benchmarking with a competitor teardown. A teardown is a broad, one-time snapshot of a single rival. Competitive benchmarking is narrower and repeatable: the <strong>same metrics</strong>, the <strong>same competitor set</strong>, measured on a <strong>fixed cadence</strong>. That repetition is the whole point &mdash; a single reading tells you where you stand today, but a benchmark run every quarter tells you the direction of travel. Direction is what changes decisions.</p>
+            <p>If you want the broad snapshot first, start with a <a href="/blog/competitive-analysis-guide-2026.html">competitor analysis</a> and a <a href="/blog/competitor-keyword-analysis-guide.html">competitor keyword analysis</a>, then convert the metrics you care about into a recurring benchmark.</p>
+
+            <h2>The six metric categories that matter</h2>
+            <p>A good benchmark is small enough to keep up with. Pick two or three concrete numbers in each of these six categories &mdash; not fifty. Comparability beats completeness.</p>
+
+            <h3>1. Traffic</h3>
+            <p>Estimated monthly visits and the split between organic and direct. You will not get a rival's exact analytics, but public estimates are consistent enough to compare relative scale and trend. A competitor doubling estimated traffic in a quarter is a signal worth chasing down.</p>
+
+            <h3>2. SEO</h3>
+            <p>Number of ranking keywords and referring domains. These two numbers proxy how much organic surface area a competitor owns and how much authority points at it. Pair them with a look at which of your shared keywords they rank ahead of you on.</p>
+
+            <h3>3. Social presence</h3>
+            <p>Follower counts and posting cadence on the one or two channels that actually matter for your category &mdash; not all of them. For a developer tool that is usually GitHub and X; for a consumer app it may be TikTok or Instagram. Cadence often predicts momentum better than raw follower count.</p>
+
+            <h3>4. Product velocity</h3>
+            <p>How often a competitor ships. Changelog entries, release notes, and public roadmap movement per month. A rival that went from one release a month to six is either about to pull ahead or about to break something &mdash; either way you want to know.</p>
+
+            <h3>5. Pricing and packaging</h3>
+            <p>Entry price, the shape of the tiers, and any recent changes. Pricing moves are among the loudest competitive signals because they reveal positioning. Enterprise competitive-intelligence platforms such as Klue and Crayon, for example, typically start around $20,000+ per year with annual contracts &mdash; a very different game from self-serve tools priced from free to about $20 per month.</p>
+
+            <h3>6. Community signals</h3>
+            <p>GitHub stars, Discord or Slack size, review counts, and star ratings. For open-source and developer products these are often the truest leading indicator of adoption, well before revenue shows up.</p>
+
+            <h2>A step-by-step benchmarking framework</h2>
+            <ol>
+                <li><strong>Pick 3 to 5 real competitors.</strong> Not aspirational giants &mdash; the products your buyers actually evaluate you against. Too many competitors makes the benchmark impossible to maintain.</li>
+                <li><strong>Choose your metrics.</strong> Two or three numbers per category from the six above. Write down the exact source for each so next quarter's reading is measured the same way.</li>
+                <li><strong>Take a baseline.</strong> Fill the table once. This first run has no trend yet &mdash; its job is to expose obvious gaps and set the starting line.</li>
+                <li><strong>Score and rank.</strong> For each metric, mark whether you lead, match, or lag. Count the lags; the biggest cluster is usually where your roadmap should point.</li>
+                <li><strong>Re-run on a cadence.</strong> Quarterly for most teams. Same metrics, same sources. Now every cell has a direction, and the direction is the insight.</li>
+            </ol>
+
+            <h2>Sample benchmark scorecard</h2>
+            <p>A benchmark table does not need to be fancy. Here is the shape of one &mdash; a handful of metrics, your company beside two rivals, and a plain lead/lag read on each row:</p>
+            <table>
+                <thead><tr><th>Metric</th><th>You</th><th>Rival A</th><th>Rival B</th><th>Read</th></tr></thead>
+                <tbody>
+                    <tr><td>Est. monthly traffic</td><td>40K</td><td>120K</td><td>35K</td><td>Lag vs A</td></tr>
+                    <tr><td>Ranking keywords</td><td>900</td><td>3,100</td><td>1,200</td><td>Lag</td></tr>
+                    <tr><td>Releases / month</td><td>6</td><td>3</td><td>2</td><td>Lead</td></tr>
+                    <tr><td>Entry price</td><td>$0</td><td>$49</td><td>$0</td><td>Match / Lead</td></tr>
+                    <tr><td>GitHub stars</td><td>4.2K</td><td>1.1K</td><td>9.8K</td><td>Lag vs B</td></tr>
+                </tbody>
+            </table>
+            <p>The numbers above are an illustrative template, not measured data &mdash; swap in your own. Even a five-row table like this turns "we're ahead" into "we ship faster and price better, but we're losing the SEO and stars race" &mdash; which is an actual plan.</p>
+
+            <h2>Do it in a minute with a free scorecard</h2>
+            <p>Building the table by hand is a good exercise once. After that, the gathering is tedious &mdash; and tedium is why benchmarks go stale by the second quarter. Analook's <a href="/scorecard">free growth scorecard</a> runs a benchmarks engine over public growth signals and returns a health score for any domain, so you can line up two or three competitors without a spreadsheet. Each full <a href="/reports/">competitor report</a> aggregates 15+ signal sources &mdash; traffic, SEO, social, Product Hunt history, GitHub traction, and an AI strategy verdict &mdash; in about 60 seconds. The free tier covers two reports a month.</p>
+            <p>Want the deeper, actionable version? The <a href="/growth-audit.html">growth audit</a> turns those benchmark signals into a prioritized action list, and if you are choosing tools, the <a href="/blog/best-competitor-analysis-tools-2026.html">best competitor analysis tools for 2026</a> compares the options honestly. For the enterprise-CI end of the market, see <a href="/compare/klue.html">Analook vs Klue</a>.</p>
+
+            <h2>Common benchmarking mistakes</h2>
+            <ul>
+                <li><strong>Too many metrics.</strong> A 40-cell table nobody updates is worse than a 12-cell one you actually re-run. Cut ruthlessly.</li>
+                <li><strong>Changing the ruler.</strong> If you measure traffic from a different source each quarter, the trend is meaningless. Lock the source per metric.</li>
+                <li><strong>Benchmarking against giants.</strong> Comparing a seed-stage tool to a category leader produces demoralizing, useless numbers. Benchmark against your real evaluation set.</li>
+                <li><strong>One and done.</strong> A benchmark with no second reading is just a teardown. The value is entirely in the repeat.</li>
+            </ul>
+
+            <h2>FAQ</h2>
+            <p><strong>What is competitive benchmarking?</strong> Measuring your company against direct rivals on a fixed metric set — traffic, SEO, social, product velocity, pricing, community — on a schedule, so you can see where you lead, lag, and whether the gap is moving.</p>
+            <p><strong>What metrics should it include?</strong> Two or three concrete numbers in each of six categories: traffic, SEO, social presence, product velocity, pricing/packaging, and community signals.</p>
+            <p><strong>How is it different from competitor analysis?</strong> Analysis is a broad one-time teardown; benchmarking is the same metrics and competitors measured repeatedly so trends are visible.</p>
+            <p><strong>How often should you run it?</strong> Quarterly for most startups; monthly for fast-moving categories or during a launch window.</p>
+            <p><strong>Is there a free tool?</strong> Yes — Analook's free growth scorecard scores any domain on public signals; free tier is two reports per month.</p>
+
+            <p class="text-xs text-[color:var(--ink-faint)] mt-8">Written by Iris Wei — co-founder of AFFiNE (60,000+ GitHub stars), 30x Product Hunt #1 winner, founder of <a href="https://gingiris.com">Gingiris</a>.</p>
+        </article>
+
+        <!-- CTA -->
+        <div class="text-center py-10 border-t border-[color:var(--border)] mt-10">
+            <h2 class="text-2xl font-bold mb-3">Benchmark any domain in about 60 seconds</h2>
+            <p class="text-[color:var(--ink-muted)] mb-6">Analook's free growth scorecard scores any competitor on public growth signals &mdash; traffic, SEO, social, product velocity, and community &mdash; and returns a benchmark-based health score.</p>
+            <a href="https://www.analook.com/scorecard" class="btn-primary font-medium px-8 py-3 rounded-lg transition-colors">Run a Free Scorecard &rarr;</a>
+        </div>
+    </main>
+
+    <footer class="border-t border-[color:var(--border)] py-6">
+        <div class="max-w-3xl mx-auto px-6 flex items-center justify-between text-xs text-[color:var(--ink-faint)]">
+            <span>&copy; 2026 Gingiris</span>
+            <div class="flex gap-4">
+                <a href="/terms.html" class="hover:text-[color:var(--ink-muted)]">Terms</a>
+                <a href="/privacy.html" class="hover:text-[color:var(--ink-muted)]">Privacy</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
