@@ -30,7 +30,10 @@ def _get(url):
 # evidence fidelity, not a template leak. The guard's job is templates.
 QUOTE_FIELDS = {"title", "snippet", "text", "text_preview", "slogan",
                 "description", "content", "quote", "body", "summary_quote",
-                "primary_event", "event"}
+                "primary_event", "event",
+                # verbatim scrape of the ANALYZED SITE's own pages
+                "meta_description", "nav_links", "h1s", "h2s", "headings",
+                "structure_summary", "og_title", "og_description"}
 
 
 def _is_quote_path(path: str) -> bool:
