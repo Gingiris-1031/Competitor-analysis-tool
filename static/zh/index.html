@@ -38,24 +38,58 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
 <style>
-:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
-body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
-.font-serif{font-family:"Instrument Serif",Georgia,serif}
-.font-mono{font-family:"JetBrains Mono",Menlo,monospace}
-.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
-.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
-.card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
-.callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
-.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
-.link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
-</style>
-    <style>
+        /* === Design system unified with EN homepage (2026-07-16) === */
+        /* ZH tokens kept (markup refs --bg/--card/--elev/--border/--border-strong/--accent);
+           EN warm/cream aliases added so shared component classes resolve identically. */
+        :root{
+            --bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;
+            --border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);
+            --ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C;
+            /* EN aliases */
+            --cream-bg:#0A0A0A;--cream-card:#141414;--cream-elev:#1A1A1C;
+            --warm-border:rgba(255,255,255,0.08);--warm-border-strong:rgba(255,255,255,0.18);
+        }
+        /* Ambient gradient glow background — matches EN homepage */
+        body{
+            font-family:Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+            color:var(--ink);
+            background-color:var(--bg);
+            background-image:
+                radial-gradient(ellipse 90% 70% at 10% -10%, rgba(96, 165, 250, 0.22) 0%, transparent 60%),
+                radial-gradient(ellipse 80% 60% at 95% 110%, rgba(251, 146, 60, 0.20) 0%, transparent 60%),
+                radial-gradient(ellipse 70% 50% at 50% 60%, rgba(168, 85, 247, 0.14) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 90% 10%, rgba(236, 72, 153, 0.10) 0%, transparent 70%);
+            background-attachment:fixed;
+            background-repeat:no-repeat;
+            min-height:100vh;
+        }
+        .font-serif{font-family:"Instrument Serif",Georgia,serif}
+        .font-mono{font-family:"JetBrains Mono",Menlo,monospace}
+        .top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+        /* Existing ZH component classes (unchanged so markup keeps working) */
+        .card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+        .card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
+        .callout{background:var(--card);border:1px solid var(--border);border-radius:14px}
+        .btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+        .link-soft{color:var(--ink-muted);transition:color .15s}.link-soft:hover{color:var(--ink)}
+        /* EN component classes (so shared/report markup renders identically) */
+        .url-pill{background:var(--cream-elev);border:1px solid var(--warm-border);box-shadow:0 1px 0 rgba(255,255,255,0.02),0 12px 32px -16px rgba(0,0,0,0.6)}
+        .url-pill:focus-within{border-color:var(--warm-border-strong);box-shadow:0 0 0 4px rgba(245,241,235,0.04)}
+        .card-cream{background:var(--cream-elev);border:1px solid var(--warm-border);border-radius:14px}
+        .card-cream-subtle{background:var(--cream-card);border:1px solid var(--warm-border);border-radius:12px}
+        .panel-dark{background:linear-gradient(180deg,#1A1A1C 0%,#141416 100%);color:var(--ink);border:1px solid var(--warm-border);border-radius:14px}
+        .chip-light{color:var(--ink-muted);transition:color .15s}
+        .chip-light:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+        /* Report source-confidence badges (were unstyled on ZH before) */
+        sup.src-tag{display:inline-block;vertical-align:super;line-height:1;font-size:8.5px;font-weight:600;margin-left:2px;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);color:var(--ink-muted);font-family:"JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:0.02em;cursor:help;user-select:none}
+        sup.src-tag:hover{color:var(--ink);background:rgba(255,255,255,0.08)}
         .fade-in { animation: fadeIn 0.4s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         table { border-spacing: 0; }
         pre { white-space: pre-wrap; word-break: break-all; }
-        .chip:hover { background: #374151; }
-        .history-item:hover { background: #1f2937; }
+        /* Cream hover to match EN (was dark #374151 / #1f2937) */
+        .chip:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+        .history-item:hover { background: rgba(255,255,255,0.04); }
         /* Timeline horizontal scroll */
         .ws-timeline-scroll::-webkit-scrollbar { height: 6px; }
         .ws-timeline-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -365,6 +399,8 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                     <button onclick="newAnalysis()" class="bg-gray-800 hover:bg-gray-700 text-sm px-4 py-2 rounded-lg border border-[color:var(--border)] transition-colors">＋ 新调研</button>
                 </div>
             </div>
+            <!-- 总分总「总」：核心论断头条（Manus 顺序，与 EN 对齐） -->
+            <div id="section-thesis" class="fade-in"></div>
             <!-- Summary card injected by JS -->
             <div id="section-summary-card" class="fade-in mb-6"></div>
             <div class="space-y-6">
@@ -385,9 +421,11 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                 <div id="section-summary" class="fade-in"></div>
                 <div id="section-strategy" class="fade-in"></div>
                 <div id="section-playbooks" class="fade-in"></div>
+                <!-- 数据来源（Manus 签名，与 EN 对齐） -->
+                <div id="section-references" class="fade-in"></div>
 
                 <!-- ── 报告完成后的 CTA ── -->
-                <div id="post-report-cta" class="fade-in mt-10 rounded-2xl border border-[color:var(--border)] bg-gray-800/50 p-8 text-center">
+                <div id="post-report-cta" class="fade-in mt-10 rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-card)] p-8 text-center">
                     <p class="text-xs uppercase tracking-widest text-[color:var(--ink-muted)] mb-3">还想分析更多竞品？</p>
                     <h3 class="font-serif text-2xl text-[color:var(--ink)] mb-2">你刚刚把对手的整条增长路径拆完了。</h3>
                     <p class="text-sm text-[color:var(--ink-muted)] mb-6 max-w-sm mx-auto">再跑一个对手 — 同样 15 个信号：SEO / 流量 / 社媒 / Product Hunt / GitHub / 定价 / AI 综合判断。</p>
@@ -574,6 +612,9 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
     <script src="/zh/js/render-peaks.js"></script>
     <script src="/zh/js/render-propagation.js"></script>
     <script src="/zh/js/render-strategy.js"></script>
+    <!-- 与 EN 对齐：thesis 纯数据驱动、references 自带 lang 分支，直接用共享版 -->
+    <script src="/js/render-thesis.js"></script>
+    <script src="/js/render-references.js"></script>
     <script src="/js/report-translate.js?v=20260708"></script>
 
     <!-- 使用说明 -->
