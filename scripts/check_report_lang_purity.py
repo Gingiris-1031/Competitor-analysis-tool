@@ -33,28 +33,44 @@ QUOTE_FIELDS = {"title", "snippet", "text", "text_preview", "slogan",
                 "primary_event", "event",
                 # verbatim scrape of the ANALYZED SITE's own pages
                 "meta_description", "nav_links", "h1s", "h2s", "headings",
+                "headings_h1", "headings_h2", "headings_h3",
                 "structure_summary", "og_title", "og_description"}
+
+# Analook-generated fields that ALWAYS embed a verbatim foreign quote of the
+# analyzed site (its own slogan/title). The English scaffold is correct; the
+# CJK inside is the competitor's real on-site copy — evidence, not a leak.
+QUOTE_EMBED_PATHS = (".evolution_summary", ".ai_insights.content",
+                     ".attribution.summary", ".uncited_numbers")
+
+# Quote openers: a CJK run right after English text + one of these = a quoted
+# verbatim value inside an English template (not a template leak).
+_OPENERS = ('"', "'", "“", "”", "‘", "’", "「", "『", "（", "(", "：", ":", "»", "«")
 
 
 def _is_quote_path(path: str) -> bool:
-    leaf = path.rsplit(".", 1)[-1].split("[")[0]
-    if leaf in QUOTE_FIELDS:
+    # Any path segment being a scrape/quote field means the value is external
+    # data (e.g. facts.product.slogan.v — the {t,v} value of a scraped slogan).
+    segs = [seg.split("[")[0] for seg in path.split(".")]
+    if any(seg in QUOTE_FIELDS for seg in segs):
         return True
-    # LLM prose + attribution summaries may embed quoted titles/slogans.
-    return ".ai_insights.content" in path or ".attribution.summary" in path
+    return any(p in path for p in QUOTE_EMBED_PATHS)
 
 
 def _is_template_plus_quote(s: str) -> bool:
-    """'<english template>: <verbatim CJK data>' — e.g.
-    '🔥 Media/News buzz: 亚马逊选品工具…' or 'Slogan changed: "AMZ123…"'.
+    """'<english template><opener><verbatim CJK data>' — e.g.
+    '🔥 Media/News buzz: 亚马逊选品工具…', 'Slogan changed: "AMZ123…"', or
+    'From the first real version in 2024-11 (\"RustFS | MinIO国产化…\")'.
     The template half is English (correct); the CJK is quoted evidence.
-    A genuine template leak has CJK before any English 'label:' prefix."""
+    A genuine template leak has CJK with NO English+opener before it."""
     mm = CJK.search(s)
     if not mm:
         return False
     prefix = s[:mm.start()]
     import re as _re
-    return ":" in prefix and bool(_re.search(r"[A-Za-z]", prefix))
+    if not _re.search(r"[A-Za-z]", prefix):
+        return False  # no English scaffold at all → real leak
+    # English present AND an opener appears somewhere before the CJK run.
+    return any(op in prefix for op in _OPENERS)
 
 
 def scan(obj, path="", quotes=None):
