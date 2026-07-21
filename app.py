@@ -1981,12 +1981,18 @@ async def _run_analysis(job_id: str):
             except Exception:
                 pass
 
-    await asyncio.gather(
-        _slow_tiktok(), _slow_facebook(), _retry_github(), _retry_funding(),
-        return_exceptions=True,
-    )
+    # TikTok/Facebook are useful supporting evidence, but they must not delay
+    # the first strategic read.  Start them now and join them only while the
+    # next phase (AI synthesis, traffic peaks, propagation) is in flight.
+    # Previously this await held the whole pipeline for up to 35 seconds before
+    # the AI call even began.
+    _slow_social_tasks = [
+        asyncio.create_task(_slow_tiktok()),
+        asyncio.create_task(_slow_facebook()),
+    ]
+    await asyncio.gather(_retry_github(), _retry_funding(), return_exceptions=True)
 
-    _mark("phase1.5_apify")
+    _mark("phase1.5_retries")
 
     # Phase 1.7: Reconcile social handles — update website social_links with
     # Brave/Apify-verified handles from the social module (fixes handle mismatches)
@@ -2188,6 +2194,11 @@ async def _run_analysis(job_id: str):
         _run_propagation(), _run_traffic_peaks(), _run_ai_summary(),
         return_exceptions=True,
     )
+    # Collect optional deep-social evidence after the decision-critical work
+    # has started.  In the common case this is already finished by the time
+    # the AI response arrives, so it is included in the final report without
+    # extending time-to-first-insight.
+    await asyncio.gather(*_slow_social_tasks, return_exceptions=True)
     if isinstance(phase2_results[0], Exception):
         job["results"]["propagation"] = {"error": str(phase2_results[0])}
         job["progress"]["propagation"] = "error"
@@ -3467,4 +3478,3 @@ app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
 app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
-

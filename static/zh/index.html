@@ -78,6 +78,12 @@
         .card-cream{background:var(--cream-elev);border:1px solid var(--warm-border);border-radius:14px}
         .card-cream-subtle{background:var(--cream-card);border:1px solid var(--warm-border);border-radius:12px}
         .panel-dark{background:linear-gradient(180deg,#1A1A1C 0%,#141416 100%);color:var(--ink);border:1px solid var(--warm-border);border-radius:14px}
+        .report-chapter{border:1px solid var(--warm-border);border-radius:14px;background:rgba(20,20,22,.58);overflow:hidden}
+        .report-chapter>summary{cursor:pointer;list-style:none;padding:18px 20px;display:flex;align-items:baseline;gap:12px}
+        .report-chapter>summary::-webkit-details-marker{display:none}
+        .report-chapter>summary::after{content:'⌄';margin-left:auto;color:var(--ink-faint);transition:transform .15s ease}
+        .report-chapter:not([open])>summary::after{transform:rotate(-90deg)}
+        .report-chapter-body{padding:0 20px 20px;border-top:1px solid var(--warm-border)}
         .chip-light{color:var(--ink-muted);transition:color .15s}
         .chip-light:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
         /* Report source-confidence badges (were unstyled on ZH before) */
@@ -400,26 +406,45 @@
             <div id="section-thesis" class="fade-in"></div>
             <!-- Summary card injected by JS -->
             <div id="section-summary-card" class="fade-in mb-6"></div>
-            <div class="space-y-6">
-                <div id="section-radar" class="fade-in"></div>
+            <div class="space-y-5">
+                <details class="report-chapter" open>
+                    <summary><span class="font-mono text-xs text-[color:var(--accent)]">01</span><span class="font-semibold">竞品考古</span><span class="text-xs text-[color:var(--ink-muted)]">定位、官网演变与关键发布信号</span></summary>
+                    <div class="report-chapter-body space-y-6 pt-5">
                 <div id="section-website" class="fade-in"></div>
                 <div id="section-github" class="fade-in"></div>
                 <div id="section-producthunt" class="fade-in"></div>
-                <div id="section-social" class="fade-in"></div>
-                <div id="section-propagation" class="fade-in"></div>
-                <div id="section-traffic" class="fade-in"></div>
                 <div id="section-pricing" class="fade-in"></div>
                 <div id="section-bizmodel" class="fade-in"></div>
                 <div id="section-funding" class="fade-in"></div>
                 <div id="section-pr" class="fade-in"></div>
+                    </div>
+                </details>
+                <details class="report-chapter" open>
+                    <summary><span class="font-mono text-xs text-[color:var(--accent)]">02</span><span class="font-semibold">增长引擎</span><span class="text-xs text-[color:var(--ink-muted)]">获客、传播与增长飞轮证据</span></summary>
+                    <div class="report-chapter-body space-y-6 pt-5">
+                <div id="section-traffic" class="fade-in"></div>
                 <div id="section-peaks" class="fade-in"></div>
+                <div id="section-social" class="fade-in"></div>
+                <div id="section-propagation" class="fade-in"></div>
+                <div id="section-radar" class="fade-in"></div>
                 <div id="section-growth" class="fade-in"></div>
+                    </div>
+                </details>
+                <details class="report-chapter" open>
+                    <summary><span class="font-mono text-xs text-[color:var(--accent)]">03</span><span class="font-semibold">下一步怎么做</span><span class="text-xs text-[color:var(--ink-muted)]">判断、风险与可复用动作</span></summary>
+                    <div class="report-chapter-body space-y-6 pt-5">
                 <div id="section-insights" class="fade-in"></div>
                 <div id="section-summary" class="fade-in"></div>
                 <div id="section-strategy" class="fade-in"></div>
                 <div id="section-playbooks" class="fade-in"></div>
-                <!-- 数据来源（Manus 签名，与 EN 对齐） -->
+                    </div>
+                </details>
+                <details class="report-chapter">
+                    <summary><span class="font-mono text-xs text-[color:var(--accent)]">04</span><span class="font-semibold">证据与来源</span><span class="text-xs text-[color:var(--ink-muted)]">数据来源与可信度</span></summary>
+                    <div class="report-chapter-body pt-5">
                 <div id="section-references" class="fade-in"></div>
+                    </div>
+                </details>
 
                 <!-- ── 报告完成后的 CTA ── -->
                 <div id="post-report-cta" class="fade-in mt-10 rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-card)] p-8 text-center">
@@ -592,7 +617,7 @@
     <script src="/js/auth.js?v=20260708"></script>
     <script src="/js/referral-modal.js?v=20260708" defer></script>
     <script src="/js/promo-modal.js" defer></script>
-    <script src="/js/app.js?v=20260708"></script>
+    <script src="/js/app.js?v=20260721"></script>
     <script src="/zh/js/render-github.js"></script>
     <script src="/zh/js/render-pr.js"></script>
     <script src="/zh/js/render-funding.js"></script>
@@ -849,4 +874,3 @@
     </script>
 </body>
 </html>
-
