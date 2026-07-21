@@ -450,6 +450,7 @@ async function loadReport() {
 
         // Render summary card
         renderSummaryCard(report);
+        if (typeof renderResearchMap === 'function') renderResearchMap(report);
 
         // Render all sections
         if (typeof renderThesis === 'function') renderThesis(report.sections.thesis || {}, report.sections.growth_score || {}, meta.lang);
@@ -766,4 +767,3 @@ function _showLastCreditBanner() {
     `;
     document.body.appendChild(banner);
 }
-
