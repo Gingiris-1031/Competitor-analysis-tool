@@ -2969,7 +2969,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str, lang: st
 
 ---
 
-## 输出要求(Markdown 格式,6000-8000 字)
+## 输出要求(Markdown 格式,4500-6000 字；优先清晰、可验证，拒绝为了篇幅重复同一判断)
 
 # {product_name} 增长诊断报告
 
@@ -3066,7 +3066,7 @@ _以下为行动与综合判断（总）——回扣开头的「核心论断」_
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=8000)
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=6000)
 
 
 async def generate_action_plan(
@@ -3121,7 +3121,7 @@ async def generate_action_plan(
 
 ---
 
-## 输出要求(Markdown 格式,5000-7000 字)
+## 输出要求(Markdown 格式,4000-5500 字；每周保留最有杠杆的 2-4 个动作，避免模板化堆砌)
 
 # {product_name} - 30 天行动计划
 
@@ -3212,7 +3212,7 @@ npx skills add Gingiris-1031/<skill-name>
     picked_skills = _pick_skills_for_product_type(hints)
     sys_prompt = _get_system_prompt(filter_to_skills=picked_skills, lang=lang)
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(sys_prompt, user_prompt, max_tokens=8000)
+    return await _call_llm_long(sys_prompt, user_prompt, max_tokens=6500)
 
 
 async def generate_executive_summary(site_data: dict, product_name: str,
@@ -3232,7 +3232,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 
 ---
 
-## 输出要求(Markdown 格式,1500-2500 字)
+## 输出要求(Markdown 格式,1200-1800 字；这是用户首先阅读的决策页，先结论、后依据、再行动)
 
 # {product_name} 增长诊断 - 执行摘要
 
@@ -3240,34 +3240,37 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 **产品:** {product_name}
 **URL:** {site_data.get('url', '')}
 
-## 🎯 核心发现(3 句话)
+## 1. 决策总览（30 秒读完）
+用一张紧凑表格：当前阶段 | 最大增长杠杆 | 最紧急风险 | 本月目标。所有格子都必须能回指输入报告；不确定时写“需验证”。
+
+## 2. 🎯 核心发现(3 句话)
 直接摘自诊断报告的"## 1. 产品概览"、"## 2. 增长诊断"、"## 3. SEO/GEO"三个章节,用 3 句话总结。**不引入新发现**。
 
-## 🚨 三个最严重的问题
+## 3. 🚨 三个最严重的问题
 直接摘自诊断报告"## 5. P0 - 本周必做"。最多 3 条,每条包含:
 - 问题描述(一句)
 - 影响程度(🔴 极高 / 🟡 中 / 🟢 低)
 - 修复时间估算(取自 Action Plan Week 1)
 - 预期影响(定性,照搬诊断报告原话)
 
-## ✅ 快速赢面清单(按优先级)
+## 4. ✅ 快速赢面清单(按优先级)
 - 本周做(2-3 小时)- 摘自 Action Plan Week 1
 - 第 1-2 周做(8 小时)- 摘自 Action Plan Week 2
 - 第 3-4 周做(12 小时)- 摘自 Action Plan Week 3-4
 
-## 📊 6 个月财务预测(如基础数据不足则跳过本节)
+## 5. 📊 6 个月财务预测(如基础数据不足则跳过本节)
 **只在诊断报告里有量化基线时输出**。否则写"基线数据缺失,建议用户提供 GA / GSC 后再做预测"。
 
-## 🎯 关键 KPI 追踪
+## 6. 🎯 关键 KPI 追踪
 表格:KPI(取自诊断报告) | 当前(取自诊断报告,无则写"待用户提供") | 3 个月目标 | 6 个月目标
 
-## 🛠️ 推荐工具堆栈
+## 7. 🛠️ 推荐工具堆栈
 摘自 Action Plan"工具清单"
 
-## 📚 匹配的 Gingiris 框架
+## 8. 📚 匹配的 Gingiris 框架
 摘自诊断报告"## 8. 匹配的 Gingiris Playbook"
 
-## ❓ 下一步行动
+## 9. ❓ 下一步行动
 - 立即(今天):取 Action Plan Week 1 任务 1
 - 本周:取 Action Plan Week 1 剩余任务
 - 下周:取 Action Plan Week 2 任务
@@ -3281,7 +3284,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=4000)
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=2600)
 
 
 # ─── Main Orchestrator ──────────────────────────────────────────────────────
@@ -3483,10 +3486,21 @@ async def run_growth_audit(
     # *generation* time worse than the old buggy parallel version).
     _update("action_plan", "running")
     _update("executive_summary", "running")
-    # Reddit discovery finishes in parallel with Diagnosis. Wait for it now
-    # (tightly bounded so a slow reddit.com response can't extend the audit
-    # past its 2-5 min promise). Empty result is fine — generate_action_plan
-    # accepts reddit_data=None.
+    # Start the decision brief immediately. It only depends on the verified
+    # Diagnosis, so it must not be held behind optional Reddit discovery.
+    # This makes the first decision-ready report appear earlier even when a
+    # third-party research endpoint is slow.
+    exec_task = asyncio.create_task(
+        generate_executive_summary(
+            site_data, product_name, reports["diagnosis_report"],
+            reports["diagnosis_report"],
+            lang=lang,
+        )
+    )
+
+    # Reddit discovery finishes in parallel with Diagnosis. Wait for it only
+    # before building the Action Plan (where real community data is useful),
+    # and never allow it to delay the Executive Summary.
     try:
         reddit_data = await asyncio.wait_for(reddit_task, timeout=8.0)
     except (asyncio.TimeoutError, Exception) as e:
@@ -3498,22 +3512,9 @@ async def run_growth_audit(
             reddit_data=reddit_data, lang=lang,
         )
     )
-    exec_task = asyncio.create_task(
-        generate_executive_summary(
-            site_data, product_name,
-            reports["diagnosis_report"],
-            # Pass the Diagnosis a second time as a stand-in for the Action
-            # Plan. Exec Summary's prompt already constrains it to only
-            # summarize content present in its inputs; with no Action Plan
-            # text available, it falls back to the Diagnosis P0/P1/P2 list
-            # which is the same content the Plan would have echoed.
-            reports["diagnosis_report"],
-            lang=lang,
-        )
-    )
 
-    # Both tasks already run concurrently; awaiting Exec (4000 tok) first - it
-    # finishes before Plan (8000 tok) - lets us stream it out sooner without
+    # Both tasks now run concurrently; awaiting the compact Executive Summary
+    # first lets us stream the decision page before the longer Action Plan,
     # serializing the two. Reveal order ends up Diagnosis → Exec → Plan.
     # ── Process Executive Summary (finishes first) ───────────────────────
     try:

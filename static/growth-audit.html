@@ -138,26 +138,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
     <style>
         :root {
-            --cream-bg: #0D0D0F;
-            --cream-card: #16161A;
-            --cream-elev: #1C1C21;
-            --warm-border: rgba(255,255,255,0.06);
-            --warm-border-strong: rgba(255,255,255,0.14);
-            --ink: #F5F1EB;
-            --ink-muted: #A8A29E;
-            --ink-faint: #6B6560;
+            --cream-bg: #fbf8f1;
+            --cream-card: #f3f5ec;
+            --cream-elev: rgba(255,255,255,0.78);
+            --warm-border: rgba(78, 103, 80, 0.18);
+            --warm-border-strong: rgba(78, 103, 80, 0.42);
+            --ink: #18241f;
+            --ink-muted: #56685b;
+            --ink-faint: #839083;
         }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background-color: var(--cream-bg);
+            background-image: radial-gradient(ellipse 50% 35% at 8% 0%, rgba(169,201,215,.34), transparent 70%), radial-gradient(ellipse 42% 28% at 94% 84%, rgba(173,196,149,.28), transparent 72%);
             color: var(--ink);
             min-height: 100vh;
         }
         .font-serif { font-family: "Instrument Serif", Georgia, serif; }
         .font-mono { font-family: "JetBrains Mono", Menlo, monospace; }
-        .top-accent { background: linear-gradient(90deg, #FB923C 0%, #EC4899 50%, #F59E0B 100%); }
-        .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 14px; }
-        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 1px 0 rgba(255,255,255,0.02), 0 12px 32px -16px rgba(0,0,0,0.6); }
+        .top-accent { background: linear-gradient(90deg, #9bbd9b 0%, #a9c9d7 52%, #c6d6aa 100%); }
+        .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 18px; box-shadow: 0 16px 38px rgba(53,72,54,.06); }
+        .url-pill { background: var(--cream-elev); border: 1px solid var(--warm-border); box-shadow: 0 12px 32px -16px rgba(53,72,54,.18); }
         .url-pill:focus-within { border-color: var(--warm-border-strong); }
         .fade-in { animation: fadeIn 0.4s ease-in; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -175,10 +176,16 @@
         .report-content th { background: var(--cream-card); color: var(--ink); font-weight: 600; }
         .report-content td { color: var(--ink-muted); }
         .report-content pre { background: var(--cream-card); border: 1px solid var(--warm-border); border-radius: 10px; padding: 1rem; overflow-x: auto; margin: 0.75rem 0; }
-        .report-content code { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: #e2d9c4; }
-        .report-content blockquote { border-left: 3px solid #FB923C; padding-left: 1rem; margin: 0.75rem 0; color: var(--ink-muted); font-style: italic; }
+        .report-content code { font-family: "JetBrains Mono", monospace; font-size: 0.8rem; color: #355f6f; }
+        .report-content blockquote { border-left: 3px solid #9bbd9b; padding-left: 1rem; margin: 0.75rem 0; color: var(--ink-muted); font-style: italic; }
         .report-content strong { color: var(--ink); }
-        .tab-active { border-bottom: 2px solid #FB923C; color: var(--ink) !important; }
+        .tab-active { border-bottom: 2px solid #7fa77f; color: var(--ink) !important; }
+        a.text-orange-400, .text-orange-400 { color: #557c66 !important; }
+        .audit-reading-path { margin: 0 0 22px; padding: 18px; border: 1px solid var(--warm-border); border-radius: 18px; background: linear-gradient(120deg, rgba(169,201,215,.20), rgba(255,255,255,.72) 46%, rgba(198,214,170,.20)); }
+        .audit-reading-path__label { font: 600 10px/1 "JetBrains Mono", monospace; color: #557c66; letter-spacing: .14em; text-transform: uppercase; }
+        .audit-reading-path__grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px; }
+        .audit-path-card { text-align:left; padding:12px; border:1px solid var(--warm-border); border-radius:12px; background:rgba(255,255,255,.6); color:var(--ink); transition:transform .16s,border-color .16s; }
+        .audit-path-card:hover { transform:translateY(-1px); border-color:var(--warm-border-strong); }.audit-path-card strong,.audit-path-card small{display:block}.audit-path-card strong{font-size:12px}.audit-path-card small{margin-top:4px;color:var(--ink-muted);font-size:11px;line-height:1.35}.audit-path-card.is-ready::after{content:'Ready';float:right;margin-top:-17px;font:600 9px/1 "JetBrains Mono",monospace;color:#557c66}.audit-path-card.is-pending{opacity:.66}@media(max-width:640px){.audit-reading-path__grid{grid-template-columns:1fr}}
 
         /* ── Toast (replaces native alert()) ────────────────────────────── */
         #toast-stack {
@@ -432,6 +439,10 @@
             </div>
 
             <!-- Tabs -->
+            <nav class="audit-reading-path" aria-label="Audit report path">
+                <div class="audit-reading-path__label">Read the audit in decision order</div>
+                <div class="audit-reading-path__grid" id="audit-reading-path"></div>
+            </nav>
             <div class="flex border-b border-[color:var(--warm-border)] mb-6 items-center">
                 <button class="tab-btn px-5 py-3 text-sm font-medium tab-active" data-tab="exec" onclick="switchTab('exec')">📋 Executive Summary</button>
                 <button class="tab-btn px-5 py-3 text-sm font-medium text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]" data-tab="diag" onclick="switchTab('diag')">🔬 Diagnosis</button>
@@ -681,12 +692,12 @@
         const text = el.querySelector('span:last-child');
         if (status === 'done') {
             icon.textContent = '✓';
-            icon.className = 'w-5 h-5 rounded-full bg-green-900/50 border border-green-700/50 flex items-center justify-center text-[10px] text-green-400';
-            text.className = 'text-sm text-green-400';
+            icon.className = 'w-5 h-5 rounded-full bg-[#e8f0df] border border-[#9bbd9b] flex items-center justify-center text-[10px] text-[#557c66]';
+            text.className = 'text-sm text-[#557c66]';
         } else if (status === 'running') {
             icon.textContent = '⚡';
-            icon.className = 'w-5 h-5 rounded-full bg-orange-900/50 border border-orange-700/50 flex items-center justify-center text-[10px] text-orange-400 animate-pulse';
-            text.className = 'text-sm text-orange-400';
+            icon.className = 'w-5 h-5 rounded-full bg-[#eaf3f6] border border-[#a9c9d7] flex items-center justify-center text-[10px] text-[#426f80] animate-pulse';
+            text.className = 'text-sm text-[#426f80]';
         } else if (status === 'failed') {
             icon.textContent = '✗';
             icon.className = 'w-5 h-5 rounded-full bg-red-900/50 border border-red-700/50 flex items-center justify-center text-[10px] text-red-400';
@@ -768,6 +779,20 @@
 
     const TAB_KEY = { exec: 'executive_summary', diag: 'diagnosis_report', plan: 'action_plan' };
 
+    function renderAuditReadingPath() {
+        const root = document.getElementById('audit-reading-path');
+        if (!root) return;
+        const items = [
+            ['exec', '01', 'Decision brief', 'What matters, what to do first'],
+            ['diag', '02', 'Evidence & diagnosis', 'The verified context behind the call'],
+            ['plan', '03', '30-day execution', 'Owners, actions, and signals to track'],
+        ];
+        root.innerHTML = items.map(([tab, no, title, desc]) => {
+            const ready = Boolean(reports[TAB_KEY[tab]]);
+            return `<button class="audit-path-card ${ready ? 'is-ready' : 'is-pending'}" onclick="switchTab('${tab}')"><small>${no} · ${ready ? 'Available now' : 'Generating'}</small><strong>${title}</strong><small>${desc}</small></button>`;
+        }).join('');
+    }
+
     /* ── One-click report language toggle (Iris 2026-07-07 feature) ──────
        Backend translates once per language + persists, so the first toggle
        costs ~15-40s and every later toggle is an instant cache hit. */
@@ -845,6 +870,7 @@
         active.classList.add('tab-active');
         active.classList.remove('text-[color:var(--ink-muted)]');
         renderCurrentTab();
+        renderAuditReadingPath();
     }
 
     // Render whichever tab is active, accounting for reports that haven't
@@ -877,6 +903,7 @@
                          : reports.diagnosis_report ? 'diag'
                          : reports.action_plan ? 'plan' : 'diag';
         _syncLangBtn();
+        renderAuditReadingPath();
         switchTab(firstReady);
     }
 

@@ -38,16 +38,16 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
 <style>
-        /* === Design system unified with EN homepage (2026-07-16) === */
+        /* === Gingiris paper-garden system: calm evidence, decisive hierarchy === */
         /* ZH tokens kept (markup refs --bg/--card/--elev/--border/--border-strong/--accent);
            EN warm/cream aliases added so shared component classes resolve identically. */
         :root{
-            --bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;
-            --border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);
-            --ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C;
+            --bg:#fbf8f1;--card:#f3f5ec;--elev:rgba(255,255,255,.82);
+            --border:rgba(78,103,80,.18);--border-strong:rgba(78,103,80,.42);
+            --ink:#18241f;--ink-muted:#56685b;--ink-faint:#839083;--accent:#7fa77f;
             /* EN aliases */
-            --cream-bg:#0A0A0A;--cream-card:#141414;--cream-elev:#1A1A1C;
-            --warm-border:rgba(255,255,255,0.08);--warm-border-strong:rgba(255,255,255,0.18);
+            --cream-bg:#fbf8f1;--cream-card:#f3f5ec;--cream-elev:rgba(255,255,255,.82);
+            --warm-border:rgba(78,103,80,.18);--warm-border-strong:rgba(78,103,80,.42);
         }
         /* Ambient gradient glow background — matches EN homepage */
         body{
@@ -55,17 +55,16 @@
             color:var(--ink);
             background-color:var(--bg);
             background-image:
-                radial-gradient(ellipse 90% 70% at 10% -10%, rgba(96, 165, 250, 0.22) 0%, transparent 60%),
-                radial-gradient(ellipse 80% 60% at 95% 110%, rgba(251, 146, 60, 0.20) 0%, transparent 60%),
-                radial-gradient(ellipse 70% 50% at 50% 60%, rgba(168, 85, 247, 0.14) 0%, transparent 70%),
-                radial-gradient(ellipse 60% 40% at 90% 10%, rgba(236, 72, 153, 0.10) 0%, transparent 70%);
+                radial-gradient(ellipse 72% 55% at 8% -8%, rgba(169,201,215,.34) 0%, transparent 64%),
+                radial-gradient(ellipse 58% 44% at 94% 96%, rgba(173,196,149,.30) 0%, transparent 68%),
+                radial-gradient(ellipse 44% 34% at 92% 12%, rgba(198,214,170,.20) 0%, transparent 72%);
             background-attachment:fixed;
             background-repeat:no-repeat;
             min-height:100vh;
         }
         .font-serif{font-family:"Instrument Serif",Georgia,serif}
         .font-mono{font-family:"JetBrains Mono",Menlo,monospace}
-        .top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
+        .top-accent{background:linear-gradient(90deg,#9bbd9b 0%,#a9c9d7 52%,#c6d6aa 100%);height:4px}
         /* Existing ZH component classes (unchanged so markup keeps working) */
         .card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
         .card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
@@ -77,8 +76,9 @@
         .url-pill:focus-within{border-color:var(--warm-border-strong);box-shadow:0 0 0 4px rgba(245,241,235,0.04)}
         .card-cream{background:var(--cream-elev);border:1px solid var(--warm-border);border-radius:14px}
         .card-cream-subtle{background:var(--cream-card);border:1px solid var(--warm-border);border-radius:12px}
-        .panel-dark{background:linear-gradient(180deg,#1A1A1C 0%,#141416 100%);color:var(--ink);border:1px solid var(--warm-border);border-radius:14px}
-        .report-chapter{border:1px solid var(--warm-border);border-radius:14px;background:rgba(20,20,22,.58);overflow:hidden}
+        .panel-dark{background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(243,245,236,.82));color:var(--ink);border:1px solid var(--warm-border);border-radius:18px}
+        .report-chapter{border:1px solid var(--warm-border);border-radius:18px;background:rgba(255,255,255,.66);overflow:hidden}
+        .hover\:text-white:hover{color:var(--ink)!important}
         .report-chapter>summary{cursor:pointer;list-style:none;padding:18px 20px;display:flex;align-items:baseline;gap:12px}
         .report-chapter>summary::-webkit-details-marker{display:none}
         .report-chapter>summary::after{content:'⌄';margin-left:auto;color:var(--ink-faint);transition:transform .15s ease}
