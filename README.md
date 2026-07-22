@@ -195,6 +195,26 @@ Visit `http://localhost:8000`
 
 ## 🚀 Deploy Your Own
 
+### Production source-of-truth
+
+The production source is the `main` branch of
+`Gingiris-1031/Competitor-analysis-tool`. Before any production deploy, run:
+
+```bash
+python3 scripts/verify_deploy_source.py
+```
+
+The preflight fails if the checkout is behind `origin/main`, is on the wrong
+branch or remote, or is missing tracked SEO/GEO assets such as
+`static/llms.txt`, `static/robots.txt`, and `static/sitemap.xml`. This prevents
+an older local clone from silently removing live assets during deployment.
+
+The current production Fly app is declared in `fly.toml` as
+`competitor-analysis-tool`. Run the preflight from the same checkout immediately
+before `fly deploy`.
+
+### Self-hosting
+
 One-click deploy on **Railway**:
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)

@@ -28,7 +28,7 @@
 
 ## About the Author
 
-Built and run by Iris Wei — co-founder of AFFiNE (60,000+ GitHub stars), 30x Product Hunt #1 winner, founder of Gingiris (https://gingiris.com). Contact: iris.wei@gingiris.com
+Built and run by Iris Wei — co-founder of AFFiNE (60,000+ GitHub stars), 30x Product Hunt #1 winner, and creator of the growth resources at https://gingiris.tools. Contact: iris.wei@gingiris.com
 
 ## Citation Format
 
