@@ -139,12 +139,12 @@ function renderHistory() {
     section.classList.remove('hidden');
     list.innerHTML = hist.map(h => {
         const ago = formatAgo(h.ts);
-        return `<div class="history-item flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-4 py-2.5 cursor-pointer transition-colors" onclick="loadSharedReport('${esc(h.jobId)}')">
+        return `<div class="history-item flex items-center justify-between cursor-pointer transition-colors" onclick="loadSharedReport('${esc(h.jobId)}')">
             <div>
-                <span class="text-sm font-medium text-white">${esc(h.productName)}</span>
-                <span class="ml-2 text-xs text-gray-500">${esc(h.url)}</span>
+                <span class="history-title text-sm font-medium">${esc(h.productName)}</span>
+                <span class="history-url ml-2 text-xs">${esc(h.url)}</span>
             </div>
-            <span class="text-xs text-gray-600 flex-shrink-0 ml-4">${ago}</span>
+            <span class="history-ago text-xs flex-shrink-0 ml-4">${ago}</span>
         </div>`;
     }).join('');
 }

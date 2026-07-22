@@ -25,18 +25,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{serif:['"Instrument Serif"','Georgia','serif'],sans:['Inter','-apple-system','system-ui','sans-serif'],mono:['"JetBrains Mono"','Menlo','monospace']}}}}</script>
     <style>
-:root{--bg:#0A0A0A;--card:#141414;--elev:#1A1A1C;--border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.18);--ink:#F5F1EB;--ink-muted:#A1A1A0;--ink-faint:#6B6864;--accent:#FB923C}
-body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+:root{--bg:#fbf8f1;--card:#f3f5ec;--elev:rgba(255,255,255,.82);--border:rgba(78,103,80,.18);--border-strong:rgba(78,103,80,.42);--ink:#18241f;--ink-muted:#56685b;--ink-faint:#839083;--accent:#7fa77f}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;background:radial-gradient(ellipse 72% 55% at 8% -8%,rgba(169,201,215,.34),transparent 64%),radial-gradient(ellipse 58% 44% at 94% 96%,rgba(173,196,149,.30),transparent 68%),var(--bg);color:var(--ink);min-height:100vh}
 .font-serif{font-family:"Instrument Serif",Georgia,serif}
 .font-mono{font-family:"JetBrains Mono",Menlo,monospace}
-.top-accent{background:linear-gradient(90deg,#FB923C 0%,#EC4899 50%,#F59E0B 100%);height:4px}
-.card{background:var(--elev);border:1px solid var(--border);border-radius:14px}
+.top-accent{background:linear-gradient(90deg,#9bbd9b 0%,#a9c9d7 52%,#c6d6aa 100%);height:4px}
+.card{background:var(--elev);border:1px solid var(--border);border-radius:18px;box-shadow:0 16px 38px rgba(53,72,54,.06)}
 .card-subtle{background:var(--card);border:1px solid var(--border);border-radius:12px}
-.btn-primary{background:var(--ink);color:var(--bg)}.btn-primary:hover{background:#fff}
+.btn-primary{background:#355f4b;color:#fff}.btn-primary:hover{background:#294b3b}
 .section-eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint)}
-.report-card{background:var(--elev);border:1px solid var(--border);border-radius:14px;transition:border-color .15s,background .15s}
-.report-card:hover{border-color:var(--border-strong);background:#1E1E20}
-.tag{display:inline-block;font-size:11px;padding:2px 10px;border:1px solid var(--border);border-radius:999px;color:var(--ink-muted)}
+.report-card{background:var(--elev);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 28px rgba(53,72,54,.045);transition:border-color .15s,background .15s,transform .15s}
+.report-card:hover{border-color:var(--border-strong);background:#fff;transform:translateY(-2px)}
+.tag{display:inline-block;font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:999px;color:#557c66;background:rgba(198,214,170,.18)}
+.text-orange-400{color:#557c66!important}.border-orange-500\/60{border-color:#9bbd9b!important}.report-filter-active{border-color:#7fa77f!important;color:#355f4b!important;background:rgba(155,189,155,.16)!important}
     </style>
     <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"CollectionPage","name":"SaaS 竞品情报报告 2026","description":"顶级 SaaS 产品的深度竞品分析报告，由 Analook 生成。覆盖有机流量估算、SEO 关键词布局、Product Hunt 历史、GitHub 活跃度、定价策略与增长观察。","url":"https://www.analook.com/zh/reports/index.html","datePublished":"2026-06-23","dateModified":"2026-06-23","publisher":{"@type":"Organization","name":"Analook","url":"https://www.analook.com","logo":{"@type":"ImageObject","url":"https://www.analook.com/assets/favicon-192x192.png"}},"mainEntity":{"@type":"ItemList","name":"Competitor Intelligence Reports","numberOfItems":3,"itemListElement":[{"@type":"ListItem","position":1,"name":"Linear Growth Analysis 2026","url":"https://www.analook.com/reports/linear.html"},{"@type":"ListItem","position":2,"name":"Cursor Growth Analysis 2026","url":"https://www.analook.com/reports/cursor.html"},{"@type":"ListItem","position":3,"name":"Vercel Growth Analysis 2026","url":"https://www.analook.com/reports/vercel.html"}]}}
@@ -241,7 +242,7 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
     function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
     function renderFilters() {
       filters.innerHTML = cats.map(c =>
-        `<button data-cat="${esc(c)}" class="px-3 py-1.5 text-xs rounded-full border transition-colors ${c === activeCat ? 'border-orange-500/60 text-orange-400 bg-orange-500/10' : 'border-[color:var(--border)] text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]'}">${esc(c)}${c === 'All' ? ` (${all.length})` : ` (${all.filter(r => r.category === c).length})`}</button>`
+        `<button data-cat="${esc(c)}" class="px-3 py-1.5 text-xs rounded-full border transition-colors ${c === activeCat ? 'report-filter-active' : 'border-[color:var(--border)] text-[color:var(--ink-muted)] hover:text-[color:var(--ink)]'}">${esc(c)}${c === 'All' ? ` (${all.length})` : ` (${all.filter(r => r.category === c).length})`}</button>`
       ).join('');
       filters.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { activeCat = b.dataset.cat; renderFilters(); renderGrid(); }));
     }
@@ -268,12 +269,12 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
   </script>
 
   <!-- CTA -->
-  <div class="card p-10 text-center mb-12" style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);border-color:rgba(99,102,241,0.3)">
+  <div class="card p-10 text-center mb-12" style="background:linear-gradient(135deg,rgba(169,201,215,.34),rgba(255,255,255,.82) 55%,rgba(198,214,170,.28));border-color:rgba(127,167,127,.35)">
     <h3 class="font-serif text-3xl text-[color:var(--ink)] mb-3">生成你自己的竞品分析</h3>
     <p class="text-[color:var(--ink-muted)] mb-6 max-w-xl mx-auto">Analook 能为任意 SaaS 产品生成同款报告，约 60 秒。每月 2 份免费报告，无需信用卡。Pro 套餐：$19/月含 30 份报告。</p>
     <div class="flex flex-col sm:flex-row gap-3 justify-center">
       <a href="/zh/" class="inline-block btn-primary px-8 py-3 rounded-full text-sm font-medium transition-colors" style="text-decoration:none">免费开始 →</a>
-      <a href="/zh/pricing.html" class="inline-block bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-full text-sm font-medium transition-colors border border-gray-600" style="text-decoration:none">查看定价</a>
+      <a href="/zh/pricing.html" class="inline-block px-8 py-3 rounded-full text-sm font-medium transition-colors border border-[color:var(--border-strong)] text-[color:var(--ink)] hover:bg-white" style="text-decoration:none">查看定价</a>
     </div>
     <p class="text-xs text-[color:var(--ink-faint)] mt-4">或 $5 购买单份报告 — 无需订阅</p>
   </div>

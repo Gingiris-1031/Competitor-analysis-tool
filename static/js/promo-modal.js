@@ -43,12 +43,16 @@
         const successEl = document.getElementById('promo-success');
         const closeBtn = document.getElementById('promo-close-btn');
         if (!modal) return;
+        const isZh = modal.dataset.locale === 'zh';
+        const copy = isZh
+            ? { redeem: '立即兑换', redeeming: '兑换中…', done: '已兑换 ✓', empty: '请输入兑换码。', generic: '兑换失败，请稍后重试。' }
+            : { redeem: 'Redeem', redeeming: 'Redeeming…', done: 'Done ✓', empty: 'Please enter a code.', generic: 'Something went wrong' };
 
         // Reset state
         if (input) { input.value = ''; input.disabled = false; }
         if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
         if (successEl) { successEl.textContent = ''; successEl.classList.add('hidden'); }
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Redeem'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = copy.redeem; }
 
         modal.classList.remove('hidden');
 
@@ -68,12 +72,12 @@
         submitBtn?.addEventListener('click', async () => {
             const code = (input?.value || '').trim().toUpperCase();
             if (!code) {
-                errEl.textContent = 'Please enter a code.';
+                errEl.textContent = copy.empty;
                 errEl.classList.remove('hidden');
                 return;
             }
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Redeeming…';
+            submitBtn.textContent = copy.redeeming;
             errEl.classList.add('hidden');
             successEl.classList.add('hidden');
 
@@ -82,7 +86,7 @@
                 successEl.textContent = `🎉 +${result.credits_added} credits added! New balance: ${result.new_balance}`;
                 successEl.classList.remove('hidden');
                 input.disabled = true;
-                submitBtn.textContent = 'Done ✓';
+                submitBtn.textContent = copy.done;
                 // Update credits display in navbar
                 const creditsEl = document.getElementById('credits-display');
                 if (creditsEl) {
@@ -91,14 +95,14 @@
                 // Auto-close after 2.5s
                 setTimeout(() => closeModal(), 2500);
             } catch (err) {
-                let msg = err.message || 'Something went wrong';
-                if (msg.includes('ALREADY_REDEEMED')) msg = 'You\'ve already used this code.';
-                if (msg.includes('INVALID_CODE')) msg = 'Invalid code. Check the spelling and try again.';
-                if (msg.includes('CODE_EXHAUSTED')) msg = 'This code has reached its usage limit.';
+                let msg = err.message || copy.generic;
+                if (msg.includes('ALREADY_REDEEMED')) msg = isZh ? '你已经使用过这个兑换码了。' : 'You\'ve already used this code.';
+                if (msg.includes('INVALID_CODE')) msg = isZh ? '兑换码无效，请检查拼写后重试。' : 'Invalid code. Check the spelling and try again.';
+                if (msg.includes('CODE_EXHAUSTED')) msg = isZh ? '该兑换码已达到使用上限。' : 'This code has reached its usage limit.';
                 errEl.textContent = msg;
                 errEl.classList.remove('hidden');
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Redeem';
+                submitBtn.textContent = copy.redeem;
             }
         }, { once: true });
 

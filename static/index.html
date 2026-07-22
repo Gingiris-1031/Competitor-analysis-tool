@@ -73,6 +73,12 @@
 
         .card-cream { background: var(--cream-elev); border: 1px solid var(--warm-border); border-radius: 18px; box-shadow: 0 16px 38px rgba(53,72,54,.06); }
         .card-cream-subtle { background: var(--cream-card); border: 1px solid var(--warm-border); border-radius: 12px; }
+        .promo-backdrop { background: rgba(24,36,31,.38); backdrop-filter: blur(9px); }
+        .promo-panel { background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(243,245,236,.95)); border: 1px solid rgba(127,167,127,.5); border-radius: 24px; box-shadow: 0 28px 70px rgba(45,64,47,.28); }
+        .promo-close { color: var(--ink-faint); }.promo-close:hover { color: var(--ink); background: rgba(169,201,215,.2); }
+        .promo-input { background: rgba(255,255,255,.7); border: 1px solid var(--warm-border-strong); color: var(--ink); }.promo-input:focus { border-color: #7fa77f; box-shadow: 0 0 0 4px rgba(155,189,155,.16); }
+        .promo-submit { background: linear-gradient(90deg,#7fa77f,#8eb4a2); box-shadow: 0 10px 20px rgba(89,124,102,.2); }.promo-submit:hover { background: linear-gradient(90deg,#6d976d,#7ca895); }
+        .history-item { background: rgba(255,255,255,.72); border: 1px solid var(--warm-border); border-radius: 14px; padding: 14px 16px; box-shadow: 0 10px 24px rgba(53,72,54,.045); }.history-item:hover { background: #fff; border-color: var(--warm-border-strong); }.history-title { color: var(--ink); }.history-url,.history-ago { color: var(--ink-faint); }
 
         /* Elevated section panel (gradient border accent on dark) */
         .panel-dark { background: linear-gradient(180deg, rgba(255,255,255,.88), rgba(243,245,236,.82)); color: var(--ink); border: 1px solid var(--warm-border); border-radius: 18px; }
@@ -108,7 +114,7 @@
         .chip-light:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
 
         /* History item hover (now cream) */
-        .history-item:hover { background: rgba(13,13,13,0.04); }
+        .history-item:hover { background: #fff; border-color: var(--warm-border-strong); }
 
         /* Timeline horizontal scroll */
         .ws-timeline-scroll::-webkit-scrollbar { height: 6px; }
@@ -619,27 +625,28 @@
     <!-- ══════════════════════════════════════════════════════════════
          Promo Code Modal
     ══════════════════════════════════════════════════════════════ -->
-    <div id="promo-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-        <div class="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-7 relative shadow-2xl">
+    <div id="promo-modal" class="promo-backdrop hidden fixed inset-0 flex items-center justify-center z-50 p-4" data-locale="en">
+        <div class="promo-panel w-full max-w-sm p-7 relative">
             <button id="promo-close-btn"
-                    class="absolute top-4 right-4 text-gray-500 hover:text-gray-300 text-xl leading-none">✕</button>
+                    class="promo-close absolute top-4 right-4 w-9 h-9 rounded-full text-xl leading-none transition-colors">✕</button>
             <div class="text-center mb-6">
                 <div class="text-4xl mb-3">🎁</div>
-                <h2 class="text-xl font-bold text-white mb-1">Redeem a promo code</h2>
-                <p class="text-sm text-gray-400">Enter your code to get bonus credits instantly.</p>
+                <p class="section-eyebrow mb-3">Gingiris credits</p>
+                <h2 class="font-serif text-3xl text-[color:var(--ink)] mb-2">Redeem a promo code</h2>
+                <p class="text-sm text-[color:var(--ink-muted)]">Enter your code to receive bonus credits instantly.</p>
             </div>
             <div class="mb-4">
                 <input id="promo-code-input"
                        type="text"
                        placeholder="e.g. GINGIRIS20"
                        autocomplete="off"
-                       class="w-full bg-gray-800 border border-gray-600 text-white rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-blue-500 text-center"
+                       class="promo-input w-full rounded-2xl px-4 py-4 text-sm font-mono uppercase tracking-widest focus:outline-none text-center"
                 />
                 <p id="promo-error" class="text-red-400 text-xs mt-2 text-center hidden"></p>
                 <p id="promo-success" class="text-green-400 text-xs mt-2 text-center hidden"></p>
             </div>
             <button id="promo-submit-btn"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors text-sm">
+                    class="promo-submit w-full text-white font-semibold py-3.5 rounded-2xl transition-colors text-sm">
                 Redeem
             </button>
         </div>
