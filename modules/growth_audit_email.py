@@ -7,7 +7,9 @@ import httpx
 
 log = logging.getLogger(__name__)
 
-_FROM = "Analook <iris@gingiris.com>"
+# The verified Resend sending domain is mail.analook.com. Keep the sender
+# aligned with that domain so completion notifications are accepted by Resend.
+_FROM = "Analook <notify@mail.analook.com>"
 
 
 def _copy(product_name: str, report_url: str, lang: str) -> tuple[str, str]:
