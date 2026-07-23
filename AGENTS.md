@@ -1,5 +1,34 @@
 # AGENTS.md
 
+## GitHub account safety red lines (P0)
+
+These rules apply before any action that changes this repository or its GitHub
+remote. Account safety takes priority over deployment speed and SEO cadence.
+
+- The production source is `/Users/iriscarrot/code/Competitor-analysis-tool`,
+  remote `Gingiris-1031/Competitor-analysis-tool`, branch `main`.
+- Never reference or link the suspended legacy GitHub account. Use Analook,
+  `gingiris.tools`, or `clawhub.ai/user/gingiris` for public references.
+- Never enable GitHub Pages, create a daily GitHub Actions cron, create mirrors
+  of legacy repositories, automate stars/follows, or mass-open external PRs.
+- Batch planned changes into one human-reviewed commit and at most one push per
+  release window. Do not generate daily SEO commits or push bursts.
+- Use `Iris Wei <iris.wei@gingiris.com>`, a natural one-line commit message, and
+  no AI/co-author trailer or generated multi-line commit body.
+- Never force-push, rewrite published history, or push when local and remote
+  history have diverged. Fetch and stop for review instead.
+- Inspect the dirty worktree first. Stage explicit paths only; never use
+  `git add .`, and never include unrelated user changes.
+- Never commit credentials. Before committing, inspect the staged diff for
+  tokens, keys, private files, unexpected account references, and generated
+  artifacts.
+- Immediately before a production commit or deploy, run
+  `python3 scripts/verify_deploy_source.py`, relevant tests, and
+  `git diff --cached --check`.
+- Stay within the permanent behavioral limits: no batch writes across more
+  than five repositories per hour, no more than ten commits per hour, and no
+  more than one newly created repository per week.
+
 <!-- INSFORGE:START -->
 ## InsForge backend
 

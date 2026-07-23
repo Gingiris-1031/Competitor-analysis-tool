@@ -15,6 +15,19 @@
 (function () {
   var KEY = '_analook_ft';
 
+  // Public pages retain their own content CSS, but share one brand layer so
+  // product, SEO, reports and legal pages never drift into separate themes.
+  // Insert before first paint whenever this bootstrap is present.
+  try {
+    if (!document.querySelector('link[data-gingiris-brand]')) {
+      var brand = document.createElement('link');
+      brand.rel = 'stylesheet';
+      brand.href = '/css/gingiris-brand.css?v=20260722';
+      brand.dataset.gingirisBrand = 'true';
+      (document.head || document.documentElement).appendChild(brand);
+    }
+  } catch (e) {}
+
   // Expose the reader FIRST — must exist even on a returning user's visit
   // (where first-touch is already locked and capture below early-returns).
   // auth.js calls this when that returning user finally signs up.

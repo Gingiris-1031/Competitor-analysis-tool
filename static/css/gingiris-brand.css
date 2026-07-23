@@ -1,0 +1,62 @@
+/* Analook / Gingiris public-site design system — shared by every public page. */
+:root {
+  --bg: #fbf8f1 !important;
+  --cream-bg: #fbf8f1 !important;
+  --card: #f3f5ec !important;
+  --cream-card: #f3f5ec !important;
+  --elev: rgba(255,255,255,.84) !important;
+  --cream-elev: rgba(255,255,255,.84) !important;
+  --border: rgba(78,103,80,.18) !important;
+  --warm-border: rgba(78,103,80,.18) !important;
+  --border-strong: rgba(78,103,80,.42) !important;
+  --warm-border-strong: rgba(78,103,80,.42) !important;
+  --ink: #18241f !important;
+  --ink-muted: #56685b !important;
+  --ink-faint: #839083 !important;
+  --accent: #7fa77f !important;
+}
+
+html, body {
+  background-color: var(--bg) !important;
+  color: var(--ink) !important;
+}
+body {
+  background-image:
+    radial-gradient(ellipse 72% 55% at 8% -8%, rgba(169,201,215,.34), transparent 64%),
+    radial-gradient(ellipse 58% 44% at 94% 96%, rgba(173,196,149,.30), transparent 68%) !important;
+  background-attachment: fixed;
+}
+.top-accent { background: linear-gradient(90deg,#9bbd9b 0%,#a9c9d7 52%,#c6d6aa 100%) !important; }
+.card, .card-cream, .panel-dark, .report-chapter, .report-card, .card-subtle, .card-cream-subtle {
+  border-color: var(--border) !important;
+  color: var(--ink) !important;
+}
+.card, .card-cream, .panel-dark, .report-chapter, .report-card {
+  background: rgba(255,255,255,.82) !important;
+  box-shadow: 0 14px 34px rgba(53,72,54,.055);
+}
+.card-subtle, .card-cream-subtle { background: rgba(243,245,236,.82) !important; }
+.report-card:hover, .history-item:hover { background: #fff !important; border-color: var(--border-strong) !important; }
+.btn-primary { background: #355f4b !important; color: #fff !important; }
+.btn-primary:hover { background: #294b3b !important; }
+
+/* Tailwind utilities used by older public pages. */
+.bg-gray-900, .bg-gray-800, .bg-slate-900, .bg-slate-800 { background-color: rgba(255,255,255,.82) !important; }
+.border-gray-900, .border-gray-800, .border-gray-700, .border-gray-600 { border-color: var(--border) !important; }
+.text-white, .text-gray-100 { color: var(--ink) !important; }
+.text-gray-200, .text-gray-300, .text-gray-400, .text-gray-500, .text-gray-600 { color: var(--ink-muted) !important; }
+.text-orange-400, .text-orange-300, .text-blue-400 { color: #557c66 !important; }
+.border-blue-500, .border-orange-500 { border-color: #9bbd9b !important; }
+.bg-blue-600, .bg-blue-500 { background-color: #7fa77f !important; }
+.hover\:bg-blue-500:hover, .hover\:bg-blue-600:hover { background-color: #6d976d !important; }
+.hover\:bg-gray-700:hover, .hover\:bg-gray-800:hover { background-color: #f3f5ec !important; }
+.hover\:text-white:hover, .hover\:text-gray-200:hover { color: var(--ink) !important; }
+
+blockquote { border-left-color: #9bbd9b !important; }
+code { color: #355f6f; }
+::selection { background: rgba(169,201,215,.45); color: var(--ink); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .card, .report-card, .history-item { transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+  .report-card:hover { transform: translateY(-2px); }
+}
