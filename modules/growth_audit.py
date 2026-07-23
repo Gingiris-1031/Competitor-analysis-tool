@@ -6,10 +6,13 @@
 3. 30-Day Action Plan(~6000 字)
 """
 import asyncio
+import html as _html
 import httpx
 import json
 import logging
 import os
+import re
+import time
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -17,6 +20,12 @@ log = logging.getLogger(__name__)
 
 # TinyFish Fetch API
 TINYFISH_FETCH_URL = "https://api.fetch.tinyfish.ai"
+
+# A growth audit may fetch the same public site more than once while a user
+# iterates on the report.  Keep a deliberately short, process-local cache: it
+# removes repeat rendering work without turning an audit into a stale snapshot.
+_SITE_FETCH_CACHE_TTL_SECONDS = int(os.environ.get("GROWTH_AUDIT_SITE_CACHE_TTL", "300"))
+_site_fetch_cache: dict[str, tuple[float, dict]] = {}
 
 # ─── Gingiris Skills System Prompt ──────────────────────────────────────────
 
@@ -207,6 +216,52 @@ def _build_tactical_cheatsheet(filter_to_skills: Optional[list] = None, lang: st
 # ─── TinyFish Fetch ─────────────────────────────────────────────────────────
 
 
+def _compact_html_text(raw_html: str, limit: int) -> str:
+    """Turn a small, static auxiliary page into useful LLM context.
+
+    TinyFish remains responsible for the JS-rendered homepage.  This helper is
+    only used for robots, sitemap and pricing so a slow optional pricing page
+    cannot hold the entire audit fetch hostage.
+    """
+    text = re.sub(r"(?is)<(script|style|noscript).*?>.*?</\1>", " ", raw_html)
+    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", _html.unescape(text)).strip()[:limit]
+
+
+async def _fetch_auxiliary_site_data(base: str) -> dict:
+    """Fetch static audit inputs concurrently with bounded latency."""
+    targets = {
+        "robots_txt": (f"{base}/robots.txt", 2500),
+        "sitemap": (f"{base}/sitemap.xml", 4500),
+        "pricing_page": (f"{base}/pricing", 6500),
+    }
+
+    async def _get(client: httpx.AsyncClient, key: str, page_url: str, limit: int):
+        try:
+            response = await client.get(page_url)
+            if response.status_code >= 400:
+                return key, None
+            raw = response.text
+            if key == "robots_txt":
+                return key, raw[:limit]
+            if key == "sitemap":
+                return key, raw[:limit]
+            title_match = re.search(r"(?is)<title[^>]*>(.*?)</title>", raw)
+            title = _compact_html_text(title_match.group(1), 300) if title_match else None
+            return key, {"title": title, "text": _compact_html_text(raw, limit)}
+        except Exception:
+            return key, None
+
+    timeout = httpx.Timeout(connect=3.0, read=6.0, write=3.0, pool=3.0)
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; analook/1.0)"}
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, headers=headers) as client:
+        items = await asyncio.gather(*(
+            _get(client, key, page_url, limit)
+            for key, (page_url, limit) in targets.items()
+        ))
+    return {key: value for key, value in items if value}
+
+
 async def fetch_site_with_tinyfish(url: str) -> dict:
     """使用 TinyFish Fetch API 抓取网站内容。
 
@@ -219,20 +274,31 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
         except FileNotFoundError:
             return {"error": "TINYFISH_API_KEY not configured"}
 
+    raw_url = url if url.startswith("http") else f"https://{url}"
+    cache_key = raw_url.rstrip("/").lower()
+    cached = _site_fetch_cache.get(cache_key)
+    if cached and time.monotonic() - cached[0] < _SITE_FETCH_CACHE_TTL_SECONDS:
+        # The result is not mutated downstream, but copy the top-level mapping
+        # so future pipeline additions cannot poison the shared cache entry.
+        return dict(cached[1])
+
     # Iris 2026-07-06 accuracy audit: resolve redirects BEFORE building the
     # base, otherwise robots.txt / pricing / sitemap get fetched from the
     # OLD domain when the site has migrated (notion.so → notion.com held
     # 8x the SEO footprint in the sibling /api/analyze bug). The audit
     # then confidently mis-describes the wrong domain's GEO readiness.
     redirect_note = ""
-    raw_url = url if url.startswith("http") else f"https://{url}"
     try:
+        # We only need the final URL. Streaming avoids downloading a complete
+        # homepage here and cuts the common redirect check from seconds to a
+        # single response-header round trip.
         async with httpx.AsyncClient(
-            timeout=8, follow_redirects=True,
+            timeout=httpx.Timeout(connect=2.5, read=3.0, write=2.5, pool=2.5),
+            follow_redirects=True,
             headers={"User-Agent": "Mozilla/5.0 (compatible; analook/1.0)"},
         ) as _rc:
-            _resp = await _rc.get(raw_url)
-            _final = str(_resp.url)
+            async with _rc.stream("GET", raw_url) as _resp:
+                _final = str(_resp.url)
             _orig_host = urlparse(raw_url).netloc.lower().replace("www.", "")
             _final_host = urlparse(_final).netloc.lower().replace("www.", "")
             if _final_host and _final_host != _orig_host:
@@ -253,55 +319,36 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
     parsed = urlparse(url if url.startswith("http") else f"https://{url}")
     base = f"{parsed.scheme}://{parsed.netloc}"
 
-    # Batch fetch: homepage + robots.txt + pricing (if exists)
-    urls_to_fetch = [
-        url,  # homepage
-        f"{base}/robots.txt",
-        f"{base}/pricing",
-        f"{base}/sitemap.xml",
-    ]
-
     results = {}
     try:
-        async with httpx.AsyncClient(timeout=160) as client:
-            resp = await client.post(
-                TINYFISH_FETCH_URL,
-                headers={"X-API-Key": api_key, "Content-Type": "application/json"},
-                json={
-                    "urls": urls_to_fetch,
-                    "format": "markdown",
-                    "links": True,
-                    "ttl": 0,  # fresh fetch
-                },
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        # Render only the page where JS execution adds high signal (the
+        # homepage). Static assets are fetched in parallel below with a six
+        # second ceiling, instead of allowing one slow /pricing route to delay
+        # the full report for up to 160 seconds.
+        async def _fetch_homepage():
+            async with httpx.AsyncClient(timeout=70) as client:
+                return await client.post(
+                    TINYFISH_FETCH_URL,
+                    headers={"X-API-Key": api_key, "Content-Type": "application/json"},
+                    json={"urls": [url], "format": "markdown", "links": True, "ttl": 300},
+                )
 
-            for r in data.get("results", []):
-                page_url = r.get("url", "")
-                if page_url == url or page_url == url.rstrip("/") or "robots" not in page_url and "pricing" not in page_url and "sitemap" not in page_url:
-                    results["homepage"] = {
-                        "title": r.get("title"),
-                        "description": r.get("description"),
-                        "text": (r.get("text") or "")[:12000],
-                        "links": (r.get("links") or [])[:50],
-                    }
-                elif "robots.txt" in page_url:
-                    results["robots_txt"] = (r.get("text") or "")[:2000]
-                elif "pricing" in page_url:
-                    results["pricing_page"] = {
-                        "title": r.get("title"),
-                        "text": (r.get("text") or "")[:6000],
-                    }
-                elif "sitemap" in page_url:
-                    results["sitemap"] = (r.get("text") or "")[:4000]
+        resp, auxiliary = await asyncio.gather(_fetch_homepage(), _fetch_auxiliary_site_data(base))
+        results.update(auxiliary)
+        resp.raise_for_status()
+        data = resp.json()
 
-            for e in data.get("errors", []):
-                err_url = e.get("url", "")
-                if "pricing" in err_url:
-                    results["pricing_page"] = None
-                elif "sitemap" in err_url:
-                    results["sitemap"] = None
+        for r in data.get("results", []):
+            results["homepage"] = {
+                "title": r.get("title"),
+                "description": r.get("description"),
+                "text": (r.get("text") or "")[:12000],
+                "links": (r.get("links") or [])[:50],
+            }
+            break
+
+        for e in data.get("errors", []):
+            log.warning("TinyFish homepage fetch error: %s", str(e)[:200])
 
     except Exception as exc:
         log.error("TinyFish fetch failed: %s", exc)
@@ -311,6 +358,7 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
     results["domain"] = parsed.netloc
     if redirect_note:
         results["redirect_note"] = redirect_note
+    _site_fetch_cache[cache_key] = (time.monotonic(), dict(results))
     return results
 
 
