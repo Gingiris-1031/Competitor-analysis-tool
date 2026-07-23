@@ -630,12 +630,13 @@
     }
 
     function tickProgress() {
-        // Compute weighted % across all steps.
+        // Compute weighted % from actual backend state. Diagnosis runs before
+        // the executive summary, so this cannot assume the visual card order.
         let pct = 0;
         let activeStepLabel = null;
         for (const s of PROGRESS_STEPS) {
             const st = stepState[s.stepEl];
-            if (!st || st.status === 'pending') break;
+            if (!st || st.status === 'pending') continue;
             if (st.status === 'done') {
                 pct += s.weight;
                 continue;
@@ -644,10 +645,8 @@
                 const elapsed = (Date.now() - st.startedAt) / 1000;
                 const frac = Math.min(elapsed / s.expectedSec, 0.92);  // cap below 100% so we don't lie
                 pct += s.weight * frac;
-                activeStepLabel = document.querySelector(`#${s.stepEl} span:last-child`)?.textContent || null;
-                break;
+                if (!activeStepLabel) activeStepLabel = document.querySelector(`#${s.stepEl} span:last-child`)?.textContent || null;
             }
-            if (st.status === 'failed') break;
         }
         pct = Math.min(Math.round(pct), 99);
         document.getElementById('progress-fill').style.width = pct + '%';

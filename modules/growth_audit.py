@@ -2793,6 +2793,43 @@ def _render_action_matrix(hints: dict, level: int = 2, lang: str = "zh") -> str:
     return "\n".join(lines)
 
 
+def _fast_action_plan_fallback(product_name: str, hints: dict, lang: str) -> str:
+    """Guarantee an actionable third report when a model exceeds its SLA."""
+    if lang == "zh":
+        lead = (
+            f"# {product_name} 30 天行动计划\n\n"
+            "> 本计划由已完成的公开网站诊断自动生成；模型服务超时，因此仅保留可直接执行、"
+            "无需额外假设的优先动作。\n\n"
+            "## 第 1 周｜建立可被发现的入口\n"
+            "- 选定 3 个高意向竞品对比主题，发布对应对比页。\n"
+            "- 为每页补齐 title、FAQ、内部链接和明确 CTA，并提交 IndexNow。\n"
+            "- 建立基线：记录自然搜索点击、注册、激活和付费四项指标。\n\n"
+            "## 第 2 周｜把产品能力变成可引用内容\n"
+            "- 发布 2 篇围绕核心工作流的教程或案例；每篇回答一个明确问题。\n"
+            "- 在首页与教程页补充 FAQ schema 和可复制的关键数据表。\n"
+            "- 找 5 位垂直用户做 20 分钟访谈，验证最高优先级假设。\n\n"
+            "## 第 3 周｜验证渠道与分发\n"
+            "- 用一个真实案例在最匹配的设计/专业社区分享方法，而非硬推产品。\n"
+            "- 将反馈整理为 3 个内容题目，并把最高频问题写进产品页 FAQ。\n\n"
+            "## 第 4 周｜复盘与下一轮\n"
+            "- 按内容页的展示、点击、注册和激活数据保留有效主题，停止无反馈主题。\n"
+            "- 选出下月 3 个可复制页面和 1 个需要产品团队解决的激活瓶颈。\n\n"
+            "## 成功判定\n"
+            "- 对比页、教程页均被 sitemap 收录并可被搜索引擎抓取。\n"
+            "- 每周都有可追踪的访问→注册→激活漏斗数据，而非仅看曝光。\n\n"
+        )
+    else:
+        lead = (
+            f"# {product_name} — 30-Day Action Plan\n\n"
+            "> Generated from the completed public-site diagnosis. The long-form model timed out, so this version keeps only executable actions that do not require invented facts.\n\n"
+            "## Week 1 — Create discoverable entry points\n- Publish three high-intent comparison pages.\n- Add titles, FAQs, internal links and clear CTAs; submit through IndexNow.\n- Record baseline search, signup, activation and paid-conversion metrics.\n\n"
+            "## Week 2 — Build citation-worthy proof\n- Publish two workflow tutorials or case studies.\n- Add FAQ schema and a reusable facts table.\n- Run five 20-minute user interviews to validate the highest-priority assumption.\n\n"
+            "## Week 3 — Validate distribution\n- Share one real workflow in the most relevant community.\n- Turn repeated questions into product-page FAQs and three new content briefs.\n\n"
+            "## Week 4 — Review and repeat\n- Keep topics that drive visits → signups → activation; stop the rest.\n- Select three repeatable pages and one activation bottleneck for the next cycle.\n\n"
+        )
+    return lead + _render_action_matrix(hints, level=2, lang=lang)
+
+
 def _render_playbook_section(hints: dict, level: int = 2, lang: str = "zh") -> str:
     """Render the canonical 'Gingiris Playbook' section, using REAL skills only.
 
@@ -3660,7 +3697,14 @@ async def run_growth_audit(
         _emit("action_plan", plan_md)
         _update("action_plan", "done")
     else:
-        _update("action_plan", "failed")
+        # A long-form action-plan timeout must never turn a completed audit
+        # into a two-report product. Emit a bounded, deterministic execution
+        # plan grounded in the verified diagnosis instead.
+        plan_md = _fast_action_plan_fallback(product_name, hints, lang)
+        reports["action_plan"] = plan_md
+        sources["plan"] = "deterministic fallback"
+        _emit("action_plan", plan_md)
+        _update("action_plan", "done")
         # Emit traceback when plan_result is an Exception so the next
         # failure tells us EXACTLY which line + module — short-circuits
         # the "guess from the str(e)" debugging loop Iris and I burned
