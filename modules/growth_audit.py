@@ -388,6 +388,11 @@ async def fetch_site_with_tinyfish(url: str) -> dict:
 # across all 3 fallback plans. Bumped to 300s so the longest generation
 # path has plenty of headroom even when an LLM is slow.
 _LLM_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+# Interactive audits need a firm latency ceiling.  The lower-level provider
+# timeout remains generous for non-interactive callers, while this budget is
+# enforced around every Growth Audit model attempt below.
+_AUDIT_LLM_BUDGET_SECONDS = 65.0
+_AUDIT_LLM_ATTEMPT_SECONDS = 38.0
 
 
 def _extract_content(data: dict) -> str:
@@ -531,8 +536,21 @@ async def _call_llm_long(system_prompt: str, user_prompt: str, max_tokens: int =
         ("B", lambda: _try_deepseek(messages, max_tokens)),
         ("C", lambda: _try_openrouter(messages, max_tokens, or_fallback)),
     )
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + _AUDIT_LLM_BUDGET_SECONDS
     for label, plan in plans:
-        result = await plan()
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            log.warning("Growth Audit LLM budget exhausted before Plan %s", label)
+            break
+        try:
+            result = await asyncio.wait_for(
+                plan(), timeout=min(_AUDIT_LLM_ATTEMPT_SECONDS, remaining)
+            )
+        except asyncio.TimeoutError:
+            log.warning("Growth Audit LLM Plan %s exceeded %.0fs; failing over", label,
+                        min(_AUDIT_LLM_ATTEMPT_SECONDS, remaining))
+            result = None
         if result:
             if label not in ("0", "A"):
                 log.info("LLM served by Plan %s (%s)", label, result.get("source"))
@@ -3017,7 +3035,7 @@ async def generate_diagnosis_report(site_data: dict, product_name: str, lang: st
 
 ---
 
-## 输出要求(Markdown 格式,4500-6000 字；优先清晰、可验证，拒绝为了篇幅重复同一判断)
+## 输出要求(Markdown 格式,1800-2600 字；优先清晰、可验证，拒绝为了篇幅重复同一判断)
 
 # {product_name} 增长诊断报告
 
@@ -3114,7 +3132,10 @@ _以下为行动与综合判断（总）——回扣开头的「核心论断」_
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=6000)
+    # The diagnosis is the first report users see. Keep it compact enough to
+    # arrive within the interactive model budget; the later action plan adds
+    # implementation detail instead of making this facts layer encyclopedic.
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=2600)
 
 
 async def generate_action_plan(
@@ -3169,7 +3190,7 @@ async def generate_action_plan(
 
 ---
 
-## 输出要求(Markdown 格式,4000-5500 字；每周保留最有杠杆的 2-4 个动作，避免模板化堆砌)
+## 输出要求(Markdown 格式,2200-3200 字；每周保留最有杠杆的 2-4 个动作，避免模板化堆砌)
 
 # {product_name} - 30 天行动计划
 
@@ -3260,7 +3281,7 @@ npx skills add Gingiris-1031/<skill-name>
     picked_skills = _pick_skills_for_product_type(hints)
     sys_prompt = _get_system_prompt(filter_to_skills=picked_skills, lang=lang)
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(sys_prompt, user_prompt, max_tokens=6500)
+    return await _call_llm_long(sys_prompt, user_prompt, max_tokens=3200)
 
 
 async def generate_executive_summary(site_data: dict, product_name: str,
@@ -3280,7 +3301,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 
 ---
 
-## 输出要求(Markdown 格式,1200-1800 字；这是用户首先阅读的决策页，先结论、后依据、再行动)
+## 输出要求(Markdown 格式,800-1200 字；这是用户首先阅读的决策页，先结论、后依据、再行动)
 
 # {product_name} 增长诊断 - 执行摘要
 
@@ -3332,7 +3353,7 @@ async def generate_executive_summary(site_data: dict, product_name: str,
 """
 
     user_prompt += _lang_tail(lang)
-    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=2600)
+    return await _call_llm_long(_get_system_prompt(lang=lang), user_prompt, max_tokens=1400)
 
 
 # ─── Main Orchestrator ──────────────────────────────────────────────────────

@@ -977,12 +977,21 @@ async def _restore_growth_audit(job_id: str) -> dict | None:
         if row.get("status") != "running" or not state:
             return None
 
+        restored_email = None
+        if row.get("user_id"):
+            try:
+                restored_user = sb.auth.admin.get_user_by_id(row["user_id"])
+                restored_email = getattr(getattr(restored_user, "user", None), "email", None)
+            except Exception:
+                pass
+
         job = {
             "status": "running",
             "product_name": row.get("product_name") or row.get("url"),
             "url": row.get("url"),
             "lang": report.get("lang") or "zh",
             "user_id": row.get("user_id"),
+            "user_email": restored_email,
             "progress": state.get("progress") or {
                 "fetch": "pending", "executive_summary": "pending",
                 "diagnosis": "pending", "action_plan": "pending",
@@ -1081,6 +1090,7 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
         "url": url,
         "lang": lang,
         "user_id": user["id"] if user else None,
+        "user_email": user.get("email") if user else None,
         "progress": {
             "fetch": "pending",
             "executive_summary": "pending",
@@ -1849,6 +1859,19 @@ async def _run_growth_audit(job_id: str, url: str, product_name: str = None, lan
                 )
             except Exception as e:
                 log.error("Failed to save growth audit to DB: %s", e)
+
+            # Completion email is deliberately best-effort: a Resend outage
+            # must never turn a finished audit into a failed user job.
+            user_email = _growth_audit_jobs[job_id].get("user_email")
+            if user_email and not _growth_audit_jobs[job_id].get("email_notified"):
+                from modules.growth_audit_email import send_growth_audit_ready_email
+                sent = await send_growth_audit_ready_email(
+                    to_email=user_email,
+                    product_name=result.get("product_name") or product_name or url,
+                    job_id=job_id,
+                    lang=lang,
+                )
+                _growth_audit_jobs[job_id]["email_notified"] = sent
 
     except Exception as e:
         log.error("Growth audit failed for %s: %s", url, e)
