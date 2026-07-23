@@ -1643,9 +1643,15 @@ async def admin_growth_audit_metrics(request: Request):
     sb = get_supabase()
     if not sb:
         return JSONResponse({"error": "supabase not configured"}, status_code=503)
-    rows = (sb.table("reports").select("id,report").like("id", "ga-%")
-            .eq("status", "completed").order("created_at", desc=True)
-            .limit(limit_q).execute().data or [])
+    try:
+        rows = (sb.table("reports").select("id,report").like("id", "ga-%")
+                .eq("status", "completed").order("created_at", desc=True)
+                .limit(limit_q).execute().data or [])
+    except Exception as exc:
+        # Supabase occasionally returns a transient upstream 5xx. Metrics
+        # must fail closed without turning an admin observation into an app 500.
+        log.warning("Growth audit metrics query failed: %s", exc)
+        return JSONResponse({"error": "metrics temporarily unavailable"}, status_code=503)
     totals, stages, fallbacks = [], {}, 0
     for row in rows:
         report = row.get("report") or {}
