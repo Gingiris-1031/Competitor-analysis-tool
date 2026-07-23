@@ -893,6 +893,114 @@ _growth_audit_jobs: dict = {}
 GROWTH_AUDIT_CREDITS = 10  # Pro $29/mo (30 credits) = exactly 3 audits/month
 
 
+def _growth_audit_response(job: dict) -> dict:
+    """Return the durable polling shape for an in-memory or restored job."""
+    response = {
+        "status": job["status"],
+        "product_name": job.get("product_name"),
+        "url": job.get("url"),
+        "progress": job.get("progress"),
+    }
+    if job.get("reports"):
+        response["reports"] = job["reports"]
+        response["site_data_summary"] = job.get("site_data_summary")
+    if job["status"] == "failed":
+        response["error"] = job.get("error", "Unknown error")
+    return response
+
+
+async def _checkpoint_growth_audit(job_id: str, job: dict) -> None:
+    """Persist enough state to resume an audit after a Fly machine rolls.
+
+    Growth Audit work is deliberately asynchronous, so a rolling deploy can
+    otherwise kill the task between poll requests. The completed report already
+    uses this table; saving the initial checkpoint makes the unfinished state
+    recoverable too.
+    """
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if not sb:
+            return
+        state = {
+            "_partial": True,
+            "lang": job.get("lang", "zh"),
+            "_growth_audit_job": {
+                "status": job.get("status", "running"),
+                "progress": job.get("progress") or {},
+            },
+        }
+        sb.table("reports").upsert({
+            "id": job_id,
+            "user_id": job.get("user_id"),
+            "url": job.get("url"),
+            "product_name": job.get("product_name") or "Growth Audit",
+            "report": state,
+            "markdown": "",
+            "is_public": True,
+            "status": "running",
+        }).execute()
+    except Exception as exc:
+        # The live in-memory path remains available if persistence is briefly
+        # unavailable; do not reject an already-paid audit for a checkpoint IO
+        # failure.
+        log.error("Failed to checkpoint growth audit %s: %s", job_id, exc)
+
+
+async def _restore_growth_audit(job_id: str) -> dict | None:
+    """Load a persisted audit and resume it once when its worker disappeared."""
+    try:
+        from modules.supabase_client import get_supabase
+        sb = get_supabase()
+        if not sb:
+            return None
+        result = sb.table("reports").select(
+            "id,user_id,url,product_name,report,status"
+        ).eq("id", job_id).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return None
+        row = rows[0]
+        report = row.get("report") or {}
+        if isinstance(report, str):
+            report = _json.loads(report)
+        if row.get("status") == "completed":
+            return {
+                "status": "completed",
+                "product_name": row.get("product_name"),
+                "url": row.get("url"),
+                "progress": {k: "done" for k in ("fetch", "executive_summary", "diagnosis", "action_plan")},
+                "reports": report.get("reports") or {},
+                "site_data_summary": report.get("site_data_summary"),
+            }
+        state = report.get("_growth_audit_job") or {}
+        if row.get("status") != "running" or not state:
+            return None
+
+        job = {
+            "status": "running",
+            "product_name": row.get("product_name") or row.get("url"),
+            "url": row.get("url"),
+            "lang": report.get("lang") or "zh",
+            "user_id": row.get("user_id"),
+            "progress": state.get("progress") or {
+                "fetch": "pending", "executive_summary": "pending",
+                "diagnosis": "pending", "action_plan": "pending",
+            },
+            "reports": None,
+        }
+        _growth_audit_jobs[job_id] = job
+        # A resumed audit uses the original paid job ID; no second credit charge.
+        asyncio.create_task(_run_growth_audit(
+            job_id, job["url"], job["product_name"], job["lang"]
+        ))
+        log.warning("Resumed interrupted growth audit %s after worker restart", job_id)
+        return job
+    except Exception as exc:
+        log.error("Failed to restore growth audit %s: %s", job_id, exc)
+        return None
+
+
 @app.post("/api/growth-audit")
 async def start_growth_audit(request: Request, bg: BackgroundTasks):
     """Start a Growth Audit: produces 3 reports (Executive Summary + Diagnosis + Action Plan).
@@ -982,6 +1090,7 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
         "reports": None,
     }
 
+    await _checkpoint_growth_audit(job_id, _growth_audit_jobs[job_id])
     bg.add_task(_run_growth_audit, job_id, url, product_name, lang)
     return {"job_id": job_id, "status": "started", "lang": lang}
 
@@ -1016,26 +1125,10 @@ async def get_growth_audit_status(job_id: str, request: Request):
         replay = _fly_replay_if_foreign(request)
         if replay is not None:
             return replay
-        return JSONResponse({"error": "Job not found"}, status_code=404)
-
-    response = {
-        "status": job["status"],
-        "product_name": job.get("product_name"),
-        "url": job.get("url"),
-        "progress": job.get("progress"),
-    }
-
-    # Return whatever reports exist so far (not only when completed) so the
-    # frontend can progressively render Diagnosis the moment it's ready, then
-    # Exec/Plan as they stream in — instead of waiting for the full pipeline.
-    if job.get("reports"):
-        response["reports"] = job["reports"]
-        response["site_data_summary"] = job.get("site_data_summary")
-
-    if job["status"] == "failed":
-        response["error"] = job.get("error", "Unknown error")
-
-    return response
+        job = await _restore_growth_audit(job_id)
+        if not job:
+            return JSONResponse({"error": "Job not found"}, status_code=404)
+    return _growth_audit_response(job)
 
 
 # ─── Growth Audit public share ─────────────────────────────────────────────

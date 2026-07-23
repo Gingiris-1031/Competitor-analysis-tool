@@ -698,7 +698,25 @@
             const resp = await fetch(`/api/growth-audit/${currentJobId}`, {
                 headers: token ? {'Authorization': `Bearer ${token}`} : {},
             });
-            const data = await resp.json();
+            const data = await resp.json().catch(() => ({}));
+
+            // A job can disappear only when an older deployment interrupted an
+            // in-memory worker. Never leave a paid user watching a frozen 8%
+            // bar: stop polling and make the retry action explicit.
+            if (!resp.ok) {
+                stopProgressEngine();
+                currentJobId = null;
+                const btn = document.getElementById('start-btn');
+                btn.disabled = false;
+                btn.textContent = '重新开始诊断';
+                showToast({
+                    kind: 'error',
+                    title: '诊断任务已中断',
+                    message: data.error || '任务已中断，请重新开始。新版会在部署后自动恢复未完成任务。',
+                    duration: 7000,
+                });
+                return;
+            }
 
             if (data.progress) {
                 updateStep('step-fetch', data.progress.fetch);
