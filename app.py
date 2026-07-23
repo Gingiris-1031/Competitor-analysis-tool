@@ -904,6 +904,8 @@ def _growth_audit_response(job: dict) -> dict:
     if job.get("reports"):
         response["reports"] = job["reports"]
         response["site_data_summary"] = job.get("site_data_summary")
+    if job.get("timing"):
+        response["timing"] = job["timing"]
     if job["status"] == "failed":
         response["error"] = job.get("error", "Unknown error")
     return response
@@ -928,6 +930,7 @@ async def _checkpoint_growth_audit(job_id: str, job: dict) -> None:
             "_growth_audit_job": {
                 "status": job.get("status", "running"),
                 "progress": job.get("progress") or {},
+                "timing": job.get("timing") or {},
             },
         }
         sb.table("reports").upsert({
@@ -996,6 +999,7 @@ async def _restore_growth_audit(job_id: str) -> dict | None:
                 "fetch": "pending", "executive_summary": "pending",
                 "diagnosis": "pending", "action_plan": "pending",
             },
+            "timing": state.get("timing") or {},
             "reports": None,
         }
         _growth_audit_jobs[job_id] = job
@@ -1097,6 +1101,7 @@ async def start_growth_audit(request: Request, bg: BackgroundTasks):
             "diagnosis": "pending",
             "action_plan": "pending",
         },
+        "timing": {},
         "reports": None,
     }
 
@@ -1615,6 +1620,66 @@ async def admin_recent_audits(request: Request):
             "sources":       (rep or {}).get("sources"),
         })
     return {"recent_audits": out}
+
+
+@app.get("/api/admin/growth-audit-metrics")
+async def admin_growth_audit_metrics(request: Request):
+    """Observed Growth Audit latency from persisted reports.
+
+    Timing lives in the report JSON so this works without a schema migration
+    and lets us calculate the real average/P50/P95 once new runs complete.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    if (request.headers.get("X-Autopilot-Tick-Token") or "").strip() != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    try:
+        limit_q = int(request.query_params.get("limit") or 100)
+    except Exception:
+        limit_q = 100
+    limit_q = max(1, min(limit_q, 500))
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "supabase not configured"}, status_code=503)
+    rows = (sb.table("reports").select("id,report").like("id", "ga-%")
+            .eq("status", "completed").order("created_at", desc=True)
+            .limit(limit_q).execute().data or [])
+    totals, stages, fallbacks = [], {}, 0
+    for row in rows:
+        report = row.get("report") or {}
+        if isinstance(report, str):
+            try:
+                report = _json.loads(report)
+            except Exception:
+                continue
+        timing = report.get("timing") or {}
+        total = timing.get("total_seconds")
+        if isinstance(total, (int, float)) and total >= 0:
+            totals.append(float(total))
+        for stage, seconds in (timing.get("stages") or {}).items():
+            if isinstance(seconds, (int, float)) and seconds >= 0:
+                stages.setdefault(stage, []).append(float(seconds))
+        if (report.get("source") or report.get("sources") or {}).get("plan") == "deterministic fallback":
+            fallbacks += 1
+    totals.sort()
+    def _percentile(p: float):
+        if not totals:
+            return None
+        return round(totals[min(len(totals) - 1, int((len(totals) - 1) * p))], 3)
+    return {
+        "sample_size": len(totals),
+        "completed_reports_scanned": len(rows),
+        "average_seconds": round(sum(totals) / len(totals), 3) if totals else None,
+        "p50_seconds": _percentile(0.50),
+        "p95_seconds": _percentile(0.95),
+        "fallback_plan_count": fallbacks,
+        "stage_average_seconds": {
+            stage: round(sum(values) / len(values), 3)
+            for stage, values in stages.items() if values
+        },
+    }
 
 
 @app.get("/api/admin/user-metrics")

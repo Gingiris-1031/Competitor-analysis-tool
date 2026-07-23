@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import time
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -3465,6 +3466,11 @@ async def run_growth_audit(
     如果提供 job_id 和 jobs_dict,会实时更新 job 状态。
     lang: "zh" (default) or "en" — controls report output language.
     """
+    audit_started_at = datetime.now(timezone.utc).isoformat()
+    audit_started_perf = time.perf_counter()
+    stage_started_perf: dict[str, float] = {}
+    stage_seconds: dict[str, float] = {}
+
     # Parse product name from URL if not provided
     if not product_name:
         parsed = urlparse(url if url.startswith("http") else f"https://{url}")
@@ -3474,8 +3480,19 @@ async def run_growth_audit(
         product_name = brand.replace("-", " ").replace("_", " ").capitalize()
 
     def _update(stage: str, status: str):
+        now = time.perf_counter()
+        if status == "running":
+            stage_started_perf.setdefault(stage, now)
+        elif status in ("done", "failed"):
+            started = stage_started_perf.setdefault(stage, audit_started_perf)
+            stage_seconds[stage] = round(now - started, 3)
         if jobs_dict and job_id and job_id in jobs_dict:
             jobs_dict[job_id]["progress"][stage] = status
+            jobs_dict[job_id]["timing"] = {
+                "started_at": audit_started_at,
+                "total_seconds": round(now - audit_started_perf, 3),
+                "stages": dict(stage_seconds),
+            }
 
     _emit_save_tasks = []  # track fire-and-forget partial saves so the
     # final completion save can await them and always win the last write
@@ -3507,6 +3524,8 @@ async def run_growth_audit(
                     "product_name": jobs_dict[job_id].get("product_name") or product_name,
                     "url": jobs_dict[job_id].get("url") or url,
                     "reports": dict(r),
+                    "lang": lang,
+                    "timing": jobs_dict[job_id].get("timing") or {},
                     "_partial": jobs_dict[job_id].get("status") != "completed",
                 }
                 _emit_save_tasks.append(_aio2.create_task(_save(
@@ -3732,6 +3751,13 @@ async def run_growth_audit(
     return {
         "product_name": product_name,
         "url": url,
+        "lang": lang,
+        "timing": {
+            "started_at": audit_started_at,
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "total_seconds": round(time.perf_counter() - audit_started_perf, 3),
+            "stages": stage_seconds,
+        },
         "site_data_summary": {
             "homepage_title": site_data.get("homepage", {}).get("title"),
             "has_robots": bool(site_data.get("robots_txt")),
