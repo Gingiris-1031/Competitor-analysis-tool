@@ -142,6 +142,17 @@ async def save_report_to_db(
             "is_public":    is_public,
             "status":       "completed",
         }).execute()
+        # Stage 2 migration: Supabase remains authoritative. When the
+        # explicitly enabled mirror is healthy, copy the same completed row to
+        # InsForge without allowing an auxiliary write to affect delivery.
+        from modules import insforge_client as _insforge
+        if _insforge.reports_dual_write_enabled():
+            mirrored = await _insforge.mirror_report(
+                job_id, user_id, url, product_name, report, markdown, is_public,
+                status="completed",
+            )
+            if not mirrored:
+                log.warning("InsForge report mirror unavailable job=%s; Supabase remains primary", job_id)
         return True
     except Exception as e:
         log.error("报告写入 Supabase 失败 job=%s: %s", job_id, e)

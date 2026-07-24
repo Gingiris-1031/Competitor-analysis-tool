@@ -27,6 +27,7 @@ import httpx
 log = logging.getLogger("insforge")
 
 TABLE = "scorecards"
+REPORTS_TABLE = "reports"
 _TIMEOUT = httpx.Timeout(15.0)
 
 
@@ -46,6 +47,13 @@ def _key() -> str:
 
 def _records_url(table: str = TABLE) -> str:
     return f"{_base()}/api/database/records/{table}"
+
+
+def reports_dual_write_enabled() -> bool:
+    """Opt-in mirror for reports while Supabase remains the source of truth."""
+    return enabled() and (os.environ.get("INSFORGE_REPORTS_DUAL_WRITE") or "").lower() in {
+        "1", "true", "yes", "on"
+    }
 
 
 def _headers(write: bool = False) -> dict:
@@ -115,6 +123,32 @@ async def mark_scorecard_unlocked(card_hash: str) -> bool:
         return True
     except Exception as e:
         log.error("InsForge 评分卡解锁异常 hash=%s: %s", card_hash, e)
+        return False
+
+
+async def mirror_report(
+    job_id: str, user_id: str | None, url: str, product_name: str,
+    report: dict, markdown: str, is_public: bool, status: str = "completed",
+) -> bool:
+    """Best-effort reports mirror; never replaces the Supabase primary write."""
+    if not reports_dual_write_enabled():
+        return False
+    row = {
+        "id": job_id, "user_id": user_id, "url": url,
+        "product_name": product_name or "", "report": report or {},
+        "markdown": markdown or "", "is_public": bool(is_public),
+        "status": status if status in {"running", "completed", "failed"} else "completed",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            await c.delete(_records_url(REPORTS_TABLE), params={"id": f"eq.{job_id}"}, headers=_headers())
+            resp = await c.post(_records_url(REPORTS_TABLE), json=[row], headers=_headers(write=True))
+            if resp.status_code >= 300:
+                log.error("InsForge report mirror failed job=%s status=%s", job_id, resp.status_code)
+                return False
+        return True
+    except Exception as e:
+        log.error("InsForge report mirror exception job=%s: %s", job_id, e)
         return False
 
 
