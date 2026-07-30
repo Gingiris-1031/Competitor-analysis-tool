@@ -3736,8 +3736,6 @@ _register_html_aliases()
 app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
 app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
-
 
 # ---------------------------------------------------------------------------
 # Admin: run database migrations (protected by AUTOPILOT_TICK_TOKEN)
@@ -3837,3 +3835,6 @@ END $$;
         })
 
     return JSONResponse({"results": results})
+
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
