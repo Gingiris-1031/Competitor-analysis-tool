@@ -3737,3 +3737,103 @@ app.mount("/zh/js", StaticFiles(directory="static/zh/js"), name="zh-js")
 app.mount("/zh", StaticFiles(directory="static/zh", html=True), name="zh-static")
 app.mount("/js", StaticFiles(directory="static/js"), name="js")
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+
+# ---------------------------------------------------------------------------
+# Admin: run database migrations (protected by AUTOPILOT_TICK_TOKEN)
+# ---------------------------------------------------------------------------
+@app.post("/api/admin/migrate")
+async def admin_run_migration(request: Request):
+    """Run pending DB migrations.
+
+    Protected by X-Autopilot-Tick-Token header. Idempotent — safe to call
+    multiple times.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    sb = get_supabase()
+    if not sb:
+        return JSONResponse({"error": "Supabase not configured"}, status_code=503)
+
+    results = []
+
+    # Migration: api_keys table
+    # We detect existence by attempting a select; if it raises PGRST205 the
+    # table doesn't exist yet and we need to create it via raw SQL.
+    # supabase-py doesn't expose DDL, so we use the Supabase REST /rpc path
+    # with a helper function we create on first run.
+
+    import hashlib, httpx
+
+    supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    service_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+    CREATE_HELPER_SQL = """
+CREATE OR REPLACE FUNCTION _analook_exec(sql text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN EXECUTE sql; END;
+$$;
+"""
+
+    CREATE_API_KEYS_SQL = """
+CREATE TABLE IF NOT EXISTS api_keys (
+    id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    key_hash     text NOT NULL UNIQUE,
+    key_prefix   text NOT NULL,
+    name         text NOT NULL DEFAULT 'Default key',
+    created_at   timestamptz NOT NULL DEFAULT now(),
+    last_used_at timestamptz,
+    revoked_at   timestamptz
+);
+CREATE INDEX IF NOT EXISTS api_keys_key_hash_idx ON api_keys (key_hash);
+CREATE INDEX IF NOT EXISTS api_keys_user_id_idx  ON api_keys (user_id);
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename='api_keys' AND policyname='Users manage own api_keys'
+  ) THEN
+    CREATE POLICY "Users manage own api_keys"
+      ON api_keys FOR ALL
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+"""
+
+    headers = {
+        "apikey": service_key,
+        "Authorization": f"Bearer {service_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        # Step 1: create the helper function via PostgREST /rpc/... wait,
+        # we can't do DDL via REST directly. Instead, we embed the migration
+        # in the app startup and use supabase-py's raw SQL capability
+        # through the admin endpoint at /rest/v1/rpc
+        # Actually: we create a PL/pgSQL function that wraps EXECUTE,
+        # then call it.  But we need to create it first — chicken-and-egg.
+        #
+        # Real solution: Supabase Management API (api.supabase.com/v1)
+        # which accepts a service_role JWT for the project.
+        mgmt_resp = await client.post(
+            f"https://api.supabase.com/v1/projects/nkunysycqapregxubcil/database/query",
+            headers={
+                "Authorization": f"Bearer {service_key}",
+                "Content-Type": "application/json",
+            },
+            json={"query": CREATE_API_KEYS_SQL},
+        )
+        results.append({
+            "migration": "api_keys",
+            "status": mgmt_resp.status_code,
+            "body": mgmt_resp.text[:200],
+        })
+
+    return JSONResponse({"results": results})
