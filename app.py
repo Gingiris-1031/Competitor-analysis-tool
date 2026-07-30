@@ -633,6 +633,78 @@ async def api_v1_list_reports(request: Request):
     return {"reports": rows}
 
 
+# =========================================================================
+# API Key management — long-lived keys for MCP and automation tooling
+# Auth: Bearer Supabase JWT (to create/list/revoke keys)
+# Usage: pass the returned key as Bearer token for any other endpoint
+# =========================================================================
+
+@app.post("/api/keys")
+async def create_api_key(request: Request):
+    """Generate a new long-lived API key for the authenticated user.
+
+    Returns the raw key ONCE — it is never stored in plain text.
+    Body: {"name": "My MCP key"}  (name is optional, defaults to "Default key")
+    """
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+
+    body = await request.json()
+    name = body.get("name", "Default key")
+
+    import secrets, hashlib
+    raw_key = "ak_" + secrets.token_urlsafe(36)
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    key_prefix = raw_key[:8]
+
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    sb.table("api_keys").insert({
+        "user_id": user["id"],
+        "key_hash": key_hash,
+        "key_prefix": key_prefix,
+        "name": name,
+    }).execute()
+
+    return JSONResponse({
+        "key": raw_key,
+        "prefix": key_prefix,
+        "name": name,
+        "note": "Save this key — it won't be shown again."
+    })
+
+
+@app.get("/api/keys")
+async def list_api_keys(request: Request):
+    """List all API keys for the authenticated user (never returns raw keys)."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    result = (
+        sb.table("api_keys")
+        .select("id, key_prefix, name, created_at, last_used_at, revoked_at")
+        .eq("user_id", user["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return JSONResponse({"keys": result.data or []})
+
+
+@app.delete("/api/keys/{key_id}")
+async def revoke_api_key(key_id: str, request: Request):
+    """Revoke an API key by ID. Only the owning user can revoke their own keys."""
+    user = await _extract_user(request)
+    if not user:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    from modules.supabase_client import get_supabase
+    sb = get_supabase()
+    sb.table("api_keys").update({"revoked_at": "now()"}).eq("id", key_id).eq("user_id", user["id"]).execute()
+    return JSONResponse({"ok": True})
+
+
 def _load_persisted_report(job_id: str) -> dict | None:
     """Load report from disk → Supabase (survives Railway restarts)."""
     # Disk

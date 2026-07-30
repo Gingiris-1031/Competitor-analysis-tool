@@ -44,9 +44,13 @@ def get_supabase():
 
 async def verify_token_and_get_user(token: str) -> dict | None:
     """
-    验证 JWT token，返回 user dict（含 id / email）。
-    验证失败返回 None。
+    Verify JWT token or API key, return user dict (containing id / email).
+    - If token starts with "ak_", routes to API key verification path.
+    - Otherwise falls through to the original Supabase JWT path.
+    Returns None on verification failure.
     """
+    if token.startswith("ak_"):
+        return await _verify_api_key(token)
     sb = get_supabase()
     if not sb:
         return None
@@ -57,7 +61,37 @@ async def verify_token_and_get_user(token: str) -> dict | None:
             return None
         return {"id": str(user.id), "email": user.email}
     except Exception as e:
-        log.debug("Token 验证失败: %s", e)
+        log.debug("Token verification failed: %s", e)
+        return None
+
+
+async def _verify_api_key(raw_key: str) -> dict | None:
+    """Verify API key: sha256(raw_key), lookup in api_keys table."""
+    import hashlib
+    sb = get_supabase()
+    if not sb:
+        return None
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+    try:
+        result = (
+            sb.table("api_keys")
+            .select("user_id, revoked_at")
+            .eq("key_hash", key_hash)
+            .single()
+            .execute()
+        )
+        row = result.data
+        if not row or row.get("revoked_at"):
+            return None
+        # update last_used_at
+        sb.table("api_keys").update({"last_used_at": "now()"}).eq("key_hash", key_hash).execute()
+        # fetch user email
+        user_result = sb.table("profiles").select("id, email").eq("id", row["user_id"]).single().execute()
+        if not user_result.data:
+            return None
+        return {"id": row["user_id"], "email": user_result.data.get("email", "")}
+    except Exception as e:
+        log.debug("API key verification failed: %s", e)
         return None
 
 
