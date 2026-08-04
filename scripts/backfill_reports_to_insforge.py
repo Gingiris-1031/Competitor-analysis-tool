@@ -10,6 +10,11 @@ write replaces only the matching ID. It never deletes from Supabase.
 import argparse
 import asyncio
 import sys
+from pathlib import Path
+
+# Fly SSH starts in a home directory rather than /app. Make the operational
+# script independent of the caller's working directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.insforge_client import enabled as insforge_enabled
 from modules.insforge_client import save_report
