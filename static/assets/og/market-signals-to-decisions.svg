@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">Market signals to business decisions workflow</title>
+  <desc id="desc">Pricing, proof, launches, and positioning signals flow through interpretation into a paid wedge, standardized offer, and product priorities.</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#f08a52"/></marker></defs>
+  <rect width="1200" height="700" rx="32" fill="#090909"/>
+  <text x="70" y="82" fill="#f6f1eb" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="700">Turn Market Signals Into Decisions</text>
+  <text x="70" y="122" fill="#a6a09a" font-family="Inter,Arial,sans-serif" font-size="18">A signal without an implication is only a reading list.</text>
+  <g font-family="Inter,Arial,sans-serif" text-anchor="middle">
+    <rect x="65" y="250" width="200" height="180" rx="24" fill="#191512" stroke="#a45838" stroke-width="2"/><text x="165" y="295" fill="#f3a473" font-size="15" font-weight="700" letter-spacing="2">SIGNALS</text><text x="165" y="337" fill="#f7f2ed" font-size="21" font-weight="700">Pricing · Proof</text><text x="165" y="370" fill="#f7f2ed" font-size="21" font-weight="700">Launches · Positioning</text>
+    <rect x="335" y="250" width="200" height="180" rx="24" fill="#1e1813" stroke="#c27447" stroke-width="2"/><text x="435" y="295" fill="#f0a56f" font-size="15" font-weight="700" letter-spacing="2">INTERPRET</text><text x="435" y="347" fill="#f7f2ed" font-size="23" font-weight="700">Where Is Value</text><text x="435" y="380" fill="#f7f2ed" font-size="23" font-weight="700">Moving?</text>
+    <rect x="605" y="250" width="200" height="180" rx="24" fill="#241b13" stroke="#e08a50" stroke-width="2"/><text x="705" y="295" fill="#ffc08e" font-size="15" font-weight="700" letter-spacing="2">CHOOSE</text><text x="705" y="347" fill="#f7f2ed" font-size="23" font-weight="700">Paid Wedge</text><text x="705" y="380" fill="#cbb8a9" font-size="17">Buyer + Outcome</text>
+    <rect x="875" y="250" width="260" height="180" rx="24" fill="#2b1d13" stroke="#f08a52" stroke-width="2"/><text x="1005" y="295" fill="#ffc08e" font-size="15" font-weight="700" letter-spacing="2">OPERATE</text><text x="1005" y="342" fill="#f7f2ed" font-size="22" font-weight="700">Standardize Offer</text><text x="1005" y="378" fill="#f7f2ed" font-size="22" font-weight="700">Reprioritize Product</text>
+    <g fill="none" stroke="#f08a52" stroke-width="4" marker-end="url(#arrow)"><path d="M265 340 H320"/><path d="M535 340 H590"/><path d="M805 340 H860"/></g>
+  </g>
+</svg>
