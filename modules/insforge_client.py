@@ -181,8 +181,25 @@ async def save_report(
     }
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
-            await c.delete(_records_url(REPORTS_TABLE), params={"id": f"eq.{job_id}"}, headers=_headers())
-            resp = await c.post(_records_url(REPORTS_TABLE), json=[row], headers=_headers(write=True))
+            # Do not use delete-then-insert here. A deploy, SSH disconnect, or
+            # request timeout between those calls would make a previously
+            # migrated report disappear from InsForge. Read once, PATCH an
+            # existing row, and only INSERT when its immutable ID is absent.
+            existing = await c.get(
+                _records_url(REPORTS_TABLE),
+                params={"id": f"eq.{job_id}", "select": "id", "limit": 1},
+                headers=_headers(),
+            )
+            if existing.status_code >= 300:
+                log.error("InsForge report lookup failed job=%s status=%s", job_id, existing.status_code)
+                return False
+            if existing.json() or []:
+                resp = await c.patch(
+                    _records_url(REPORTS_TABLE), params={"id": f"eq.{job_id}"},
+                    json=row, headers=_headers(write=True),
+                )
+            else:
+                resp = await c.post(_records_url(REPORTS_TABLE), json=[row], headers=_headers(write=True))
             if resp.status_code >= 300:
                 log.error("InsForge report save failed job=%s status=%s", job_id, resp.status_code)
                 return False
