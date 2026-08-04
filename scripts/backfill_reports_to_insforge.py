@@ -24,12 +24,12 @@ PAGE_SIZE = 50
 CONCURRENCY = 5
 
 
-def _load_source(limit: int | None) -> list[dict]:
+def _load_source(limit: int | None, offset: int = 0) -> list[dict]:
     client = get_supabase()
     if not client:
         raise RuntimeError("Supabase service client is unavailable")
     rows: list[dict] = []
-    offset = 0
+    offset = max(0, offset)
     fields = "id,user_id,url,product_name,report,markdown,is_public,status"
     while True:
         batch = client.table("reports").select(fields).order("created_at").range(
@@ -75,6 +75,7 @@ async def main() -> int:
     parser.add_argument("--execute", action="store_true", help="Perform writes; default is read-only.")
     parser.add_argument("--dry-run", action="store_true", help="Explicit alias for the default read-only mode.")
     parser.add_argument("--limit", type=int, default=0, help="Optional bounded batch size.")
+    parser.add_argument("--offset", type=int, default=0, help="Source offset for resumable execute batches.")
     args = parser.parse_args()
 
     if not insforge_enabled():
@@ -84,8 +85,8 @@ async def main() -> int:
         count = await asyncio.to_thread(_source_count)
         print(f"source_reports={count} mode=dry-run")
         return 0
-    rows = await asyncio.to_thread(_load_source, args.limit or None)
-    print(f"source_reports={len(rows)} mode=execute")
+    rows = await asyncio.to_thread(_load_source, args.limit or None, args.offset)
+    print(f"source_reports={len(rows)} offset={max(0, args.offset)} mode=execute")
     ok, failed = await _copy_all(rows)
     print(f"copied={ok} failed={failed}")
     return 0 if failed == 0 else 1
