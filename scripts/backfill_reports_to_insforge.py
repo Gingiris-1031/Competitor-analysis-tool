@@ -41,6 +41,14 @@ def _load_source(limit: int | None) -> list[dict]:
         offset += PAGE_SIZE
 
 
+def _source_count() -> int:
+    client = get_supabase()
+    if not client:
+        raise RuntimeError("Supabase service client is unavailable")
+    result = client.table("reports").select("id", count="exact").limit(1).execute()
+    return int(result.count or 0)
+
+
 async def _copy_all(rows: list[dict]) -> tuple[int, int]:
     gate = asyncio.Semaphore(CONCURRENCY)
 
@@ -65,16 +73,19 @@ async def _copy_all(rows: list[dict]) -> tuple[int, int]:
 async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--execute", action="store_true", help="Perform writes; default is read-only.")
+    parser.add_argument("--dry-run", action="store_true", help="Explicit alias for the default read-only mode.")
     parser.add_argument("--limit", type=int, default=0, help="Optional bounded batch size.")
     args = parser.parse_args()
 
     if not insforge_enabled():
         print("ERROR: INSFORGE_URL and INSFORGE_API_KEY must be configured", file=sys.stderr)
         return 2
-    rows = await asyncio.to_thread(_load_source, args.limit or None)
-    print(f"source_reports={len(rows)} mode={'execute' if args.execute else 'dry-run'}")
     if not args.execute:
+        count = await asyncio.to_thread(_source_count)
+        print(f"source_reports={count} mode=dry-run")
         return 0
+    rows = await asyncio.to_thread(_load_source, args.limit or None)
+    print(f"source_reports={len(rows)} mode=execute")
     ok, failed = await _copy_all(rows)
     print(f"copied={ok} failed={failed}")
     return 0 if failed == 0 else 1
