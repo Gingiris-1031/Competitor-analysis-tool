@@ -131,6 +131,10 @@ async def analyze_domain(domain: str) -> dict:
 async def _analyze_domain_uncached(domain: str) -> dict:
     """The actual DataForSEO call. Kept separate so the cached wrapper
     above can call this on miss / fallback."""
+    from .provider_alerts import is_provider_blocked
+    if is_provider_blocked("DataForSEO"):
+        return {"error": "DataForSEO temporarily unavailable; using other report sources"}
+
     auth = _get_auth_header()
     if not auth:
         return {"error": "DataForSEO credentials not found"}

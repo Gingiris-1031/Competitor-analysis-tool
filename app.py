@@ -703,10 +703,64 @@ async def revoke_api_key(key_id: str, request: Request):
     sb = get_supabase()
     sb.table("api_keys").update({"revoked_at": "now()"}).eq("id", key_id).eq("user_id", user["id"]).execute()
     return JSONResponse({"ok": True})
+# ---------------------------------------------------------------------------
+# MCP API key management — keys are issued by Analook and stored only as
+# SHA-256 hashes in InsForge. The raw value is returned once on creation.
+# ---------------------------------------------------------------------------
+class McpKeyCreateRequest(BaseModel):
+    name: str = "MCP key"
+
+
+async def _extract_mcp_key_owner(request: Request) -> dict | None:
+    """Accept InsForge user JWTs first; keep legacy login tokens during migration."""
+    auth = request.headers.get("Authorization", "")
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    if not token:
+        return None
+    try:
+        from modules.insforge_client import verify_user_token
+        user = await verify_user_token(token)
+        if user:
+            return user
+    except Exception:
+        pass
+    return await verify_token_and_get_user(token)
+
+
+@app.get("/api/mcp/keys")
+async def list_mcp_keys(request: Request):
+    owner = await _extract_mcp_key_owner(request)
+    if not owner:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    from modules.insforge_client import list_mcp_api_keys
+    return {"keys": await list_mcp_api_keys(owner["id"])}
+
+
+@app.post("/api/mcp/keys")
+async def create_mcp_key(payload: McpKeyCreateRequest, request: Request):
+    owner = await _extract_mcp_key_owner(request)
+    if not owner:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    from modules.insforge_client import create_mcp_api_key
+    created = await create_mcp_api_key(owner["id"], payload.name)
+    if not created:
+        return JSONResponse({"error": "MCP_KEY_CREATE_FAILED"}, status_code=503)
+    return {"key": created["key"], "id": created["id"], "name": created["name"], "shown_once": True}
+
+
+@app.delete("/api/mcp/keys/{key_id}")
+async def revoke_mcp_key(key_id: str, request: Request):
+    owner = await _extract_mcp_key_owner(request)
+    if not owner:
+        return JSONResponse({"error": "AUTH_REQUIRED"}, status_code=401)
+    from modules.insforge_client import revoke_mcp_api_key
+    if not await revoke_mcp_api_key(owner["id"], key_id):
+        return JSONResponse({"error": "KEY_NOT_FOUND"}, status_code=404)
+    return {"revoked": True}
 
 
 def _load_persisted_report(job_id: str) -> dict | None:
-    """Load report from disk → Supabase (survives Railway restarts)."""
+    """Load report from disk → InsForge → legacy Supabase."""
     # Disk
     _reports_dir = os.path.join(os.path.dirname(__file__), "reports")
     path = os.path.join(_reports_dir, f"{job_id}.json")
@@ -717,7 +771,16 @@ def _load_persisted_report(job_id: str) -> dict | None:
             return data.get("report")
         except Exception:
             pass
-    # Supabase
+    # InsForge (primary for new reports)
+    try:
+        from modules.insforge_client import get_report_record_sync
+        record = get_report_record_sync(job_id)
+        if record and record.get("report"):
+            return record["report"]
+    except Exception:
+        pass
+
+    # Legacy Supabase fallback
     try:
         from modules.supabase_client import get_supabase
         sb = get_supabase()
@@ -1645,6 +1708,25 @@ async def admin_api_balances(request: Request):
     return result
 
 
+@app.post("/api/admin/provider-alerts/check")
+async def admin_provider_alerts_check(request: Request):
+    """Run the protected provider-credit monitor.
+
+    Header: X-Autopilot-Tick-Token. ``?dry_run=true`` validates the decision
+    path without sending email or changing persistent alert state.
+    """
+    expected = (os.environ.get("AUTOPILOT_TICK_TOKEN") or "").strip()
+    got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
+    if not expected:
+        return JSONResponse({"error": "AUTOPILOT_TICK_TOKEN not configured"}, status_code=503)
+    if got != expected:
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    dry_run = (request.query_params.get("dry_run") or "").lower() == "true"
+    force = (request.query_params.get("force") or "").lower() == "true"
+    from modules.provider_alerts import check_and_alert
+    return await check_and_alert(force=force, dry_run=dry_run)
+
+
 @app.get("/api/admin/recent-audits")
 async def admin_recent_audits(request: Request):
     """Triage tool — list last N growth-audit rows with section presence/length
@@ -1963,7 +2045,10 @@ async def autopilot_tick(request: Request):
     limit = max(1, min(limit, 50))
 
     from modules.autopilot_worker import tick_due
+    from modules.provider_alerts import check_and_alert
+    provider_health = await check_and_alert()
     result = await tick_due(limit=limit)
+    result["provider_health"] = provider_health
     return result
 
 

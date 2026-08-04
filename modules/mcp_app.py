@@ -4,22 +4,22 @@ Analook Remote MCP (Model Context Protocol) server.
 Exposes Analook's competitor-analysis features as MCP tools for AI agents
 (Claude Desktop, Cursor, etc.) via Streamable HTTP transport at `/mcp`.
 
-User configures their MCP client with:
+User configures their MCP client with an Analook MCP API key:
     {
       "analook": {
         "url": "https://analook.com/mcp",
-        "headers": { "Authorization": "Bearer <supabase_access_token>" }
+        "headers": { "Authorization": "Bearer anl_mcp_<key>" }
       }
     }
 
 Tools:
   - analyze_competitor(url, product_name?, lang?)  auth-required → starts job
-  - get_report_status(job_id)                      public → poll status
-  - get_report(job_id)                             public → full JSON
-  - get_report_markdown(job_id)                    public → markdown text
+  - get_report_status(job_id)                      owner-only → poll status
+  - get_report(job_id)                             owner-only → full JSON
+  - get_report_markdown(job_id)                    owner-only → markdown text
   - list_my_reports()                              auth-required → user's history
   - run_growth_audit(url, product_name?, lang?)    auth-required → 3-report audit (10 credits)
-  - get_growth_audit(job_id)                       public → audit reports
+  - get_growth_audit(job_id)                       owner-only → audit reports
   - browse_public_reports(category?)               public → gallery discovery
 """
 # NOTE: do NOT add `from __future__ import annotations` here.
@@ -38,7 +38,7 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 log = logging.getLogger(__name__)
 
@@ -56,11 +56,17 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
     """Stash the incoming Authorization: Bearer <token> into a ContextVar
     so MCP tools can read it without the caller threading it explicitly.
 
-    Unauthenticated requests are allowed through — public tools work without
-    a token; auth-required tools raise a clear error.
+    Unauthenticated requests are allowed through only for public discovery;
+    account and report tools reject unauthenticated calls clearly.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Desktop clients generally omit Origin. When a browser supplies one,
+        # reject foreign origins to prevent DNS-rebinding style cross-origin MCP
+        # calls against a user's configured server.
+        origin = (request.headers.get("origin") or "").rstrip("/")
+        if origin and origin not in {"https://analook.com", "https://www.analook.com"}:
+            return JSONResponse({"error": "INVALID_ORIGIN"}, status_code=403)
         raw = request.headers.get("authorization", "")
         token = raw[7:].strip() if raw[:7].lower() == "bearer " else ""
         tok = _current_token.set(token)
@@ -87,25 +93,48 @@ mcp = FastMCP("Analook", streamable_http_path="/", stateless_http=True)
 
 
 async def _resolve_user() -> Optional[dict]:
-    """Verify current request's Bearer token via Supabase. Returns user dict or None."""
+    """Resolve an InsForge-backed MCP key, then accept a transition JWT."""
     token = _current_token.get()
     if not token:
         return None
     try:
+        from modules.insforge_client import resolve_mcp_api_key
+        key = await resolve_mcp_api_key(token)
+        if key:
+            return {
+                "id": str(key["owner_id"]), "email": "",
+                "auth_type": "mcp_api_key", "mcp_key_id": str(key["id"]),
+            }
+    except Exception:
+        pass
+    # Transitional compatibility only. The public documentation never asks
+    # users to copy a browser session token.
+    try:
+        from modules.insforge_client import verify_user_token
+        user = await verify_user_token(token)
+        if user:
+            user["auth_type"] = "insforge_jwt"
+            return user
+    except Exception:
+        pass
+    try:
         from modules.supabase_client import verify_token_and_get_user
     except Exception:
         return None
-    return await verify_token_and_get_user(token)
+    user = await verify_token_and_get_user(token)
+    if user:
+        user["auth_type"] = "legacy_jwt"
+    return user
 
 
 def _auth_required_error() -> dict:
     return {
         "error": "AUTH_REQUIRED",
         "hint": (
-            "This tool requires authentication. Add your Analook access token "
+            "This tool requires authentication. Add your Analook MCP API key "
             "to the MCP client config: "
-            "headers: { Authorization: 'Bearer <your_token>' }. "
-            "Get your token from analook.com account settings."
+            "headers: { Authorization: 'Bearer anl_mcp_<your_key>' }. "
+            "Create or revoke a key in Analook account settings."
         ),
     }
 
@@ -182,7 +211,11 @@ async def analyze_competitor(
     # NOTE: _run_analysis_with_timeout does NOT deduct — deduction happens here
     # once, matching the HTTP /api/analyze flow. Don't add deduction to
     # _run_analysis_with_timeout or we double-charge MCP users.
-    ok = await deduct_credit(user["id"])
+    if user.get("auth_type") == "mcp_api_key":
+        from modules.insforge_client import consume_mcp_credit
+        ok = await consume_mcp_credit(user.get("mcp_key_id", "")) is not None
+    else:
+        ok = await deduct_credit(user["id"])
     if not ok:
         return {
             "error": "INSUFFICIENT_CREDITS",
@@ -247,13 +280,16 @@ async def get_report_status(job_id: str) -> dict:
     Returns:
         {status: 'running'|'completed'|'failed', progress?: str, report_url?: str}
     """
+    user = await _resolve_user()
+    if not user:
+        return _auth_required_error()
     try:
         from app import jobs, _load_persisted_report
     except ImportError:
         return {"error": "SERVER_ERROR", "hint": "analook app not initialized"}
 
     job = jobs.get(job_id)
-    if job:
+    if job and str(job.get("user_id") or "") == str(user["id"]):
         out: dict = {"status": job.get("status", "unknown")}
         if job.get("progress"):
             out["progress"] = job["progress"]
@@ -264,8 +300,12 @@ async def get_report_status(job_id: str) -> dict:
         return out
 
     # Check persisted storage
-    report = _load_persisted_report(job_id)
-    if report:
+    try:
+        from modules.insforge_client import get_report_record
+        record = await get_report_record(job_id)
+    except Exception:
+        record = None
+    if record and str(record.get("user_id") or "") == str(user["id"]):
         return {"status": "completed", "report_url": f"/api/v1/report/{job_id}"}
 
     return {"status": "not_found", "job_id": job_id}
@@ -286,17 +326,24 @@ async def get_report(job_id: str) -> dict:
     Returns:
         The full report dict (nested structure), or {error} if not found / not ready.
     """
+    user = await _resolve_user()
+    if not user:
+        return _auth_required_error()
     try:
         from app import jobs, _load_persisted_report
     except ImportError:
         return {"error": "SERVER_ERROR"}
 
     job = jobs.get(job_id)
-    if job and job.get("report"):
+    if job and str(job.get("user_id") or "") == str(user["id"]) and job.get("report"):
         return job["report"]
-    report = _load_persisted_report(job_id)
-    if report:
-        return report
+    try:
+        from modules.insforge_client import get_report_record
+        record = await get_report_record(job_id)
+    except Exception:
+        record = None
+    if record and str(record.get("user_id") or "") == str(user["id"]):
+        return record.get("report") or {"error": "REPORT_NOT_FOUND", "job_id": job_id}
     return {"error": "REPORT_NOT_FOUND", "job_id": job_id}
 
 
@@ -313,23 +360,22 @@ async def get_report_markdown(job_id: str) -> dict:
     Returns:
         {markdown: str} or {error: str}
     """
+    user = await _resolve_user()
+    if not user:
+        return _auth_required_error()
     try:
         from app import jobs
     except ImportError:
         return {"error": "SERVER_ERROR"}
 
     job = jobs.get(job_id)
-    if job and job.get("markdown"):
+    if job and str(job.get("user_id") or "") == str(user["id"]) and job.get("markdown"):
         return {"markdown": job["markdown"]}
-    # Fallback: load from disk and regenerate markdown
     try:
-        import json as _json
-        reports_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "reports")
-        path = os.path.join(reports_dir, f"{job_id}.json")
-        if os.path.exists(path):
-            with open(path) as f:
-                data = _json.load(f)
-            md = data.get("markdown")
+        from modules.insforge_client import get_report_record
+        record = await get_report_record(job_id)
+        if record and str(record.get("user_id") or "") == str(user["id"]):
+            md = record.get("markdown")
             if md:
                 return {"markdown": md}
     except Exception:
@@ -407,20 +453,29 @@ async def run_growth_audit(
         )
     except ImportError:
         return {"error": "SERVER_ERROR", "hint": "growth audit unavailable"}
-    from modules.supabase_client import get_user_profile, deduct_credit
-
-    # Pre-check balance so we never partially deduct (Growth Audit costs 10).
-    profile = await get_user_profile(user["id"])
-    balance = (profile or {}).get("credits_balance") or 0
-    if balance < GROWTH_AUDIT_CREDITS:
-        return {
-            "error": "INSUFFICIENT_CREDITS",
-            "hint": f"Growth Audit needs {GROWTH_AUDIT_CREDITS} credits "
-                    f"(you have {balance}). Top up at https://analook.com/pricing",
-        }
-    for _ in range(GROWTH_AUDIT_CREDITS):
-        if not await deduct_credit(user["id"]):
-            break
+    if user.get("auth_type") == "mcp_api_key":
+        from modules.insforge_client import consume_mcp_credit
+        remaining = await consume_mcp_credit(user.get("mcp_key_id", ""), GROWTH_AUDIT_CREDITS)
+        if remaining is None:
+            return {
+                "error": "INSUFFICIENT_CREDITS",
+                "hint": f"Growth Audit needs {GROWTH_AUDIT_CREDITS} MCP credits.",
+            }
+    else:
+        from modules.supabase_client import get_user_profile, deduct_credit
+        # Transitional JWT path: preserve the existing credit ledger until the
+        # whole website account system has moved to InsForge.
+        profile = await get_user_profile(user["id"])
+        balance = (profile or {}).get("credits_balance") or 0
+        if balance < GROWTH_AUDIT_CREDITS:
+            return {
+                "error": "INSUFFICIENT_CREDITS",
+                "hint": f"Growth Audit needs {GROWTH_AUDIT_CREDITS} credits "
+                        f"(you have {balance}). Top up at https://analook.com/pricing",
+            }
+        for _ in range(GROWTH_AUDIT_CREDITS):
+            if not await deduct_credit(user["id"]):
+                break
 
     import asyncio as _aio
     job_id = f"ga-{uuid.uuid4().hex[:8]}"
@@ -461,13 +516,16 @@ async def get_growth_audit(job_id: str) -> dict:
         {status, reports: {executive_summary, diagnosis_report, action_plan}}
         while running, only {status, progress} is returned.
     """
+    user = await _resolve_user()
+    if not user:
+        return _auth_required_error()
     try:
         from app import _growth_audit_jobs
     except ImportError:
         return {"error": "SERVER_ERROR"}
 
     job = _growth_audit_jobs.get(job_id)
-    if job:
+    if job and str(job.get("user_id") or "") == str(user["id"]):
         status = job.get("status", "running")
         if status == "completed" and job.get("reports"):
             return {"status": "completed", "reports": job["reports"]}
@@ -475,19 +533,17 @@ async def get_growth_audit(job_id: str) -> dict:
             return {"status": "failed", "error": job.get("error", "unknown")}
         return {"status": status, "progress": job.get("progress", {})}
 
-    # Fallback: pull from Supabase reports table (survives restarts / other machine)
+    # InsForge survives restarts and cross-machine requests.
     try:
-        from modules.supabase_client import get_supabase
-        sb = get_supabase()
-        if sb:
-            res = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
-            if res.data:
-                rep = res.data[0].get("report") or {}
-                reports = rep.get("reports")
-                if reports and not rep.get("_partial"):
-                    return {"status": "completed", "reports": reports}
-                if reports:
-                    return {"status": "running", "reports": reports}
+        from modules.insforge_client import get_report_record
+        record = await get_report_record(job_id)
+        if record and str(record.get("user_id") or "") == str(user["id"]):
+            rep = record.get("report") or {}
+            reports = rep.get("reports")
+            if reports and not rep.get("_partial"):
+                return {"status": "completed", "reports": reports}
+            if reports:
+                return {"status": "running", "reports": reports}
     except Exception as e:
         log.warning("get_growth_audit supabase fallback failed: %s", e)
     return {"status": "not_found", "job_id": job_id}

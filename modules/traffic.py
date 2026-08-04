@@ -58,6 +58,9 @@ async def analyze_traffic(domain: str) -> dict:
 # ---------------------------------------------------------------------------
 
 async def _fetch_dataforseo_metrics(domain: str) -> dict:
+    from .provider_alerts import is_provider_blocked
+    if is_provider_blocked("DataForSEO"):
+        return {"error": "DataForSEO temporarily unavailable", "domain": domain}
     b64 = os.environ.get("DATAFORSEO_B64", "").strip()
     if not b64:
         return {"error": "DataForSEO credentials not found"}
@@ -123,6 +126,9 @@ async def _fetch_seoreviewtools(domain: str) -> dict:
     - Backlink count, referring domains, TLD distribution
     - Moz Domain Authority (DA) + Spam Score (unique, DataForSEO doesn't have)
     """
+    from .provider_alerts import is_provider_blocked
+    if is_provider_blocked("SEOReviewTools"):
+        return {"_source": "seoreviewtools", "error": "SEOReviewTools temporarily unavailable"}
     api_key = os.environ.get("SEOREVIEWTOOLS_KEY", "").strip()
     if not api_key:
         return {}

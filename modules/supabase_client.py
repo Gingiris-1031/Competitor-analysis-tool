@@ -134,6 +134,11 @@ async def list_user_reports(user_id: str, limit: int = 50) -> list[dict]:
     列出用户最近的报告（用于登录用户的历史记录同步）。
     返回字段精简，避免把大 report JSON 一次拉回。
     """
+    # InsForge is primary for new reports. Supabase remains a read fallback
+    # only for legacy records while the wider account migration is completed.
+    from modules import insforge_client as _insforge
+    if _insforge.enabled():
+        return await _insforge.list_reports_for_user(user_id, limit)
     sb = get_supabase()
     if not sb:
         return []
@@ -161,7 +166,12 @@ async def save_report_to_db(
     markdown: str,
     is_public: bool = True,
 ) -> bool:
-    """将报告同步写入 Supabase reports 表（同时保留本地 JSON 文件）"""
+    """Persist reports in InsForge, with Supabase retained for legacy fallback."""
+    from modules import insforge_client as _insforge
+    if _insforge.enabled():
+        return await _insforge.save_report(
+            job_id, user_id, url, product_name, report, markdown, is_public,
+        )
     sb = get_supabase()
     if not sb:
         return False
@@ -176,10 +186,8 @@ async def save_report_to_db(
             "is_public":    is_public,
             "status":       "completed",
         }).execute()
-        # Stage 2 migration: Supabase remains authoritative. When the
-        # explicitly enabled mirror is healthy, copy the same completed row to
-        # InsForge without allowing an auxiliary write to affect delivery.
-        from modules import insforge_client as _insforge
+        # Legacy optional mirror for deployments that have not yet switched
+        # their report primary store.
         if _insforge.reports_dual_write_enabled():
             mirrored = await _insforge.mirror_report(
                 job_id, user_id, url, product_name, report, markdown, is_public,

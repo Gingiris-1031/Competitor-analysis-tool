@@ -6,7 +6,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Analook MCP Server — Competitor Analysis for AI Agents</title>
-<meta name="description" content="Use Analook from Claude Desktop, Cursor, or any MCP-compatible client. Zero install — just add the URL + your token." />
+<meta name="description" content="Use Analook from Claude Desktop, Cursor, or any MCP-compatible client. Zero install — add the URL and a revocable MCP API key." />
 <link rel="canonical" href="https://www.analook.com/docs/mcp.html" />
 <meta property="og:title" content="Analook MCP Server — Competitor Analysis for AI Agents" />
 <meta property="og:description" content="Run competitor analysis from Claude Desktop or Cursor via the Analook MCP server. Setup in 60s." />
@@ -65,12 +65,12 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
         <h1 class="font-serif text-4xl md:text-5xl leading-tight tracking-tight mb-3">Analook MCP Server</h1>
         <p class="text-[color:var(--ink-muted)] leading-relaxed">
             Use Analook from Claude Desktop, Cursor, or any MCP-compatible client — no installs, no local processes.
-            One HTTPS endpoint, one Bearer token, five tools for running and reading competitor analyses from inside
+            One HTTPS endpoint, one revocable MCP API key, and eight tools for running and reading competitor analyses from inside
             your agent workflow.
         </p>
         <div class="mt-4 flex items-center gap-3 text-sm">
             <span class="bg-blue-900/40 text-[color:var(--ink)] border border-blue-800 px-3 py-1 rounded-full">
-                Endpoint: <code class="inline">https://analook.com/mcp</code>
+                Endpoint: <code class="inline">https://www.analook.com/mcp</code>
             </span>
             <span class="bg-gray-800 text-[color:var(--ink-muted)] border border-[color:var(--border)] px-3 py-1 rounded-full">
                 Transport: Streamable HTTP
@@ -92,9 +92,9 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
             <pre id="cfg-claude" class="card-subtle rounded-lg p-4 overflow-x-auto"><code>{
   "mcpServers": {
     "analook": {
-      "url": "https://analook.com/mcp",
+      "url": "https://www.analook.com/mcp",
       "headers": {
-        "Authorization": "Bearer &lt;YOUR_ANALOOK_TOKEN&gt;"
+        "Authorization": "Bearer anl_mcp_&lt;YOUR_API_KEY&gt;"
       }
     }
   }
@@ -112,24 +112,46 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
         </p>
         <div class="relative">
             <pre id="cfg-cursor" class="card-subtle rounded-lg p-4 overflow-x-auto"><code>Name:     analook
-URL:      https://analook.com/mcp
-Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
+URL:      https://www.analook.com/mcp
+Headers:  Authorization: Bearer anl_mcp_&lt;YOUR_API_KEY&gt;</code></pre>
             <button class="copy-btn absolute top-3 right-3 text-xs bg-blue-600 text-white px-3 py-1 rounded" data-copy="cfg-cursor">Copy</button>
         </div>
     </section>
 
-    <!-- Get token -->
+    <!-- Create API key -->
     <section class="mb-10">
-        <h2 class="text-xl font-semibold mb-3">🔑 Getting your token</h2>
+        <h2 class="text-xl font-semibold mb-3">🔑 Create an MCP API key</h2>
         <ol class="list-decimal list-inside text-sm text-[color:var(--ink)] space-y-2 ml-2">
             <li>Sign in to <a href="/" class="text-[color:var(--ink)] underline">analook.com</a></li>
-            <li>Open your browser DevTools (⌘⌥I / F12) → Application → Local Storage → <code class="inline">analook.com</code></li>
-            <li>Copy the value of <code class="inline">sb-*-auth-token</code> → the <code class="inline">access_token</code> field</li>
-            <li>Paste into the <code class="inline">Bearer &lt;...&gt;</code> slot above</li>
+            <li>Create a named MCP key below and copy it once</li>
+            <li>Paste it into the <code class="inline">Bearer anl_mcp_&lt;...&gt;</code> slot above</li>
+            <li>Revoke the key immediately if it is exposed or a device is lost</li>
         </ol>
         <p class="text-xs text-[color:var(--ink-faint)] mt-3">
-            Tokens expire in ~1 hour by default. A dedicated long-lived API key endpoint is on the roadmap — ping us if you need it sooner.
+            Keys are scoped to your Analook account, stored hashed server-side, and can be revoked without signing out of the website.
         </p>
+        <div id="mcp-key-panel" class="card-subtle mt-5 p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h3 class="font-medium">Your MCP keys</h3>
+                    <p id="mcp-key-status" class="text-sm text-[color:var(--ink-muted)] mt-1">Sign in to create and manage revocable keys.</p>
+                </div>
+                <button id="mcp-key-sign-in" class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">Sign in</button>
+            </div>
+            <div id="mcp-key-controls" class="hidden mt-4">
+                <label class="block text-xs text-[color:var(--ink-muted)] mb-2" for="mcp-key-name">Key name</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="mcp-key-name" maxlength="80" value="Claude Desktop" class="flex-1 rounded-lg border border-[color:var(--border-strong)] bg-[#0A0A0A] px-3 py-2 text-sm" />
+                    <button id="mcp-key-create" class="btn-primary rounded-lg px-4 py-2 text-sm font-medium">Create key</button>
+                </div>
+                <p class="text-xs text-[color:var(--ink-faint)] mt-2">The full key is shown once. Store it in your MCP client, not in a document or chat.</p>
+                <div id="mcp-key-once" class="hidden mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                    <div class="text-xs text-amber-200 mb-2">Copy this key now — it cannot be shown again.</div>
+                    <div class="flex gap-2"><code id="mcp-key-raw" class="min-w-0 flex-1 break-all text-sm text-amber-100"></code><button id="mcp-key-copy" class="copy-btn shrink-0 rounded bg-blue-600 px-3 py-1 text-xs text-white">Copy</button></div>
+                </div>
+                <div id="mcp-key-list" class="mt-4 space-y-2"></div>
+            </div>
+        </div>
     </section>
 
     <!-- Tools -->
@@ -138,7 +160,7 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
         <div class="space-y-3">
             <div class="tool-card rounded-lg p-4">
                 <div class="flex items-center justify-between mb-1">
-                    <code class="text-sm font-semibold text-[color:var(--ink)]">analyze_competitor(url, product_name?)</code>
+                    <code class="text-sm font-semibold text-[color:var(--ink)]">analyze_competitor(url, product_name?, lang?)</code>
                     <span class="text-xs text-amber-400">⚡ 1 credit · auth required</span>
                 </div>
                 <p class="text-sm text-[color:var(--ink-muted)]">Kick off a full analysis across 15+ data sources. Returns <code class="inline">job_id</code>.</p>
@@ -147,21 +169,21 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
             <div class="tool-card rounded-lg p-4">
                 <div class="flex items-center justify-between mb-1">
                     <code class="text-sm font-semibold text-[color:var(--ink)]">get_report_status(job_id)</code>
-                    <span class="text-xs text-[color:var(--ink-faint)]">public</span>
+                    <span class="text-xs text-amber-400">owner only</span>
                 </div>
                 <p class="text-sm text-[color:var(--ink-muted)]">Poll until <code class="inline">status="completed"</code>. Typical run is 2–5 min.</p>
             </div>
             <div class="tool-card rounded-lg p-4">
                 <div class="flex items-center justify-between mb-1">
                     <code class="text-sm font-semibold text-[color:var(--ink)]">get_report(job_id)</code>
-                    <span class="text-xs text-[color:var(--ink-faint)]">public</span>
+                    <span class="text-xs text-amber-400">owner only</span>
                 </div>
                 <p class="text-sm text-[color:var(--ink-muted)]">Full structured JSON report — website, SEO/traffic, social, Product Hunt, GitHub, pricing, funding, AI insights, growth playbooks.</p>
             </div>
             <div class="tool-card rounded-lg p-4">
                 <div class="flex items-center justify-between mb-1">
                     <code class="text-sm font-semibold text-[color:var(--ink)]">get_report_markdown(job_id)</code>
-                    <span class="text-xs text-[color:var(--ink-faint)]">public</span>
+                    <span class="text-xs text-amber-400">owner only</span>
                 </div>
                 <p class="text-sm text-[color:var(--ink-muted)]">Human-readable Markdown — pipe directly to agents or paste into docs.</p>
             </div>
@@ -171,6 +193,27 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
                     <span class="text-xs text-amber-400">auth required</span>
                 </div>
                 <p class="text-sm text-[color:var(--ink-muted)]">List your last 50 reports (id, url, product_name, created_at, status).</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-[color:var(--ink)]">run_growth_audit(url, product_name?, lang?)</code>
+                    <span class="text-xs text-amber-400">10 credits · auth required</span>
+                </div>
+                <p class="text-sm text-[color:var(--ink-muted)]">Start a three-part Growth Audit: executive summary, diagnosis, and 30-day action plan.</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-[color:var(--ink)]">get_growth_audit(job_id)</code>
+                    <span class="text-xs text-amber-400">owner only</span>
+                </div>
+                <p class="text-sm text-[color:var(--ink-muted)]">Poll and retrieve your completed Growth Audit without exposing it to other MCP users.</p>
+            </div>
+            <div class="tool-card rounded-lg p-4">
+                <div class="flex items-center justify-between mb-1">
+                    <code class="text-sm font-semibold text-[color:var(--ink)]">browse_public_reports(category?)</code>
+                    <span class="text-xs text-[color:var(--ink-faint)]">public</span>
+                </div>
+                <p class="text-sm text-[color:var(--ink-muted)]">Discover explicitly published reports before spending a credit on a fresh analysis.</p>
             </div>
         </div>
     </section>
@@ -198,7 +241,7 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
         <h2 class="text-xl font-semibold mb-3">📊 Limits & pricing</h2>
         <ul class="text-sm text-[color:var(--ink-muted)] space-y-1.5 list-disc list-inside">
             <li>1 credit per <code class="inline">analyze_competitor</code> call (same as the web UI)</li>
-            <li>Read-only tools (<code class="inline">get_report*</code>, <code class="inline">list_my_reports</code>) are unlimited</li>
+            <li>Owner-only read tools are unlimited; public gallery browsing exposes links only</li>
             <li>Reports persist forever by default (server-side storage) — use the job_id in any future session</li>
             <li>Free tier: 3 analyses/month · Pro: 30/month · Team: unlimited (see <a href="/pricing.html" class="text-[color:var(--ink)] underline">pricing</a>)</li>
         </ul>
@@ -210,7 +253,7 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
         <dl class="text-sm space-y-4">
             <div>
                 <dt class="text-[color:var(--ink)] font-medium">AUTH_REQUIRED on every call</dt>
-                <dd class="text-[color:var(--ink-faint)] mt-0.5">Token expired (~1h). Refresh from DevTools as described above.</dd>
+                <dd class="text-[color:var(--ink-faint)] mt-0.5">Check the API key prefix, or create a new key and revoke the old one in the key panel above.</dd>
             </div>
             <div>
                 <dt class="text-[color:var(--ink)] font-medium">INSUFFICIENT_CREDITS</dt>
@@ -234,6 +277,7 @@ Headers:  Authorization: Bearer &lt;YOUR_ANALOOK_TOKEN&gt;</code></pre>
 </main>
 
 <script src="/js/health.js"></script>
+<script src="/js/auth.js?v=20260731"></script>
 <script>
 document.querySelectorAll('.copy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -250,6 +294,85 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
         });
     });
 });
+
+(() => {
+    const status = document.getElementById('mcp-key-status');
+    const signIn = document.getElementById('mcp-key-sign-in');
+    const controls = document.getElementById('mcp-key-controls');
+    const create = document.getElementById('mcp-key-create');
+    const name = document.getElementById('mcp-key-name');
+    const once = document.getElementById('mcp-key-once');
+    const raw = document.getElementById('mcp-key-raw');
+    const copy = document.getElementById('mcp-key-copy');
+    const list = document.getElementById('mcp-key-list');
+
+    function token() { return window._analookAuth?.getToken?.() || null; }
+    function setStatus(message) { status.textContent = message; }
+    function keyRow(key) {
+        const row = document.createElement('div');
+        row.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2';
+        const state = key.revoked_at ? 'Revoked' : 'Active';
+        const used = key.last_used_at ? `Last used ${new Date(key.last_used_at).toLocaleDateString()}` : 'Never used';
+        row.innerHTML = `<div><div class="text-sm font-medium">${escapeHtml(key.name || 'MCP key')} <span class="text-xs text-[color:var(--ink-faint)]">${escapeHtml(key.key_prefix || '')}…</span></div><div class="text-xs text-[color:var(--ink-faint)]">${state} · ${used}</div></div>`;
+        if (!key.revoked_at) {
+            const revoke = document.createElement('button');
+            revoke.className = 'rounded border border-red-400/40 px-3 py-1 text-xs text-red-200 hover:bg-red-400/10';
+            revoke.textContent = 'Revoke';
+            revoke.onclick = () => revokeKey(key.id);
+            row.appendChild(revoke);
+        }
+        return row;
+    }
+    function escapeHtml(value) { const el = document.createElement('div'); el.textContent = String(value || ''); return el.innerHTML; }
+    async function api(path, options = {}) {
+        const accessToken = token();
+        if (!accessToken) throw new Error('Please sign in first.');
+        const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}`, ...(options.headers || {}) } });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || 'Request failed');
+        return body;
+    }
+    async function loadKeys() {
+        if (!token()) return;
+        setStatus('Loading your MCP keys…');
+        try {
+            const data = await api('/api/mcp/keys');
+            list.replaceChildren();
+            (data.keys || []).forEach(key => list.appendChild(keyRow(key)));
+            if (!(data.keys || []).length) list.innerHTML = '<p class="text-sm text-[color:var(--ink-faint)]">No keys yet. Create one for your MCP client.</p>';
+            setStatus('Create separate keys for each client or device.');
+        } catch (error) { setStatus(error.message || 'Unable to load keys.'); }
+    }
+    async function revokeKey(id) {
+        if (!confirm('Revoke this MCP key? Connected clients will stop working immediately.')) return;
+        try { await api(`/api/mcp/keys/${encodeURIComponent(id)}`, { method: 'DELETE' }); await loadKeys(); }
+        catch (error) { setStatus(error.message || 'Unable to revoke key.'); }
+    }
+    async function refresh() {
+        if (!token()) { controls.classList.add('hidden'); signIn.classList.remove('hidden'); setStatus('Sign in to create and manage revocable keys.'); return; }
+        signIn.classList.add('hidden'); controls.classList.remove('hidden'); await loadKeys();
+    }
+    signIn.onclick = () => window._analookAuth?.showModal?.();
+    create.onclick = async () => {
+        create.disabled = true; const label = create.textContent; create.textContent = 'Creating…';
+        try {
+            const data = await api('/api/mcp/keys', { method: 'POST', body: JSON.stringify({ name: name.value.trim() || 'MCP key' }) });
+            raw.textContent = data.key || ''; once.classList.remove('hidden'); await loadKeys();
+        } catch (error) { setStatus(error.message || 'Unable to create key.'); }
+        finally { create.disabled = false; create.textContent = label; }
+    };
+    copy.onclick = async () => { try { await navigator.clipboard.writeText(raw.textContent); copy.textContent = 'Copied ✓'; setTimeout(() => { copy.textContent = 'Copy'; }, 1500); } catch (_) { setStatus('Copy failed — select the key and copy it manually.'); } };
+    let observedToken = null;
+    const watchAuth = () => {
+        const nextToken = token();
+        if (nextToken !== observedToken) {
+            observedToken = nextToken;
+            refresh();
+        }
+    };
+    watchAuth();
+    setInterval(watchAuth, 1000);
+})();
 </script>
 </body>
 </html>

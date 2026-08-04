@@ -143,10 +143,11 @@ async def _dataforseo(c: httpx.AsyncClient) -> dict:
         tasks = (data.get("tasks") or [{}])[0]
         result = (tasks.get("result") or [{}])[0]
         money = result.get("money") or {}
+        balance = float(money.get("balance") or 0)
         return {
             "provider":     "DataForSEO",
-            "status":       "ok" if (money.get("balance") or 0) > 5 else "low",
-            "balance_usd":  money.get("balance"),
+            "status":       "ok" if balance > 5 else ("exhausted" if balance <= 0 else "low"),
+            "balance_usd":  balance,
             "currency":     money.get("currency", "USD"),
             "note":         f"login={result.get('login')} rates={list((result.get('rates') or {}).keys())[:3]}",
         }
@@ -159,19 +160,25 @@ async def _apify(c: httpx.AsyncClient) -> dict:
     if not tok:
         return _missing("Apify")
     try:
-        r = await c.get(
-            f"https://api.apify.com/v2/users/me?token={tok}",
+        account, monthly = await asyncio.gather(
+            c.get("https://api.apify.com/v2/users/me", headers={"Authorization": f"Bearer {tok}"}),
+            c.get("https://api.apify.com/v2/users/me/usage/monthly", headers={"Authorization": f"Bearer {tok}"}),
         )
-        if r.status_code != 200:
-            return {"provider": "Apify", "status": "error", "note": f"HTTP {r.status_code}"}
-        data = (r.json() or {}).get("data") or {}
+        if account.status_code != 200 or monthly.status_code != 200:
+            return {"provider": "Apify", "status": "error", "note": f"HTTP account={account.status_code} usage={monthly.status_code}"}
+        data = (account.json() or {}).get("data") or {}
         plan = data.get("plan") or {}
-        usage = data.get("usage") or {}
+        monthly_data = (monthly.json() or {}).get("data") or {}
+        limit = float(data.get("limits", {}).get("maxMonthlyUsageUsd") or plan.get("monthlyUsageCreditsUsd") or 0)
+        usage = float(monthly_data.get("totalUsageCreditsUsdAfterVolumeDiscount") or 0)
+        remaining = max(0.0, limit - usage) if limit else None
         return {
             "provider":     "Apify",
-            "status":       "ok",
-            "balance_usd":  plan.get("monthlyUsageCreditsUsd"),
-            "note":         f"plan={plan.get('id')} mo_usage_usd={usage.get('monthlyUsageUsd')}",
+            "status":       "ok" if remaining is None or remaining > max(3.0, limit * 0.10) else ("exhausted" if remaining <= 0 else "low"),
+            "balance_usd":  remaining,
+            "limit_usd":    limit,
+            "usage_usd":    usage,
+            "note":         f"plan={plan.get('id')} monthly cycle usage",
         }
     except Exception as e:
         return {"provider": "Apify", "status": "error", "note": str(e)[:120]}
@@ -262,6 +269,35 @@ async def _serpapi(c: httpx.AsyncClient) -> dict:
         }
     except Exception as e:
         return {"provider": "SerpAPI", "status": "error", "note": str(e)[:120]}
+
+
+async def _seoreviewtools(c: httpx.AsyncClient) -> dict:
+    """Check the free credit endpoint without making a metered SEO query."""
+    key = _key("SEOREVIEWTOOLS_KEY")
+    if not key:
+        return _missing("SEOReviewTools")
+    try:
+        r = await c.get("https://api.seoreviewtools.com/credits/", params={"key": key})
+        if r.status_code in (401, 403):
+            return {"provider": "SEOReviewTools", "status": "error", "note": f"Authentication failed (HTTP {r.status_code})"}
+        if r.status_code != 200:
+            return {"provider": "SEOReviewTools", "status": "error", "note": f"HTTP {r.status_code}"}
+        data = r.json() or {}
+        credits = data.get("credits_available")
+        if credits is None:
+            credits = data.get("credits")
+        try:
+            credits = float(credits)
+        except (TypeError, ValueError):
+            credits = None
+        return {
+            "provider": "SEOReviewTools",
+            "status": "ok" if credits is None or credits > 10 else ("exhausted" if credits <= 0 else "low"),
+            "credits": credits,
+            "note": "Credit balance verified",
+        }
+    except Exception as e:
+        return {"provider": "SEOReviewTools", "status": "error", "note": str(e)[:120]}
 
 
 async def _github(c: httpx.AsyncClient) -> dict:
@@ -373,6 +409,7 @@ async def check_all() -> dict:
             _tinyfish(c),
             _resend(c),
             _serpapi(c),
+            _seoreviewtools(c),
             _github(c),
             _producthunt(c),
             _twitterapi_io(c),
