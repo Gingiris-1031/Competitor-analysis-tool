@@ -1,27 +1,35 @@
-"""Backfill legacy Supabase reports into InsForge without exposing records.
+"""Mirror legacy Supabase profiles into InsForge without changing the source.
 
-Run inside the production container so credentials remain server-side:
-    python scripts/backfill_reports_to_insforge.py --dry-run
-    python scripts/backfill_reports_to_insforge.py --execute
-
-The operation is idempotent: report IDs are preserved and each destination
-write replaces only the matching ID. It never deletes from Supabase.
+Run only inside the production container, where both service credentials stay
+server-side:
+    python scripts/backfill_profiles_to_insforge.py --dry-run
+    python scripts/backfill_profiles_to_insforge.py --execute --limit 25 --offset 0
 """
 import argparse
 import asyncio
 import sys
 from pathlib import Path
 
-# Fly SSH starts in a home directory rather than /app. Make the operational
-# script independent of the caller's working directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.insforge_client import enabled as insforge_enabled
-from modules.insforge_client import save_report
+from modules.insforge_client import save_account_profile
 from modules.supabase_client import get_supabase
 
 PAGE_SIZE = 50
-CONCURRENCY = 5
+CONCURRENCY = 4
+FIELDS = (
+    "id,email,plan_type,credits_balance,credits_used,credits_monthly_quota,"
+    "reports_public_default,referral_source,created_at,updated_at"
+)
+
+
+def _source_count() -> int:
+    client = get_supabase()
+    if not client:
+        raise RuntimeError("Supabase service client is unavailable")
+    result = client.table("profiles").select("id", count="exact").limit(1).execute()
+    return int(result.count or 0)
 
 
 def _load_source(limit: int | None, offset: int = 0) -> list[dict]:
@@ -30,9 +38,8 @@ def _load_source(limit: int | None, offset: int = 0) -> list[dict]:
         raise RuntimeError("Supabase service client is unavailable")
     rows: list[dict] = []
     offset = max(0, offset)
-    fields = "id,user_id,url,product_name,report,markdown,is_public,status,created_at"
     while True:
-        batch = client.table("reports").select(fields).order("created_at").range(
+        batch = client.table("profiles").select(FIELDS).order("created_at").range(
             offset, offset + PAGE_SIZE - 1
         ).execute().data or []
         rows.extend(batch)
@@ -41,30 +48,12 @@ def _load_source(limit: int | None, offset: int = 0) -> list[dict]:
         offset += PAGE_SIZE
 
 
-def _source_count() -> int:
-    client = get_supabase()
-    if not client:
-        raise RuntimeError("Supabase service client is unavailable")
-    result = client.table("reports").select("id", count="exact").limit(1).execute()
-    return int(result.count or 0)
-
-
 async def _copy_all(rows: list[dict]) -> tuple[int, int]:
     gate = asyncio.Semaphore(CONCURRENCY)
 
     async def _copy(row: dict) -> bool:
         async with gate:
-            return await save_report(
-                job_id=str(row["id"]),
-                user_id=row.get("user_id"),
-                url=row.get("url") or "",
-                product_name=row.get("product_name") or "",
-                report=row.get("report") or {},
-                markdown=row.get("markdown") or "",
-                is_public=bool(row.get("is_public", True)),
-                status=row.get("status") or "completed",
-                created_at=row.get("created_at"),
-            )
+            return await save_account_profile(row)
 
     outcomes = await asyncio.gather(*(_copy(row) for row in rows), return_exceptions=True)
     ok = sum(result is True for result in outcomes)
@@ -83,11 +72,10 @@ async def main() -> int:
         print("ERROR: INSFORGE_URL and INSFORGE_API_KEY must be configured", file=sys.stderr)
         return 2
     if not args.execute:
-        count = await asyncio.to_thread(_source_count)
-        print(f"source_reports={count} mode=dry-run")
+        print(f"source_profiles={await asyncio.to_thread(_source_count)} mode=dry-run")
         return 0
     rows = await asyncio.to_thread(_load_source, args.limit or None, args.offset)
-    print(f"source_reports={len(rows)} offset={max(0, args.offset)} mode=execute")
+    print(f"source_profiles={len(rows)} offset={max(0, args.offset)} mode=execute")
     ok, failed = await _copy_all(rows)
     print(f"copied={ok} failed={failed}")
     return 0 if failed == 0 else 1

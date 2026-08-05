@@ -33,6 +33,7 @@ TABLE = "scorecards"
 REPORTS_TABLE = "reports"
 MCP_KEYS_TABLE = "mcp_api_keys"
 MCP_ACCOUNTS_TABLE = "mcp_accounts"
+ACCOUNT_PROFILES_TABLE = "account_profiles"
 _TIMEOUT = httpx.Timeout(15.0)
 
 
@@ -159,16 +160,18 @@ async def mark_scorecard_unlocked(card_hash: str) -> bool:
 async def mirror_report(
     job_id: str, user_id: str | None, url: str, product_name: str,
     report: dict, markdown: str, is_public: bool, status: str = "completed",
+    created_at: str | None = None,
 ) -> bool:
     """Best-effort reports mirror; never replaces the Supabase primary write."""
     if not reports_dual_write_enabled():
         return False
-    return await save_report(job_id, user_id, url, product_name, report, markdown, is_public, status)
+    return await save_report(job_id, user_id, url, product_name, report, markdown, is_public, status, created_at)
 
 
 async def save_report(
     job_id: str, user_id: str | None, url: str, product_name: str,
     report: dict, markdown: str, is_public: bool, status: str = "completed",
+    created_at: str | None = None,
 ) -> bool:
     """Persist a report in InsForge. The server is the only database caller."""
     if not enabled():
@@ -179,6 +182,8 @@ async def save_report(
         "markdown": markdown or "", "is_public": bool(is_public),
         "status": status if status in {"running", "completed", "failed"} else "completed",
     }
+    if created_at:
+        row["created_at"] = created_at
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
             # Do not use delete-then-insert here. A deploy, SSH disconnect, or
@@ -196,6 +201,8 @@ async def save_report(
             if existing.json() or []:
                 resp = await c.patch(
                     _records_url(REPORTS_TABLE), params={"id": f"eq.{job_id}"},
+                    # Backfill passes the original source timestamp. Normal
+                    # runtime saves omit it and retain the database default.
                     json=row, headers=_headers(write=True),
                 )
             else:
@@ -265,6 +272,55 @@ async def list_reports_for_user(user_id: str, limit: int = 50) -> list[dict]:
     except Exception as e:
         log.error("InsForge report list exception user=%s: %s", user_id, e)
         return []
+
+
+async def save_account_profile(profile: dict) -> bool:
+    """Upsert the private Supabase-account mirror during the staged cutover.
+
+    `legacy_user_id` deliberately remains the key until the user has completed
+    an InsForge password reset or OAuth sign-in and can be linked safely.
+    """
+    if not enabled() or not profile.get("id") or not profile.get("email"):
+        return False
+    row = {
+        "legacy_user_id": str(profile["id"]),
+        "email": str(profile["email"]).strip().lower(),
+        "plan_type": str(profile.get("plan_type") or "free"),
+        "credits_balance": max(0, int(profile.get("credits_balance") or 0)),
+        "credits_used": max(0, int(profile.get("credits_used") or 0)),
+        "credits_monthly_quota": max(0, int(profile.get("credits_monthly_quota") or 0)),
+        "reports_public_default": bool(profile.get("reports_public_default", True)),
+        "referral_source": profile.get("referral_source") or None,
+        "source_created_at": profile.get("created_at") or None,
+        "source_updated_at": profile.get("updated_at") or None,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            existing = await c.get(
+                _records_url(ACCOUNT_PROFILES_TABLE),
+                params={"legacy_user_id": f"eq.{row['legacy_user_id']}", "select": "legacy_user_id", "limit": 1},
+                headers=_headers(),
+            )
+            if existing.status_code >= 300:
+                log.error("InsForge account profile lookup failed user=%s status=%s", row["legacy_user_id"], existing.status_code)
+                return False
+            if existing.json() or []:
+                resp = await c.patch(
+                    _records_url(ACCOUNT_PROFILES_TABLE),
+                    params={"legacy_user_id": f"eq.{row['legacy_user_id']}"},
+                    json=row, headers=_headers(write=True),
+                )
+            else:
+                resp = await c.post(
+                    _records_url(ACCOUNT_PROFILES_TABLE), json=[row], headers=_headers(write=True),
+                )
+            if resp.status_code >= 300:
+                log.error("InsForge account profile save failed user=%s status=%s", row["legacy_user_id"], resp.status_code)
+                return False
+        return True
+    except Exception as e:
+        log.error("InsForge account profile save exception user=%s: %s", profile.get("id"), e)
+        return False
 
 
 def _key_hash(raw_key: str) -> str:
