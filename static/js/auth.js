@@ -24,7 +24,7 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
 
   // ── 状态 ─────────────────────────────────────────────────────────────────
   let _session = null;
-  const _AUTH_MIGRATION_NOTICE_VERSION = '2026-08-account-migration';
+  const _AUTH_MIGRATION_NOTICE_VERSION = '2026-08-account-migration-v2';
 
   // ── 初始化：恢复本地 session ──────────────────────────────────────────────
   const { data: { session } } = await sb.auth.getSession();
@@ -142,21 +142,28 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
     }
 
     const key = `${_AUTH_MIGRATION_NOTICE_VERSION}:${user.id}`;
+    // Existing sessions need the same acknowledgement as a fresh sign-in.
+    // Defer until the page has painted so it cannot be hidden behind the
+    // authentication modal or missed while the SDK restores a session.
+    if (document.getElementById('account-migration-notice-modal')) return;
     if (!forceDialog && sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, '1');
-    const modal = document.createElement('div');
-    modal.id = 'account-migration-notice-modal';
-    modal.className = 'fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4';
-    modal.innerHTML = `<div role="dialog" aria-modal="true" class="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl">
-      <div class="mb-3 text-2xl">🔐</div>
-      <h2 class="text-xl font-semibold text-slate-900">${isZh ? '账户系统升级提示' : 'Account system upgrade'}</h2>
-      <p class="mt-3 text-sm leading-6 text-slate-600">${isZh
-        ? '我们正在升级账户系统。你的现有报告、积分和订阅不会丢失。后续如看到提示，请使用原邮箱重新登录；邮箱密码用户可通过重设密码完成迁移，Google / GitHub 用户可直接再次授权登录。'
-        : 'We are upgrading our account system. Your reports, credits, and subscription are safe. When prompted later, sign in again with the same email; password users can reset their password, and Google / GitHub users can authorize sign-in again.'}</p>
-      <button type="button" class="mt-5 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">${isZh ? '我知道了' : 'Got it'}</button>
-    </div>`;
-    modal.querySelector('button')?.addEventListener('click', () => modal.remove());
-    document.body.appendChild(modal);
+    window.setTimeout(() => {
+      if (document.getElementById('account-migration-notice-modal')) return;
+      const modal = document.createElement('div');
+      modal.id = 'account-migration-notice-modal';
+      modal.className = 'fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4';
+      modal.innerHTML = `<div role="dialog" aria-modal="true" class="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl">
+        <div class="mb-3 text-2xl">🔐</div>
+        <h2 class="text-xl font-semibold text-slate-900">${isZh ? '账户系统升级提示' : 'Account system upgrade'}</h2>
+        <p class="mt-3 text-sm leading-6 text-slate-600">${isZh
+          ? '我们正在升级账户系统。你的现有报告、积分和订阅不会丢失。后续如看到提示，请使用原邮箱重新登录；邮箱密码用户可通过重设密码完成迁移，Google / GitHub 用户可直接再次授权登录。'
+          : 'We are upgrading our account system. Your reports, credits, and subscription are safe. When prompted later, sign in again with the same email; password users can reset their password, and Google / GitHub users can authorize sign-in again.'}</p>
+        <button type="button" class="mt-5 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800">${isZh ? '我知道了' : 'Got it'}</button>
+      </div>`;
+      modal.querySelector('button')?.addEventListener('click', () => modal.remove());
+      document.body.appendChild(modal);
+    }, 250);
   }
 
   /**
