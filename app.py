@@ -76,6 +76,11 @@ async def _analook_lifespan(app_):
             _mcp_lifespan_err,
         )
         yield
+    finally:
+        # Flush buffered PostHog events on shutdown. Best-effort — a failed
+        # flush must never take down the app.
+        from modules import posthog_track
+        posthog_track.shutdown()
 
 # Interactive API docs + the OpenAPI schema hand an attacker a full map of
 # every endpoint/parameter/model. Disable them in production by default; set
