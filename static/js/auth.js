@@ -35,12 +35,14 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
   } else {
     _updateUI(session?.user ?? null);
   }
+  _syncPostHogIdentity(session?.user ?? null);
   if (session?.user) _sendFirstTouch();
 
   // 监听 Auth 状态变化（登录 / 登出 / token 刷新）
   sb.auth.onAuthStateChange((_event, newSession) => {
     _session = newSession;
     _updateUI(newSession?.user ?? null);
+    _syncPostHogIdentity(newSession?.user ?? null, _event);
     // 新登录/注册：上报首次触点归因（服务端 write-once，只填 NULL）
     if (newSession?.user) _sendFirstTouch();
     if (newSession?.user && _event === 'SIGNED_IN') _showAccountMigrationNotice(newSession.user, true);
@@ -92,6 +94,26 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
      *  in one place (here) so callers can't drift back to "⚡ N 积分". */
     refreshCredits() { return _fetchCredits(); },
   };
+
+  // PostHog receives the stable auth UUID, never the email address or access
+  // token. This connects anonymous landing-page journeys to activation and
+  // payment funnels while keeping personally identifiable account data out of
+  // the analytics project.
+  function _syncPostHogIdentity(user, event) {
+    try {
+      if (!window.posthog) return;
+      if (!user) {
+        if (event === 'SIGNED_OUT') window.posthog.reset();
+        return;
+      }
+      window.posthog.identify(`user:${user.id}`, {
+        auth_provider: user.app_metadata?.provider || 'email',
+      });
+      if (event === 'SIGNED_IN') window.posthog.capture('auth_signed_in');
+    } catch (_) {
+      // Analytics must never affect authentication.
+    }
+  }
 
   // ── UI 更新 ───────────────────────────────────────────────────────────────
   function _updateUI(user) {
