@@ -30,6 +30,7 @@ Tools:
 # which is exactly what happened to us in prod on Railway.
 
 import contextvars
+import hashlib
 import logging
 import os
 import uuid
@@ -50,6 +51,19 @@ log = logging.getLogger(__name__)
 _current_token: contextvars.ContextVar[str] = contextvars.ContextVar(
     "analook_mcp_bearer", default=""
 )
+
+
+def _posthog_distinct_id() -> str:
+    """Return a stable, non-reversible analytics identifier for an MCP caller.
+
+    Never send the bearer token itself to analytics: it is a credential. MCP
+    keys are high-entropy, so a SHA-256 digest gives PostHog a stable actor
+    without exposing the raw key outside Analook.
+    """
+    token = _current_token.get()
+    if not token:
+        return "anonymous"
+    return "mcp:" + hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
@@ -615,7 +629,7 @@ def build_mcp_app():
                 enable_conversation_id=True,
                 enable_exception_autocapture=True,
                 identify=lambda request, extra: UserIdentity(
-                    distinct_id=_current_token.get() or "anonymous",
+                    distinct_id=_posthog_distinct_id(),
                     properties={
                         "auth_type": (
                             "authenticated" if _current_token.get() else "anonymous"
