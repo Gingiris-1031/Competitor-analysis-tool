@@ -55,7 +55,7 @@ PLAN_CREDITS = {
     "team": 100,          # 100 reports/month (was 999999 = unlimited, capped 2026-06-04)
     "single_report": 1,   # 1 report
     "growth_audit": 15,   # 15 credits (= 1 growth audit)
-    "free": 2,            # 2 reports/month for new users (was 3 pre-2026-05-18)
+    "free": 2,            # one-time starter credits for new users (was 3 pre-2026-05-18)
 }
 
 

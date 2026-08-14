@@ -1,6 +1,6 @@
 # Analook — AI Competitive Intelligence in 60 Seconds
 
-> Analook (https://www.analook.com) is an AI-powered competitive-intelligence tool. Paste any competitor's URL and get a full teardown in about 60 seconds: website evolution history (Wayback Machine), SEO & traffic signals, social presence, Product Hunt launch history, GitHub traction, Google Trends peaks, and an AI strategy verdict on a 6-dimension Strategy Radar. Free tier (2 reports/month), $5 per single report, $19/month Pro. Also runs inside Claude and Cursor via MCP (Model Context Protocol).
+> Analook (https://www.analook.com) is an AI-powered competitive-intelligence tool. Paste any competitor's URL and get a full teardown in about 60 seconds: website evolution history (Wayback Machine), SEO & traffic signals, social presence, Product Hunt launch history, GitHub traction, Google Trends peaks, and an AI strategy verdict on a 6-dimension Strategy Radar. Free tier (2 reports to start), $5 per single report, $19/month Pro. Also runs inside Claude and Cursor via MCP (Model Context Protocol).
 
 ## Key Pages
 
