@@ -600,4 +600,31 @@ def build_mcp_app():
         middleware=[],
     )
     wrapped.add_middleware(BearerAuthMiddleware)
+
+    # PostHog MCP analytics — auto-captures $mcp_tool_call / $mcp_initialize /
+    # $exception / $mcp_tools_list. Best-effort: if the SDK is unavailable or
+    # misconfigured, the MCP endpoint still mounts without analytics.
+    try:
+        from modules.posthog_track import get_client
+        from posthog.mcp import instrument
+        from posthog.mcp.types import MCPAnalyticsOptions, UserIdentity
+        instrument(
+            mcp,
+            get_client(),
+            MCPAnalyticsOptions(
+                enable_conversation_id=True,
+                enable_exception_autocapture=True,
+                identify=lambda request, extra: UserIdentity(
+                    distinct_id=_current_token.get() or "anonymous",
+                    properties={
+                        "auth_type": (
+                            "authenticated" if _current_token.get() else "anonymous"
+                        ),
+                    },
+                ),
+            ),
+        )
+    except Exception as _ph_err:
+        log.warning("PostHog MCP instrumentation skipped: %s", _ph_err, exc_info=True)
+
     return wrapped

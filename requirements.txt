@@ -14,3 +14,4 @@ python-whois>=0.9.4
 mcp>=1.8
 # OG / Twitter card image generation (runtime + batch).
 Pillow>=10.4.0
+posthog>=3.5.0
