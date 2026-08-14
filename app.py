@@ -346,7 +346,7 @@ async def get_pricing():
     """Return pricing plans for the frontend."""
     return {
         "plans": [
-            {"key": "free", "name": "Free", "price": 0, "period": "month", "credits": 2, "features": ["2 reports/month", "Basic analysis"]},
+            {"key": "free", "name": "Free", "price": 0, "period": "once", "credits": 2, "features": ["2 free reports", "Basic analysis"]},
             {"key": "pro", "name": "Pro", "price": 19, "period": "month", "credits": 30, "features": ["30 reports/month", "Full analysis", "AI insights", "Export"]},
             {"key": "team", "name": "Team", "price": 79, "period": "month", "credits": 100, "features": ["100 reports/month", "Full analysis", "AI insights", "Export", "Priority support"]},
             {"key": "single_report", "name": "Single Report", "price": 5, "period": "once", "credits": 1, "features": ["1 full analysis report"]},
@@ -3007,6 +3007,22 @@ async def redeem_promo_code(request: Request):
     except Exception as e:
         # Non-fatal: credits already added, just log
         log.error("Failed to record promo redemption user=%s code=%s: %s", user["id"], code, e)
+
+    # Mirror the approved bonus with an idempotent, non-PII audit event.
+    # The Supabase balance update above remains authoritative during migration.
+    try:
+        from modules.insforge_client import record_account_credit_event
+        profile = await get_user_profile(user["id"])
+        if profile and not await record_account_credit_event(
+            profile,
+            int(credits_to_add),
+            "promo_credit_grant",
+            source_event_id=f"promo:{user['id']}:{code}",
+            metadata={"promo_code": code},
+        ):
+            log.warning("Promo credit mirrored without an InsForge ledger row user=%s", user["id"])
+    except Exception as mirror_error:
+        log.warning("Promo credit ledger mirror failed user=%s: %s", user["id"], mirror_error)
 
     log.info("Promo code redeemed: user=%s code=%s credits_added=%d", user["id"], code, credits_to_add)
     return {"ok": True, "credits_added": credits_to_add, "new_balance": new_balance}

@@ -107,7 +107,21 @@ async def deduct_credit(user_id: str) -> bool:
     try:
         result = sb.rpc("deduct_credit", {"p_user_id": user_id}).execute()
         # deduct_credit 函数返回 boolean
-        return bool(result.data)
+        charged = bool(result.data)
+        if charged:
+            # Supabase remains the balance authority during migration. Mirror
+            # every successful debit into InsForge's immutable ledger, but do
+            # not turn an analytics/audit mirror outage into a free report.
+            try:
+                from modules.insforge_client import record_account_credit_event
+                profile = await get_user_profile(user_id)
+                if profile and not await record_account_credit_event(
+                    profile, -1, "analysis_credit_debit", metadata={"surface": "analook"}
+                ):
+                    log.warning("Credit debit mirrored without an InsForge ledger row user=%s", user_id)
+            except Exception as mirror_error:
+                log.warning("Credit debit ledger mirror failed user=%s: %s", user_id, mirror_error)
+        return charged
     except Exception as e:
         log.error("积分扣减失败 user=%s: %s", user_id, e)
         return False
@@ -121,7 +135,7 @@ async def get_user_profile(user_id: str) -> dict | None:
     try:
         result = sb.table("profiles").select(
             "id, email, plan_type, credits_balance, credits_used, credits_monthly_quota, "
-            "reports_public_default, referral_source"
+            "reports_public_default, referral_source, created_at, updated_at"
         ).eq("id", user_id).single().execute()
         return result.data
     except Exception as e:

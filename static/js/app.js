@@ -620,6 +620,26 @@ function esc(s) {
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
+window._doCheckout = async function (plan) {
+    const headers = {'Content-Type': 'application/json'};
+    const token = window._analookAuth?.getToken?.();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    try {
+        hideUpgradeModal();
+        const resp = await fetch('/api/checkout', {
+            method: 'POST', headers,
+            body: JSON.stringify({
+                plan,
+                success_url: window.location.origin + '/?payment=success&plan=' + plan,
+                cancel_url: window.location.origin + '/?payment=canceled',
+            }),
+        });
+        const data = await resp.json();
+        if (data.url) window.location.href = data.url;
+        else alert('Error: ' + (data.error || 'Unknown'));
+    } catch(e) { alert('Network error: ' + e.message); }
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('url-input')?.addEventListener('keypress', e => {
         if (e.key === 'Enter') startAnalysis();
@@ -677,28 +697,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === e.currentTarget) hideUpgradeModal();
     });
 
-    async function _doCheckout(plan) {
-        const headers = {'Content-Type': 'application/json'};
-        const token = window._analookAuth?.getToken?.();
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        try {
-            hideUpgradeModal();
-            const resp = await fetch('/api/checkout', {
-                method: 'POST', headers,
-                body: JSON.stringify({
-                    plan,
-                    success_url: window.location.origin + '/?payment=success&plan=' + plan,
-                    cancel_url: window.location.origin + '/?payment=canceled',
-                }),
-            });
-            const data = await resp.json();
-            if (data.url) window.location.href = data.url;
-            else alert('Error: ' + (data.error || 'Unknown'));
-        } catch(e) { alert('Network error: ' + e.message); }
-    }
-
-    document.getElementById('upgrade-single-btn')?.addEventListener('click', () => _doCheckout('single_report'));
-    document.getElementById('upgrade-pro-btn')?.addEventListener('click', () => _doCheckout('pro'));
+    document.getElementById('upgrade-single-btn')?.addEventListener('click', () => window._doCheckout('single_report'));
+    document.getElementById('upgrade-pro-btn')?.addEventListener('click', () => window._doCheckout('pro'));
 });
 
 // ── Last-credit banner ────────────────────────────────────────────────────────────────────
@@ -743,7 +743,7 @@ async function _renderPostReportCTA() {
     } else {
         // No credits → show upgrade options
         container.innerHTML = `
-            <button onclick="_doCheckout('single')" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-6 py-3 rounded-full transition-colors">
+            <button onclick="window._doCheckout('single_report')" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-6 py-3 rounded-full transition-colors">
                 Get 1 more report &mdash; $5
             </button>
             <button onclick="showUpgradeModal()" class="inline-flex items-center gap-2 bg-[color:var(--cream-elev)] hover:bg-[color:var(--elev)] border border-[color:var(--warm-border)] text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
@@ -759,7 +759,7 @@ function _showLastCreditBanner() {
     banner.id = 'last-credit-banner';
     banner.className = 'fixed bottom-0 left-0 right-0 bg-amber-900/95 border-t border-amber-700 px-4 py-3 z-40 flex items-center justify-between gap-3';
     banner.innerHTML = `
-        <span class="text-amber-100 text-sm">⚡ <strong>1 free report left</strong> this month — make it count, or upgrade for unlimited access.</span>
+        <span class="text-amber-100 text-sm">⚡ <strong>1 free report left</strong> — make it count, or upgrade for more reports.</span>
         <div class="flex gap-2 flex-shrink-0">
             <button onclick="document.getElementById('last-credit-banner').remove()" class="text-amber-400 hover:text-amber-200 text-xs px-2 py-1">Dismiss</button>
             <button onclick="showUpgradeModal()" class="bg-amber-500 hover:bg-amber-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Upgrade →</button>

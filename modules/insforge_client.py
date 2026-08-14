@@ -34,6 +34,7 @@ REPORTS_TABLE = "reports"
 MCP_KEYS_TABLE = "mcp_api_keys"
 MCP_ACCOUNTS_TABLE = "mcp_accounts"
 ACCOUNT_PROFILES_TABLE = "account_profiles"
+ACCOUNT_CREDIT_LEDGER_TABLE = "account_credit_ledger"
 _TIMEOUT = httpx.Timeout(15.0)
 
 
@@ -320,6 +321,51 @@ async def save_account_profile(profile: dict) -> bool:
         return True
     except Exception as e:
         log.error("InsForge account profile save exception user=%s: %s", profile.get("id"), e)
+        return False
+
+
+async def record_account_credit_event(
+    profile: dict,
+    delta: int,
+    reason: str,
+    *,
+    source_event_id: str | None = None,
+    metadata: dict | None = None,
+) -> bool:
+    """Mirror a credit mutation to the append-only InsForge ledger.
+
+    Supabase remains the temporary balance authority during the auth cutover,
+    so this is deliberately called *after* its successful mutation. Metadata
+    must be operational only: never include emails, bearer tokens, URLs, or
+    report contents.
+    """
+    if not enabled() or not profile.get("id") or not profile.get("email") or not delta:
+        return False
+    if not await save_account_profile(profile):
+        return False
+    row = {
+        "legacy_user_id": str(profile["id"]),
+        "delta": int(delta),
+        "reason": str(reason)[:80],
+        "metadata": metadata or {},
+    }
+    if source_event_id:
+        row["source_event_id"] = str(source_event_id)[:200]
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            resp = await c.post(
+                _records_url(ACCOUNT_CREDIT_LEDGER_TABLE), json=[row], headers=_headers(write=True)
+            )
+            # Retried webhook/promo events carry the same source id; an existing
+            # ledger row means the desired immutable event is already present.
+            if resp.status_code == 409 and source_event_id:
+                return True
+            if resp.status_code >= 300:
+                log.error("InsForge credit ledger write failed reason=%s status=%s", reason, resp.status_code)
+                return False
+        return True
+    except Exception as e:
+        log.error("InsForge credit ledger write exception reason=%s: %s", reason, e)
         return False
 
 

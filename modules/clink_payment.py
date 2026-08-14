@@ -284,9 +284,9 @@ async def _handle_order_event(order: dict) -> dict:
 
     if user_id and product_key:
         if product_key in SUBSCRIPTION_PLANS:
-            await _update_user_plan(user_id, product_key)
+            await _update_user_plan(user_id, product_key, source_event_id=_credit_event_id("order", order))
         else:
-            await _grant_credits(user_id, product_key)
+            await _grant_credits(user_id, product_key, source_event_id=_credit_event_id("order", order))
 
     return {"action": "order_succeeded", "plan": product_key, "email": customer_email}
 
@@ -303,11 +303,11 @@ async def _handle_subscription_event(sub: dict) -> dict:
 
     if status in ("ACTIVE", "ACTIVATED", "TRIALING"):
         if user_id and product_key:
-            await _update_user_plan(user_id, product_key)
+            await _update_user_plan(user_id, product_key, source_event_id=_credit_event_id("subscription", sub))
         return {"action": "subscription_activated", "plan": product_key}
     elif status in ("CANCELED", "CANCELLED", "EXPIRED"):
         if user_id:
-            await _update_user_plan(user_id, "free")
+            await _update_user_plan(user_id, "free", source_event_id=_credit_event_id("subscription", sub))
         return {"action": "subscription_canceled", "email": customer_email}
     elif status == "PAST_DUE":
         log.warning("Clink subscription PAST_DUE: email=%s", customer_email)
@@ -339,14 +339,19 @@ async def _handle_session_event(session: dict) -> dict:
 
     if user_id and product_key:
         if product_key in SUBSCRIPTION_PLANS:
-            await _update_user_plan(user_id, product_key)
+            await _update_user_plan(user_id, product_key, source_event_id=_credit_event_id("session", session))
         else:
-            await _grant_credits(user_id, product_key)
+            await _grant_credits(user_id, product_key, source_event_id=_credit_event_id("session", session))
 
     return {"action": "session_completed", "plan": product_key, "email": customer_email}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _credit_event_id(kind: str, payload: dict) -> str | None:
+    """Return a provider event id for ledger idempotency, without PII."""
+    event_id = (payload or {}).get("id") or (payload or {}).get("eventId")
+    return f"clink:{kind}:{event_id}" if event_id else None
 
 def _extract_email(obj: dict) -> str:
     """Try common paths for customer email in Clink event payloads."""
@@ -416,7 +421,7 @@ async def _find_user_by_email(email: str) -> str | None:
     return None
 
 
-async def _grant_credits(user_id: str, plan: str) -> None:
+async def _grant_credits(user_id: str, plan: str, source_event_id: str | None = None) -> None:
     """Add credits to user based on plan.
 
     Same balance-preservation logic as polar_payment._grant_credits:
@@ -427,7 +432,8 @@ async def _grant_credits(user_id: str, plan: str) -> None:
     if not credits:
         return
     try:
-        from .supabase_client import get_supabase
+        from .supabase_client import get_supabase, get_user_profile
+        from .insforge_client import record_account_credit_event
         sb = get_supabase()
         if not sb:
             return
@@ -446,6 +452,13 @@ async def _grant_credits(user_id: str, plan: str) -> None:
             ).eq("id", user_id).execute()
             log.info("Clink granted %d single-report credit(s) to %s: %d→%d",
                      credits, user_id, current, current + credits)
+            profile = await get_user_profile(user_id)
+            if profile:
+                await record_account_credit_event(
+                    profile, credits, "purchase_single_report",
+                    source_event_id=source_event_id,
+                    metadata={"provider": "clink"},
+                )
             return
 
         cur = sb.table("profiles").select("credits_balance").eq("id", user_id).single().execute()
@@ -461,15 +474,24 @@ async def _grant_credits(user_id: str, plan: str) -> None:
             "Clink granted plan=%s to %s: quota=%d, balance %d→%d",
             plan, user_id, credits, current, new_balance,
         )
+        if new_balance > current:
+            profile = await get_user_profile(user_id)
+            if profile:
+                await record_account_credit_event(
+                    profile, new_balance - current, "subscription_credit_grant",
+                    source_event_id=source_event_id,
+                    metadata={"provider": "clink", "plan": plan},
+                )
     except Exception as exc:
         log.error("Clink _grant_credits failed user=%s: %s", user_id, exc)
 
 
-async def _update_user_plan(user_id: str, plan: str) -> None:
+async def _update_user_plan(user_id: str, plan: str, source_event_id: str | None = None) -> None:
     """Update subscription plan. Same balance-preservation rule as _grant_credits."""
     credits = PLAN_CREDITS.get(plan, 2)
     try:
-        from .supabase_client import get_supabase
+        from .supabase_client import get_supabase, get_user_profile
+        from .insforge_client import record_account_credit_event
         sb = get_supabase()
         if not sb:
             return
@@ -486,5 +508,13 @@ async def _update_user_plan(user_id: str, plan: str) -> None:
             "Clink updated plan for %s: %s, quota=%d, balance %d→%d",
             user_id, plan, credits, current, new_balance,
         )
+        if new_balance > current:
+            profile = await get_user_profile(user_id)
+            if profile:
+                await record_account_credit_event(
+                    profile, new_balance - current, "subscription_credit_grant",
+                    source_event_id=source_event_id,
+                    metadata={"provider": "clink", "plan": plan},
+                )
     except Exception as exc:
         log.error("Clink _update_user_plan failed user=%s: %s", user_id, exc)
