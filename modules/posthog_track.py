@@ -15,7 +15,10 @@ import time
 from posthog import Posthog
 
 _posthog = Posthog(
-    api_key=os.environ.get("POSTHOG_API_KEY", ""),
+    # ``project_api_key`` is the supported constructor argument in the
+    # PostHog Python SDK.  ``api_key`` is an instance attribute, not a
+    # constructor keyword, in the currently resolved SDK version.
+    project_api_key=os.environ.get("POSTHOG_API_KEY", ""),
     host=os.environ.get("POSTHOG_HOST", "https://us.i.posthog.com"),
 )
 
