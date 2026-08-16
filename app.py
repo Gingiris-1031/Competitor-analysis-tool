@@ -213,7 +213,7 @@ async def _require_credits(request: Request):
     ok = await deduct_credit(user["id"])
     if not ok:
         return None, JSONResponse(
-            {"error": "积分不足，请升级套餐或等待下月重置", "code": "CREDITS_EXHAUSTED"},
+            {"error": "积分不足，请购买 credits 或升级套餐", "code": "CREDITS_EXHAUSTED"},
             status_code=402,
         )
 
@@ -2767,20 +2767,15 @@ async def get_me(request: Request):
     # first /api/me hit. Grandfathered for users created BEFORE the cutover.
     try:
         from modules.polar_payment import FREE_TIER_CUTOVER_ISO, PLAN_CREDITS
+        from modules.supabase_client import normalize_new_free_tier_credits
         if (
             profile.get("plan_type") == "free"
             and profile.get("credits_monthly_quota") == 3
             and profile.get("credits_used", 0) == 0  # don't downgrade users mid-month
             and profile.get("created_at", "") > FREE_TIER_CUTOVER_ISO
         ):
-            from modules.supabase_client import get_supabase
-            sb = get_supabase()
-            if sb:
+            if normalize_new_free_tier_credits(user["id"]):
                 new_quota = PLAN_CREDITS["free"]  # 2
-                sb.table("profiles").update({
-                    "credits_balance": new_quota,
-                    "credits_monthly_quota": new_quota,
-                }).eq("id", user["id"]).execute()
                 profile["credits_balance"] = new_quota
                 profile["credits_monthly_quota"] = new_quota
     except Exception as e:

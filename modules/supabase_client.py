@@ -42,6 +42,39 @@ def get_supabase():
     return _client
 
 
+def normalize_new_free_tier_credits(user_id: str) -> bool:
+    """Atomically cap an untouched post-cutover Free account at 2 starter credits.
+
+    The legacy Supabase signup trigger still creates three credits.  The
+    predicates intentionally include the exact initial balance: a promo,
+    purchase, or manual grant must never be overwritten by this safety net.
+    Returns True only when this call made the correction.
+    """
+    sb = get_supabase()
+    if not sb:
+        return False
+    try:
+        from modules.polar_payment import FREE_TIER_CUTOVER_ISO, PLAN_CREDITS
+        result = (
+            sb.table("profiles")
+            .update({
+                "credits_balance": PLAN_CREDITS["free"],
+                "credits_monthly_quota": PLAN_CREDITS["free"],
+            })
+            .eq("id", user_id)
+            .eq("plan_type", "free")
+            .eq("credits_balance", 3)
+            .eq("credits_monthly_quota", 3)
+            .eq("credits_used", 0)
+            .gt("created_at", FREE_TIER_CUTOVER_ISO)
+            .execute()
+        )
+        return bool(result.data)
+    except Exception as exc:
+        log.warning("New free-tier normalization failed user=%s: %s", user_id, exc)
+        return False
+
+
 async def verify_token_and_get_user(token: str) -> dict | None:
     """
     Verify JWT token or API key, return user dict (containing id / email).
@@ -105,6 +138,10 @@ async def deduct_credit(user_id: str) -> bool:
         return True  # Supabase 未配置时放行（开发模式）
 
     try:
+        # Close the legacy signup-trigger gap before the atomic debit.  This
+        # conditional update is safe under concurrent requests: only the
+        # untouched exact 3-credit initial state can be changed.
+        normalize_new_free_tier_credits(user_id)
         result = sb.rpc("deduct_credit", {"p_user_id": user_id}).execute()
         # deduct_credit 函数返回 boolean
         charged = bool(result.data)
