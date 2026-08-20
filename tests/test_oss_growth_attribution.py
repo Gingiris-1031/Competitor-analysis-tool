@@ -34,6 +34,38 @@ class OssGrowthAttributionTests(unittest.TestCase):
         self.assertEqual(item["format"], "tutorial")
         self.assertGreaterEqual(_evidence_score(item, "OpenMontage"), 6)
 
+    def test_rejects_same_name_content_from_a_different_github_repo(self):
+        row = {
+            "title": "OpenAgents platform",
+            "url": "https://github.com/xlang-ai/openagents",
+            "description": "OpenAgents install guide",
+        }
+        self.assertIsNone(
+            _normalize_result(
+                row,
+                "openagents",
+                "community",
+                canonical_owner="openagents-org",
+                canonical_repo="openagents",
+            )
+        )
+
+    def test_keeps_content_from_the_canonical_github_repo(self):
+        row = {
+            "title": "OpenAgents release notes",
+            "url": "https://github.com/openagents-org/openagents/releases/tag/v1",
+            "description": "OpenAgents release",
+        }
+        item = _normalize_result(
+            row,
+            "openagents",
+            "community",
+            canonical_owner="openagents-org",
+            canonical_repo="openagents",
+        )
+        self.assertIsNotNone(item)
+        self.assertEqual(item["channel"], "github")
+
     def test_markdown_export_includes_original_link_and_caveat(self):
         attribution = {
             "available": True,

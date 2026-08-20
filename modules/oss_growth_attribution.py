@@ -107,7 +107,13 @@ def _evidence_score(item: dict, project: str) -> int:
     return min(score, 8)
 
 
-def _normalize_result(result: dict, project: str, query_family: str) -> dict | None:
+def _normalize_result(
+    result: dict,
+    project: str,
+    query_family: str,
+    canonical_owner: str = "",
+    canonical_repo: str = "",
+) -> dict | None:
     title = (result.get("title") or "").strip()
     description = (result.get("description") or "").strip()
     url = _canonical_url((result.get("url") or "").strip())
@@ -117,6 +123,12 @@ def _normalize_result(result: dict, project: str, query_family: str) -> dict | N
     if _normalized(project) not in _normalized(combined):
         return None
     channel = _classify_channel(url)
+    if channel == "github" and canonical_owner and canonical_repo:
+        path_parts = [part for part in urlparse(url).path.split("/") if part]
+        if len(path_parts) < 2 or (
+            path_parts[0].lower(), path_parts[1].removesuffix(".git").lower()
+        ) != (canonical_owner.lower(), canonical_repo.lower()):
+            return None
     item = {
         "channel": channel,
         "title": title[:180],
@@ -194,7 +206,7 @@ async def analyze_oss_growth_attribution(product_name: str, github_oss: dict) ->
     seen = set()
     for family, rows in results:
         for row in rows:
-            item = _normalize_result(row, project, family)
+            item = _normalize_result(row, project, family, owner, repo)
             if not item or item["url"] in seen or item["evidence_score"] < 3:
                 continue
             seen.add(item["url"])
