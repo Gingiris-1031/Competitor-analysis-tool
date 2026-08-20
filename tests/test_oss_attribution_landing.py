@@ -70,6 +70,18 @@ class OssAttributionLandingTests(unittest.TestCase):
         self.assertIn("oss_homepage_entry_clicked", en_home)
         self.assertIn("oss_homepage_entry_clicked", zh_home)
 
+    def test_faq_next_steps_have_bilingual_ctas_and_tracking(self):
+        en = EN.read_text(encoding="utf-8")
+        zh = ZH.read_text(encoding="utf-8")
+        self.assertIn("Run full competitor analysis →", en)
+        self.assertIn("Build a 30-day growth plan →", en)
+        self.assertIn("生成完整竞品报告 →", zh)
+        self.assertIn("生成 30 天增长计划 →", zh)
+        for html in (en, zh):
+            self.assertIn("oss_to_competitor_analysis_clicked", html)
+            self.assertIn("oss_to_growth_audit_clicked", html)
+            self.assertIn("utm_campaign=faq_next_step", html)
+
 
 if __name__ == "__main__":
     unittest.main()
