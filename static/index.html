@@ -391,18 +391,18 @@
                 </a>
             </div>
 
-            <h1 class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
+            <h1 id="hero-title" class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
                 Free AI competitor analysis tool<br>in <span class="italic">60 seconds</span>
             </h1>
 
-            <p class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
+            <p id="hero-copy" class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
                 Paste a URL. We read the whole web presence — SEO, traffic, social, Product Hunt, GitHub, pricing, AI verdict — and surface what's actually driving their growth.
             </p>
-            <p class="text-sm text-[color:var(--ink-faint)] mb-6">
+            <p id="hero-note" class="text-sm text-[color:var(--ink-faint)] mb-6">
                 New: <a href="/research/competitive-intelligence-market-2026.html" class="font-serif italic text-[color:var(--ink)] hover:underline underline-offset-4">State of Competitive Intelligence 2026</a> — 14 tools mapped, pricing matrix, vendor decision framework.
             </p>
 
-            <a href="/open-source-growth-attribution.html"
+            <a id="oss-homepage-entry" href="/open-source-growth-attribution.html"
                onclick="window.posthog?.capture?.('oss_homepage_entry_clicked', {lang:'en', placement:'hero'})"
                class="group max-w-2xl mx-auto mb-8 flex items-center justify-between gap-5 text-left rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-elev)] px-5 py-4 shadow-sm hover:border-[color:var(--warm-border-strong)] transition-all">
                 <span class="flex items-center gap-4 min-w-0">
@@ -418,7 +418,7 @@
             <!-- Pill URL input -->
             <div class="max-w-2xl mx-auto">
                 <div class="url-pill flex items-center rounded-full p-1.5 mb-4">
-                    <span class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
+                    <span id="url-prefix" class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
                     <input type="text" id="url-input" placeholder="domain.com"
                         class="flex-1 bg-transparent border-0 focus:outline-none text-[15px] placeholder-[color:var(--ink-faint)] font-mono py-3" />
                     <button id="start-btn" onclick="startAnalysis()"
@@ -428,7 +428,7 @@
                 </div>
 
                 <!-- Sample chips -->
-                <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+                <div id="sample-chips" class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
                     <span class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)]">Try</span>
                     <button onclick="fillExample('lovable.dev')" class="chip-light cursor-pointer">lovable.dev</button>
                     <button onclick="fillExample('linear.app')" class="chip-light cursor-pointer">linear.app</button>
@@ -437,7 +437,7 @@
                 </div>
 
                 <!-- Compact name input (auto-detect by default) -->
-                <details class="mt-8 text-left max-w-md mx-auto">
+                <details id="advanced-input" class="mt-8 text-left max-w-md mx-auto">
                     <summary class="text-xs text-[color:var(--ink-muted)] cursor-pointer hover:text-[color:var(--ink)]">Advanced — name, text, PDF input</summary>
                     <div class="mt-3 space-y-2">
                         <input type="text" id="name-input" placeholder="Product name (auto-detect if blank)"
@@ -770,10 +770,10 @@
         </div>
     </div>
 
-    <script src="/js/auth.js?v=20260708"></script>
-    <script src="/js/referral-modal.js?v=20260708" defer></script>
+    <script src="/js/auth.js?v=20260820-2"></script>
+    <script src="/js/referral-modal.js?v=20260820-2" defer></script>
     <script src="/js/promo-modal.js" defer></script>
-    <script src="/js/app.js?v=20260814"></script>
+    <script src="/js/app.js?v=20260820-2"></script>
     <script src="/js/render-research-map.js?v=20260722"></script>
     <script src="/js/health.js?v=20260707"></script>
     <script src="/js/render-github.js?v=20260818"></script>

@@ -261,18 +261,18 @@
                 </a>
             </div>
 
-            <h1 class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
+            <h1 id="hero-title" class="font-serif text-[58px] sm:text-[78px] lg:text-[96px] leading-[0.95] tracking-tight text-[color:var(--ink)] mb-8">
                 60 秒看透<br>任何<span class="italic">竞品</span>
             </h1>
 
-            <p class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
+            <p id="hero-copy" class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
                 粘贴网址，AI 同时扫描 15+ 数据源：SEO 流量、社媒账号、Product Hunt 发布史、GitHub 社区、定价策略、增长飞轮……一份报告全搞定。
             </p>
-            <p class="text-sm text-[color:var(--ink-faint)] mb-6">
+            <p id="hero-note" class="text-sm text-[color:var(--ink-faint)] mb-6">
                 新：<a href="/research/competitive-intelligence-market-2026.html" class="font-serif italic text-[color:var(--ink)] hover:underline underline-offset-4">2026 竞品情报市场报告</a> — 14 款工具横评，定价矩阵，选型决策框架。
             </p>
 
-            <a href="/zh/open-source-growth-attribution.html"
+            <a id="oss-homepage-entry" href="/zh/open-source-growth-attribution.html"
                onclick="window.posthog?.capture?.('oss_homepage_entry_clicked', {lang:'zh', placement:'hero'})"
                class="group max-w-2xl mx-auto mb-8 flex items-center justify-between gap-5 text-left rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-elev)] px-5 py-4 shadow-sm hover:border-[color:var(--warm-border-strong)] transition-all">
                 <span class="flex items-center gap-4 min-w-0">
@@ -288,7 +288,7 @@
             <!-- Pill URL input -->
             <div class="max-w-2xl mx-auto">
                 <div class="url-pill flex items-center rounded-full p-1.5 mb-4">
-                    <span class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
+                    <span id="url-prefix" class="font-mono text-sm text-[color:var(--ink-faint)] pl-5 pr-1 select-none">https://</span>
                     <input type="text" id="url-input" placeholder="domain.com"
                         class="flex-1 bg-transparent border-0 focus:outline-none text-[15px] placeholder-[color:var(--ink-faint)] font-mono py-3" />
                     <button id="start-btn" onclick="startAnalysis()"
@@ -298,7 +298,7 @@
                 </div>
 
                 <!-- Sample chips -->
-                <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+                <div id="sample-chips" class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
                     <span class="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)]">试试</span>
                     <button onclick="fillExample('lovable.dev')" class="chip-light cursor-pointer">lovable.dev</button>
                     <button onclick="fillExample('linear.app')" class="chip-light cursor-pointer">linear.app</button>
@@ -307,7 +307,7 @@
                 </div>
 
                 <!-- Compact name input (auto-detect by default) -->
-                <details class="mt-8 text-left max-w-md mx-auto">
+                <details id="advanced-input" class="mt-8 text-left max-w-md mx-auto">
                     <summary class="text-xs text-[color:var(--ink-muted)] cursor-pointer hover:text-[color:var(--ink)]">高级 — 产品名称、文本、PDF 输入</summary>
                     <div class="mt-3 space-y-2">
                         <input type="text" id="name-input" placeholder="产品名称（留空自动识别）"
@@ -640,10 +640,10 @@
     </div>
 
     <script>window._ANALOOK_LANG = 'zh';</script>
-    <script src="/js/auth.js?v=20260708"></script>
-    <script src="/js/referral-modal.js?v=20260708" defer></script>
+    <script src="/js/auth.js?v=20260820-2"></script>
+    <script src="/js/referral-modal.js?v=20260820-2" defer></script>
     <script src="/js/promo-modal.js" defer></script>
-    <script src="/js/app.js?v=20260814"></script>
+    <script src="/js/app.js?v=20260820-2"></script>
     <script src="/js/render-research-map.js?v=20260722"></script>
     <script src="/zh/js/render-github.js?v=20260818"></script>
     <script src="/zh/js/render-pr.js"></script>

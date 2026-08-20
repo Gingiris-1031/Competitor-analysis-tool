@@ -50,6 +50,13 @@ class OssAttributionLandingTests(unittest.TestCase):
         self.assertIn("oss_lp_viewed", landing_js)
         self.assertIn("oss_repo_submitted", landing_js)
         self.assertIn("oss_repo=", landing_js)
+        self.assertIn("params.get('repo') || params.get('oss_repo')", landing_js)
+        self.assertIn("candidate = `https://github.com/${value}`", landing_js)
+        self.assertIn("document.querySelectorAll('.faq-action')", landing_js)
+        self.assertIn("url.searchParams.set('oss_repo', repo)", landing_js)
+        self.assertIn("normalizeGithubRepo", app_js)
+        self.assertIn("Analyze OSS growth", app_js)
+        self.assertIn("正在还原开源项目增长证据", app_js)
         for event in (
             "oss_main_product_arrived",
             "oss_preview_completed",
@@ -69,6 +76,19 @@ class OssAttributionLandingTests(unittest.TestCase):
         self.assertIn("新功能 · 开源项目增长归因", zh_home)
         self.assertIn("oss_homepage_entry_clicked", en_home)
         self.assertIn("oss_homepage_entry_clicked", zh_home)
+        for html in (en_home, zh_home):
+            self.assertIn('id="hero-title"', html)
+            self.assertIn('id="hero-copy"', html)
+            self.assertIn('id="hero-note"', html)
+            self.assertIn('id="oss-homepage-entry"', html)
+
+    def test_first_oss_value_is_not_blocked_by_account_or_referral_modals(self):
+        auth_js = (ROOT / "static/js/auth.js").read_text(encoding="utf-8")
+        referral_js = (ROOT / "static/js/referral-modal.js").read_text(encoding="utf-8")
+        self.assertIn("ossRepo && ossValueCompleted !== ossRepo", auth_js)
+        self.assertIn("new URLSearchParams(window.location.search).get('oss_repo')", referral_js)
+        self.assertIn("你是从哪里", referral_js)
+        self.assertIn("继续 →", referral_js)
 
     def test_faq_next_steps_have_bilingual_ctas_and_tracking(self):
         en = EN.read_text(encoding="utf-8")

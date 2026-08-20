@@ -15,6 +15,23 @@ function normalizeUrl(raw) {
     try { new URL(raw); return raw; } catch { return null; }
 }
 
+function normalizeGithubRepo(raw) {
+    const normalized = normalizeUrl(raw);
+    if (!normalized) return null;
+    try {
+        const url = new URL(normalized);
+        const parts = url.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+        if (!/(^|\.)github\.com$/i.test(url.hostname) || parts.length !== 2) return null;
+        return `https://github.com/${parts[0]}/${parts[1]}`;
+    } catch (_) {
+        return null;
+    }
+}
+
+function isOssAttributionMode() {
+    return new URLSearchParams(window.location.search).has('oss_repo');
+}
+
 function showError(msg) {
     const el = document.getElementById('error-msg');
     if (!el) return;
@@ -171,17 +188,22 @@ async function startAnalysis() {
     }
 
     const rawUrl = document.getElementById('url-input').value.trim();
-    const normalized = normalizeUrl(rawUrl);
+    const normalized = isOssAttributionMode() ? normalizeGithubRepo(rawUrl) : normalizeUrl(rawUrl);
     if (!normalized) {
-        showError(_t('Enter a valid competitor URL, e.g. lovable.dev or https://linear.app', '请输入有效的竞品网址，例如 lovable.dev 或 https://linear.app'));
+        showError(isOssAttributionMode()
+            ? _t('Enter a valid GitHub repository, e.g. github.com/openagents-org/openagents', '请输入有效的 GitHub 仓库，例如 github.com/openagents-org/openagents')
+            : _t('Enter a valid competitor URL, e.g. lovable.dev or https://linear.app', '请输入有效的竞品网址，例如 lovable.dev 或 https://linear.app'));
         document.getElementById('url-input').focus();
         return;
     }
-    const name = document.getElementById('name-input').value.trim() || null;
-    if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
+    const repoName = isOssAttributionMode() ? normalized.split('/').pop() : null;
+    const name = document.getElementById('name-input').value.trim() || repoName || null;
+    if (isOssAttributionMode()) {
         window.posthog?.capture?.('oss_full_report_unlocked', { repo_url: normalized, report_lang: window._ANALOOK_LANG || 'en' });
     }
-    _beginProgress(_t('🌐 Analyzing competitor website...', '🌐 正在分析竞品官网...'));
+    _beginProgress(isOssAttributionMode()
+        ? _t('⭐ Reconstructing open-source growth evidence...', '⭐ 正在还原开源项目增长证据...')
+        : _t('🌐 Analyzing competitor website...', '🌐 正在分析竞品官网...'));
 
     // 附带 Auth token
     const token = window._analookAuth?.getToken();
@@ -479,7 +501,8 @@ async function loadReport() {
         _maybeShowLastCreditBanner();
         _renderPostReportCTA();
 
-        if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
+        if (isOssAttributionMode()) {
+            sessionStorage.setItem('analook_oss_value_completed', sessionStorage.getItem('analook_oss_repo') || '1');
             window.posthog?.capture?.('oss_preview_completed', {
                 job_id: currentJobId,
                 report_lang: meta.lang || window._ANALOOK_LANG || 'en',
@@ -669,11 +692,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Preserve the landing-page source through auth, report generation and
     // checkout. Prefill without spending a credit automatically.
     const entryParams = new URLSearchParams(window.location.search);
-    const ossRepo = entryParams.get('oss_repo');
+    const ossRepo = normalizeGithubRepo(entryParams.get('oss_repo') || '');
     if (ossRepo) {
         sessionStorage.setItem('analook_entry_source', 'oss_attribution');
+        sessionStorage.setItem('analook_oss_repo', ossRepo);
         const urlInput = document.getElementById('url-input');
         if (urlInput) urlInput.value = ossRepo;
+        const heroTitle = document.getElementById('hero-title');
+        const heroCopy = document.getElementById('hero-copy');
+        const heroNote = document.getElementById('hero-note');
+        const ossEntry = document.getElementById('oss-homepage-entry');
+        const urlPrefix = document.getElementById('url-prefix');
+        const sampleChips = document.getElementById('sample-chips');
+        const advancedInput = document.getElementById('advanced-input');
+        const startBtn = document.getElementById('start-btn');
+        if (heroTitle) heroTitle.innerHTML = _t(
+            'Find what drove<br>their <span class="italic">GitHub stars</span>',
+            '找到真正推动<br><span class="italic">GitHub Star</span> 的增长来源'
+        );
+        if (heroCopy) heroCopy.textContent = _t(
+            'Analook reconstructs growth stages, channels and influential content with original links, evidence scores and explicit uncertainty.',
+            'Analook 自动还原增长阶段、分发渠道与关键传播内容，并提供内容原链、证据评分和明确的不确定性说明。'
+        );
+        if (heroNote) {
+            heroNote.textContent = _t('Open-source Growth Attribution · repository detected', '开源增长归因模式 · 已识别 GitHub 仓库');
+            heroNote.classList.add('font-medium');
+        }
+        if (ossEntry) ossEntry.classList.add('hidden');
+        if (urlPrefix) urlPrefix.classList.add('hidden');
+        if (sampleChips) sampleChips.classList.add('hidden');
+        if (advancedInput) advancedInput.classList.add('hidden');
+        if (urlInput) urlInput.placeholder = 'github.com/owner/repository';
+        if (startBtn) startBtn.textContent = _t('Analyze OSS growth →', '开始开源增长归因 →');
         window.posthog?.capture?.('oss_main_product_arrived', {
             repo_url: ossRepo,
             report_lang: window._ANALOOK_LANG || 'en',

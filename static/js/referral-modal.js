@@ -129,25 +129,25 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
         overlay.innerHTML = `
           <div class="ana-ref-card" role="dialog" aria-modal="true" aria-labelledby="ana-ref-title">
             <div class="ana-ref-stripe"></div>
-            <h2 id="ana-ref-title">How did you <em style="color:#FB923C">find</em> Analook?</h2>
+            <h2 id="ana-ref-title">${_t('How did you <em style="color:#FB923C">find</em> Analook?', '你是从哪里<em style="color:#FB923C">发现</em> Analook 的？')}</h2>
             <p class="sub">${_t("One question that helps us attribute growth — so we know which channel to invest in next.", "一个问题，帮我们做归因 — 这样下次知道在哪个渠道再投资。")}</p>
 
             <div class="ana-ref-opts" role="radiogroup" aria-label="Referral source">
               <button class="ana-ref-opt" data-source="twitter"        role="radio" aria-checked="false"><span class="ico">𝕏</span><span>Twitter / X</span></button>
               <button class="ana-ref-opt" data-source="linkedin"       role="radio" aria-checked="false"><span class="ico" style="color:#0a66c2">in</span><span>LinkedIn</span></button>
-              <button class="ana-ref-opt" data-source="google_search"  role="radio" aria-checked="false"><span class="ico">🔎</span><span>Google Search</span></button>
-              <button class="ana-ref-opt" data-source="geo"            role="radio" aria-checked="false"><span class="ico">🤖</span><span>AI Search (ChatGPT, Perplexity, Claude)</span></button>
+              <button class="ana-ref-opt" data-source="google_search"  role="radio" aria-checked="false"><span class="ico">🔎</span><span>${_t('Google Search', 'Google 搜索')}</span></button>
+              <button class="ana-ref-opt" data-source="geo"            role="radio" aria-checked="false"><span class="ico">🤖</span><span>${_t('AI Search (ChatGPT, Perplexity, Claude)', 'AI 搜索（ChatGPT、Perplexity、Claude）')}</span></button>
               <button class="ana-ref-opt" data-source="referral"       role="radio" aria-checked="false"><span class="ico">👥</span><span>${_t("Friend / Word of mouth", "朋友推荐 / Word of mouth")}</span></button>
-              <button class="ana-ref-opt" data-source="other"          role="radio" aria-checked="false"><span class="ico">✏️</span><span>${_t("Other (type in)", "Other (填写)")}</span></button>
+              <button class="ana-ref-opt" data-source="other"          role="radio" aria-checked="false"><span class="ico">✏️</span><span>${_t('Other (type in)', '其他（请填写）')}</span></button>
             </div>
 
             <div class="ana-ref-other" id="ana-ref-other-wrap">
-              <input type="text" id="ana-ref-other-input" placeholder="e.g. Reddit, Dev.to article, podcast..." maxlength="200">
+              <input type="text" id="ana-ref-other-input" placeholder="${_t('e.g. Reddit, Dev.to article, podcast...', '例如 Reddit、公众号、播客……')}" maxlength="200">
             </div>
 
-            <button class="ana-ref-cta" id="ana-ref-submit" disabled>Continue →</button>
+            <button class="ana-ref-cta" id="ana-ref-submit" disabled>${_t('Continue →', '继续 →')}</button>
             <div class="ana-ref-err" id="ana-ref-err"></div>
-            <div class="ana-ref-footer">Anonymous to other users · only Iris sees the aggregate</div>
+            <div class="ana-ref-footer">${_t('Anonymous to other users · only Iris sees the aggregate', '对其他用户匿名 · 仅用于汇总渠道效果')}</div>
           </div>
         `;
         document.body.appendChild(overlay);
@@ -188,13 +188,13 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
         submit.addEventListener('click', async () => {
             if (submit.disabled) return;
             submit.disabled = true;
-            submit.textContent = 'Saving…';
+            submit.textContent = _t('Saving…', '保存中…');
             errEl.textContent = '';
 
             const token = window._analookAuth?.getToken?.();
             if (!token) {
-                errEl.textContent = 'Please sign in again.';
-                submit.disabled = false; submit.textContent = 'Continue →';
+                errEl.textContent = _t('Please sign in again.', '请重新登录。');
+                submit.disabled = false; submit.textContent = _t('Continue →', '继续 →');
                 return;
             }
 
@@ -210,8 +210,8 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
                 });
                 const d = await r.json();
                 if (!r.ok) {
-                    errEl.textContent = d.error || 'Save failed';
-                    submit.disabled = false; submit.textContent = 'Continue →';
+                    errEl.textContent = d.error || _t('Save failed', '保存失败');
+                    submit.disabled = false; submit.textContent = _t('Continue →', '继续 →');
                     return;
                 }
                 // Success: dismiss
@@ -224,8 +224,8 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
                     window._analookReferralDone = true;
                 }, 200);
             } catch (e) {
-                errEl.textContent = 'Network error: ' + e.message;
-                submit.disabled = false; submit.textContent = 'Continue →';
+                errEl.textContent = _t('Network error: ', '网络错误：') + e.message;
+                submit.disabled = false; submit.textContent = _t('Continue →', '继续 →');
             }
         });
     }
@@ -233,6 +233,9 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
     // ── Probe /api/me and decide ───────────────────────────────────────
     async function checkAndMaybeShow() {
         if (window._analookReferralDone) return;
+        // The first OSS report is the activation moment. Never block it with a
+        // survey; ask on a later, non-OSS page instead.
+        if (new URLSearchParams(window.location.search).get('oss_repo')) return;
         const token = window._analookAuth?.getToken?.();
         if (!token) return;  // not logged in — skip
         try {

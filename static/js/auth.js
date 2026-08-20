@@ -164,6 +164,12 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
     }
 
     const key = `${_AUTH_MIGRATION_NOTICE_VERSION}:${user.id}`;
+    const entryParams = new URLSearchParams(window.location.search);
+    const ossRepo = entryParams.get('oss_repo');
+    const ossValueCompleted = sessionStorage.getItem('analook_oss_value_completed');
+    // Do not stack an account acknowledgement over the first OSS value moment.
+    // The persistent banner remains visible and the dialog can appear later.
+    if (ossRepo && ossValueCompleted !== ossRepo) return;
     // Existing sessions need the same acknowledgement as a fresh sign-in.
     // Defer until the page has painted so it cannot be hidden behind the
     // authentication modal or missed while the SDK restores a session.
