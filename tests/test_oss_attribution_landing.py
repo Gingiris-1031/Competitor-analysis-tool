@@ -60,6 +60,16 @@ class OssAttributionLandingTests(unittest.TestCase):
         ):
             self.assertIn(event, app_js)
 
+    def test_homepages_feature_prominent_bilingual_entry(self):
+        en_home = (ROOT / "static/index.html").read_text(encoding="utf-8")
+        zh_home = (ROOT / "static/zh/index.html").read_text(encoding="utf-8")
+        self.assertIn('href="/open-source-growth-attribution.html"', en_home)
+        self.assertIn("New · Open-source Growth Attribution", en_home)
+        self.assertIn('href="/zh/open-source-growth-attribution.html"', zh_home)
+        self.assertIn("新功能 · 开源项目增长归因", zh_home)
+        self.assertIn("oss_homepage_entry_clicked", en_home)
+        self.assertIn("oss_homepage_entry_clicked", zh_home)
+
 
 if __name__ == "__main__":
     unittest.main()

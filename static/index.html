@@ -398,9 +398,22 @@
             <p class="text-lg md:text-xl text-[color:var(--ink-muted)] max-w-2xl mx-auto leading-relaxed mb-6">
                 Paste a URL. We read the whole web presence — SEO, traffic, social, Product Hunt, GitHub, pricing, AI verdict — and surface what's actually driving their growth.
             </p>
-            <p class="text-sm text-[color:var(--ink-faint)] mb-12">
+            <p class="text-sm text-[color:var(--ink-faint)] mb-6">
                 New: <a href="/research/competitive-intelligence-market-2026.html" class="font-serif italic text-[color:var(--ink)] hover:underline underline-offset-4">State of Competitive Intelligence 2026</a> — 14 tools mapped, pricing matrix, vendor decision framework.
             </p>
+
+            <a href="/open-source-growth-attribution.html"
+               onclick="window.posthog?.capture?.('oss_homepage_entry_clicked', {lang:'en', placement:'hero'})"
+               class="group max-w-2xl mx-auto mb-8 flex items-center justify-between gap-5 text-left rounded-2xl border border-[color:var(--warm-border)] bg-[color:var(--cream-elev)] px-5 py-4 shadow-sm hover:border-[color:var(--warm-border-strong)] transition-all">
+                <span class="flex items-center gap-4 min-w-0">
+                    <span class="flex-shrink-0 w-10 h-10 rounded-xl bg-[color:var(--ink)] text-[color:var(--cream-bg)] grid place-items-center font-mono text-xs">OSS</span>
+                    <span class="min-w-0">
+                        <strong class="block text-sm text-[color:var(--ink)]">New · Open-source Growth Attribution</strong>
+                        <span class="block mt-1 text-xs sm:text-sm text-[color:var(--ink-muted)]">Find the channels and content that drove any repository’s GitHub stars.</span>
+                    </span>
+                </span>
+                <span class="flex-shrink-0 text-sm font-medium text-[color:var(--ink)] group-hover:translate-x-1 transition-transform">Explore →</span>
+            </a>
 
             <!-- Pill URL input -->
             <div class="max-w-2xl mx-auto">
