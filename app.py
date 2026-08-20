@@ -26,6 +26,7 @@ from modules.traffic_peaks import analyze_traffic_peaks
 from modules.growth_strategy import recommend_playbooks, build_qa_playbook_context
 from modules.pricing import analyze_pricing
 from modules.github_oss import analyze_github_oss
+from modules.oss_growth_attribution import analyze_oss_growth_attribution
 from modules.pr_news import analyze_pr_news
 from modules.funding import analyze_funding
 from modules.bizmodel import analyze_bizmodel
@@ -524,6 +525,11 @@ async def api_v1_analyze(request: Request):
         return JSONResponse({"error": "Missing 'url' field"}, status_code=400)
 
     product_name = body.get("product_name") or None
+    detected_lang = _detect_report_lang(
+        body.get("lang"), request.query_params.get("lang"),
+        request.headers.get("referer") or request.headers.get("origin"),
+        request.headers.get("accept-language"), default="en",
+    )
 
     # ── 鉴权 + 积分检查（统一走 _require_credits；未登录→401，余额不足→402）──
     # 修复前此端点的鉴权是「可选」的（无 token 也照跑），匿名可刷 LLM 额度。
@@ -560,12 +566,14 @@ async def api_v1_analyze(request: Request):
         "report": None,
         "markdown": None,
         "user_id": user["id"] if user else None,
+        "lang": detected_lang,
+        "cancelled": False,
     }
 
     background_tasks = BackgroundTasks()
     background_tasks.add_task(_run_analysis, job_id)
     return JSONResponse(
-        {"job_id": job_id, "status": "started", "poll_url": f"/api/v1/status/{job_id}"},
+        {"job_id": job_id, "status": "started", "poll_url": f"/api/v1/status/{job_id}", "lang": detected_lang},
         background=background_tasks,
     )
 
@@ -812,6 +820,22 @@ class TextAnalyzeRequest(BaseModel):
     product_name: Optional[str] = "产品"
 
 
+def _detect_report_lang(explicit=None, query=None, referer=None,
+                        accept_language=None, default: str = "en") -> str:
+    """Resolve the report language consistently for web and agent APIs."""
+    lang = str(explicit or query or "").strip().lower()
+    if lang not in {"en", "zh"}:
+        ref = str(referer or "").lower()
+        accept = str(accept_language or "").lower()
+        if "/zh/" in ref or "lang=zh" in ref or accept.startswith("zh"):
+            lang = "zh"
+        elif accept.startswith("en"):
+            lang = "en"
+        else:
+            lang = default if default in {"en", "zh"} else "en"
+    return lang
+
+
 @app.post("/api/analyze")
 async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Request):
     # ── 积分检查（Auth 中间件）──────────────────────────────────────────────
@@ -837,19 +861,11 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
     #   3. Referer contains /zh/ → zh
     #   4. Accept-Language header
     #   5. default to "en" (most analook organic traffic is English SEO)
-    _detected_lang = (req.lang or request.query_params.get("lang") or "").strip().lower()
-    if not _detected_lang:
-        _ref = request.headers.get("referer", "") or request.headers.get("origin", "")
-        if "/zh/" in _ref or "lang=zh" in _ref:
-            _detected_lang = "zh"
-        else:
-            _al = (request.headers.get("accept-language") or "").lower()
-            if _al.startswith("zh"):
-                _detected_lang = "zh"
-            elif _al.startswith("en"):
-                _detected_lang = "en"
-    if _detected_lang not in ("en", "zh"):
-        _detected_lang = "en"
+    _detected_lang = _detect_report_lang(
+        req.lang, request.query_params.get("lang"),
+        request.headers.get("referer") or request.headers.get("origin"),
+        request.headers.get("accept-language"), default="en",
+    )
 
     # --- Domain cache: return cached result if available, fresh, and AI succeeded ---
     # Iris 2026-07-07 bug (plaud.ai from /zh/ showed an English report): the
@@ -872,6 +888,7 @@ async def start_analysis(req: AnalyzeRequest, bg: BackgroundTasks, request: Requ
                 "results": cached_job.get("results", {}),
                 "report": cached_job.get("report"),
                 "markdown": cached_job.get("markdown"),
+                "lang": _detected_lang,
                 "_cached": True,
             }
             _persist_report(job_id, jobs[job_id])
@@ -2180,6 +2197,10 @@ async def _run_analysis(job_id: str):
     url = job["url"]
     domain = urlparse(url).netloc
     product_name = job["product_name"]
+    from modules.github_oss import _parse_gh_url
+    explicit_github_repo = _parse_gh_url(url) if domain.lower() in {"github.com", "www.github.com"} else (None, None)
+    if not all(explicit_github_repo):
+        explicit_github_repo = None
 
     # Propagate report language into a ContextVar so analysis modules
     # (funding/bizmodel/traffic_peaks/growth_strategy/github_oss) — which run
@@ -2226,7 +2247,7 @@ async def _run_analysis(job_id: str):
         _t(analyze_producthunt(domain, product_name), 25),
         _t(analyze_social(domain, product_name, website_social_links={}), 35),  # TwitterAPI.io <3s/handle, total <20s
         _t(analyze_pricing(url, product_name), 20),
-        _t(analyze_github_oss(domain, product_name, {}), 25),
+        _t(analyze_github_oss(domain, product_name, {}, explicit_repo=explicit_github_repo), 25),
         _t(analyze_pr_news(domain, product_name), 18),
         _t(analyze_funding(domain, product_name), 15),
         _t(fetch_seoreviewtools(domain), 15),  # SEO Review Tools: DA + backlinks + traffic fallback
@@ -2311,7 +2332,7 @@ async def _run_analysis(job_id: str):
         if not _gh_result.get("found"):
             try:
                 _gh_retry = await asyncio.wait_for(
-                    analyze_github_oss(domain, product_name, _ws_social or {}), timeout=20
+                    analyze_github_oss(domain, product_name, _ws_social or {}, explicit_repo=explicit_github_repo), timeout=20
                 )
                 if isinstance(_gh_retry, dict) and _gh_retry.get("found"):
                     job["results"]["github_oss"] = _gh_retry
@@ -2495,6 +2516,15 @@ async def _run_analysis(job_id: str):
         job["results"]["traffic_peaks"] = peaks
         job["progress"]["traffic_peaks"] = "done"
 
+    async def _run_oss_growth_attribution():
+        """Attach evidence-backed channel attribution to the existing GitHub section."""
+        github_oss = job["results"].get("github_oss", {})
+        if not isinstance(github_oss, dict) or not github_oss.get("found"):
+            return {}
+        attribution = await analyze_oss_growth_attribution(product_name, github_oss)
+        github_oss["growth_attribution"] = attribution
+        return attribution
+
     if _cancelled(): return
 
     # ================================================================
@@ -2538,9 +2568,9 @@ async def _run_analysis(job_id: str):
             job["results"]["ai_summary"] = ai
             return ai
 
-    # Run propagation + traffic_peaks + AI summary ALL in parallel
+    # Run propagation + traffic_peaks + OSS attribution + AI summary in parallel
     phase2_results = await asyncio.gather(
-        _run_propagation(), _run_traffic_peaks(), _run_ai_summary(),
+        _run_propagation(), _run_traffic_peaks(), _run_oss_growth_attribution(), _run_ai_summary(),
         return_exceptions=True,
     )
     # Collect optional deep-social evidence after the decision-critical work
@@ -2554,7 +2584,7 @@ async def _run_analysis(job_id: str):
     if isinstance(phase2_results[1], Exception):
         job["results"]["traffic_peaks"] = {"error": str(phase2_results[1])}
         job["progress"]["traffic_peaks"] = "error"
-    ai = phase2_results[2] if isinstance(phase2_results[2], dict) else job["results"].get("ai_summary", {})
+    ai = phase2_results[3] if isinstance(phase2_results[3], dict) else job["results"].get("ai_summary", {})
 
     if _cancelled(): return
 

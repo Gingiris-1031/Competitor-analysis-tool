@@ -370,6 +370,40 @@ def _thesis_markdown(sections: dict, en: bool = False) -> str:
     return "\n".join(out) + "\n"
 
 
+def _oss_attribution_markdown(oss_attr: dict, lang: str) -> str:
+    """Render the optional OSS attribution block for exports and MCP clients."""
+    if not isinstance(oss_attr, dict) or not oss_attr.get("available"):
+        return ""
+    md = _T(lang, "## OSS Growth Channel Attribution\n\n", "## 开源增长渠道与内容归因\n\n")
+    md += f"> {oss_attr.get('source_note', '')}  \n"
+    md += _T(lang,
+             f"> Uncertainty: {oss_attr.get('uncertainty', '')}\n\n",
+             f"> 不确定性：{oss_attr.get('uncertainty', '')}\n\n")
+    stages = oss_attr.get("stages", [])
+    if stages:
+        md += _T(lang, "### Growth stages\n\n", "### 增长阶段\n\n")
+        for stage in stages:
+            md += f"- **{stage.get('period', '')} · {stage.get('label', '')}** — {stage.get('signal', '')} ({stage.get('confidence', '')})\n"
+        md += "\n"
+    content = oss_attr.get("key_content", [])
+    if content:
+        md += _T(lang, "### Representative content\n\n", "### 代表内容原链\n\n")
+        md += _T(lang,
+                 "| Channel | Content | Hook | Evidence |\n|---|---|---|---|\n",
+                 "| 渠道 | 内容 | 传播钩子 | 证据 |\n|---|---|---|---|\n")
+        for item in content[:12]:
+            title = str(item.get("title", "")).replace("|", "\\|")
+            hook = str(item.get("hook", "")).replace("|", "\\|")
+            md += f"| {item.get('channel', '')} | [{title}]({item.get('url', '')}) | {hook} | {item.get('evidence_score', 0)}/8 · {item.get('confidence', '')} |\n"
+        md += "\n"
+    unsupported = oss_attr.get("unsupported_channels", [])
+    if unsupported:
+        md += _T(lang,
+                 f"**Searched without supporting evidence:** {', '.join(unsupported)}\n\n",
+                 f"**已检索但暂无支持证据：** {'、'.join(unsupported)}\n\n")
+    return md
+
+
 def report_to_markdown(report: dict) -> str:
     """Render the structured report dict as Markdown.
 
@@ -1062,6 +1096,11 @@ def report_to_markdown(report: dict) -> str:
                 for bk, bv in rhythm.items():
                     md += f"| {bv.get('label', bk)} | {bv.get('count', 0)} | {bv.get('total_followers_reached', 0):,} |\n"
                 md += "\n"
+
+    # OSS growth channel and content attribution
+    gh = s.get("github_oss", {})
+    oss_attr = gh.get("growth_attribution", {}) if isinstance(gh, dict) else {}
+    md += _oss_attribution_markdown(oss_attr, lang)
 
     # Summary
     md += _T(lang, "## 7. Overall Assessment\n\n", "## 7. 综合评估\n\n")

@@ -143,6 +143,7 @@ Try with: `lovable.dev` · `linear.app` · `notion.so` · `cursor.com`
 | Traffic & SEO | `modules/traffic_analysis.py` | DataForSEO — monthly visits, channels, top pages, keywords |
 | Social Media | `modules/social.py` | Apify Twitter scraper — followers, engagement, recent content |
 | Product Hunt | `modules/producthunt.py` | PH GraphQL API — launches, scores, upvotes, reviews |
+| OSS Growth Attribution | `modules/oss_growth_attribution.py` | GitHub star stages, public channel evidence, representative content links, confidence scoring |
 | Growth Analysis | `modules/growth_analysis.py` | Traffic peak detection, event correlation, growth stage |
 | AI Summary | `modules/ai_summary.py` | 7-section structured analysis via TeamoRouter + DeepSeek fallback |
 | Report Builder | `app.py` | FastAPI orchestrator — parallel pipeline, job state, streaming |
@@ -284,6 +285,7 @@ If Analook saved you hours of manual research, a ⭐ helps others discover it!
 | 📈 流量 & SEO | DataForSEO | 月访问量、流量渠道、关键词矩阵 |
 | 🐦 Twitter/X | Apify | 粉丝数、互动率、内容策略 |
 | 🚀 Product Hunt | PH GraphQL | 发布记录、评分、社区反馈 |
+| ⭐ 开源增长归因 | GitHub API + 公开内容检索 | Star 阶段、渠道证据、关键内容原链、证据置信度 |
 | 💡 AI 深度分析 | TeamoRouter | ICP 画像、商业模式、增长飞轮、战术建议 |
 | 📡 传播分析 | 综合 | 流量峰值事件、渠道来源、传播节点 |
 | 🧠 早期增长策略 | 综合 | 从公开信号反推产品早期增长路径 |

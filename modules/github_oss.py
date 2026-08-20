@@ -11,22 +11,29 @@ _GH_STAR_LIMIT = 400   # GitHub API only returns up to page 400 for stargazers
 _SAMPLE_PAGES  = 10    # pages to sample in parallel
 
 
-def _gh_headers(star_json: bool = False) -> dict:
+def _gh_headers(star_json: bool = False, include_token: bool = True) -> dict:
     token = os.environ.get("GITHUB_TOKEN", "").strip()
     accept = "application/vnd.github.star+json" if star_json else "application/vnd.github+json"
     h = {"Accept": accept, "X-GitHub-Api-Version": "2022-11-28"}
-    if token:
+    if token and include_token:
         h["Authorization"] = f"Bearer {token}"
     return h
 
 
 async def _gh_get(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
-    """GitHub API GET with 429 retry (exponential backoff)."""
+    """GitHub API GET with rate-limit retry and invalid-token fallback."""
     import asyncio as _aio
     headers = kwargs.pop("headers", _gh_headers())
     for attempt in range(3):
         resp = await client.get(url, headers=headers, **kwargs)
         if resp.status_code == 200:
+            return resp
+        if resp.status_code == 401 and "Authorization" in headers:
+            # A stale deployment token must not make otherwise-public repo data
+            # unavailable. Retry once anonymously, preserving the requested
+            # media type (including timestamped stargazers).
+            headers = {k: v for k, v in headers.items() if k != "Authorization"}
+            resp = await client.get(url, headers=headers, **kwargs)
             return resp
         if resp.status_code in (403, 429) and attempt < 2:
             # GitHub returns 403 for rate limits (not 429)
@@ -38,11 +45,12 @@ async def _gh_get(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Respon
 
 
 async def analyze_github_oss(domain: str, product_name: str,
-                              website_social_links: dict = None) -> dict:
+                              website_social_links: dict = None,
+                              explicit_repo: tuple[str, str] | None = None) -> dict:
     """分析开源产品 GitHub 数据：Stars 增长曲线、贡献者、发版历史"""
 
     # ── Step 1: Find repo (Brave Search → website hint → domain guess) ──
-    owner, repo = await _resolve_repo(domain, product_name, website_social_links or {})
+    owner, repo = explicit_repo or await _resolve_repo(domain, product_name, website_social_links or {})
     if not (owner and repo):
         return {"found": False, "note": _T("No GitHub repository found — likely not an open-source project",
                                             "未找到 GitHub 仓库，可能不是开源项目")}
@@ -319,7 +327,7 @@ async def _find_top_repo(org: str) -> str | None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def _fetch_repo_info(client: httpx.AsyncClient, owner: str, repo: str) -> dict:
-    resp = await client.get(f"{_GH_API}/repos/{owner}/{repo}", headers=_gh_headers())
+    resp = await _gh_get(client, f"{_GH_API}/repos/{owner}/{repo}")
     if resp.status_code != 200:
         return {}
     d = resp.json()
@@ -327,9 +335,9 @@ async def _fetch_repo_info(client: httpx.AsyncClient, owner: str, repo: str) -> 
     # Contributor count via Link header (1 request)
     contributors = 0
     try:
-        cr = await client.get(
+        cr = await _gh_get(
+            client,
             f"{_GH_API}/repos/{owner}/{repo}/contributors",
-            headers=_gh_headers(),
             params={"per_page": 1, "anon": "true"},
         )
         link = cr.headers.get("Link", "")
@@ -354,9 +362,9 @@ async def _fetch_repo_info(client: httpx.AsyncClient, owner: str, repo: str) -> 
 
 async def _fetch_latest_release(client: httpx.AsyncClient, owner: str, repo: str) -> dict | None:
     try:
-        resp = await client.get(
+        resp = await _gh_get(
+            client,
             f"{_GH_API}/repos/{owner}/{repo}/releases/latest",
-            headers=_gh_headers(),
         )
         if resp.status_code == 200:
             r = resp.json()
@@ -393,7 +401,8 @@ async def _sample_star_history(client: httpx.AsyncClient, owner: str,
 
     async def _fetch_page(page: int) -> list:
         try:
-            r = await client.get(
+            r = await _gh_get(
+                client,
                 f"{_GH_API}/repos/{owner}/{repo}/stargazers",
                 headers=star_h,
                 params={"per_page": per_page, "page": page},

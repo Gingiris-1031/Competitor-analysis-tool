@@ -20,6 +20,7 @@ function renderGithub(data) {
     const milestones = data.milestones || [];
     const history = data.star_history || [];
     const rel = data.latest_release || null;
+    const attribution = data.growth_attribution || null;
 
     el.innerHTML = `
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -55,9 +56,55 @@ function renderGithub(data) {
         ${rel ? _renderRelease(rel) : ''}
         ${history.length ? _renderStarChart(history, stars) : ''}
         ${milestones.length ? _renderMilestones(milestones) : ''}
+        ${attribution && attribution.available ? _renderGrowthAttribution(attribution) : ''}
         ${insights.length ? _renderInsights(insights) : ''}
 
         ${data.data_note ? `<p class="text-xs text-gray-600 mt-3 italic">${_esc(data.data_note)}</p>` : ''}
+    </div>`;
+}
+
+function _renderGrowthAttribution(data) {
+    const stages = data.stages || [];
+    const content = data.key_content || [];
+    const unsupported = data.unsupported_channels || [];
+    const channelLabels = {
+        reddit: 'Reddit', hacker_news: 'Hacker News', product_hunt: 'Product Hunt',
+        x: 'X', instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube',
+        linkedin: 'LinkedIn', developer_media: 'Developer media', github: 'GitHub', editorial: 'Editorial'
+    };
+    const stageHtml = stages.length ? `<div class="grid md:grid-cols-3 gap-2 mb-4">${stages.map(stage => `
+        <div class="bg-gray-900 border border-gray-700 rounded-lg p-3">
+            <div class="text-[10px] uppercase tracking-wide text-blue-400">${_esc(stage.period || '')}</div>
+            <div class="text-xs font-semibold text-white mt-1">${_esc(stage.label || stage.stage || '')}</div>
+            <div class="text-[11px] text-gray-400 mt-1 leading-relaxed">${_esc(stage.signal || '')}</div>
+            <div class="text-[9px] text-gray-600 mt-2">${_esc(stage.confidence || '')} confidence</div>
+        </div>`).join('')}</div>` : '';
+
+    const contentHtml = content.length ? `<div class="space-y-2">${content.slice(0, 10).map(item => `
+        <a href="${_escAttr(item.url)}" target="_blank" rel="noopener noreferrer"
+           class="block bg-gray-900 border border-gray-700 hover:border-blue-600 rounded-lg p-3 transition-colors">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class="text-[10px] text-blue-300 bg-blue-950/50 border border-blue-800/50 rounded px-1.5 py-0.5">${_esc(channelLabels[item.channel] || item.channel)}</span>
+                <span class="text-[10px] text-gray-500">${_esc(item.published_at || item.format || '')}</span>
+                <span class="text-[10px] text-gray-600">score ${Number(item.evidence_score || 0)}/8</span>
+            </div>
+            <div class="text-xs text-gray-200 font-medium">${_esc(item.title || '')} ↗</div>
+            <div class="text-[11px] text-gray-500 mt-1">${_esc(item.hook || '')}</div>
+        </a>`).join('')}</div>` : '<div class="text-xs text-gray-500">No representative original content links found.</div>';
+
+    return `<div class="bg-gray-800/40 border border-gray-700/60 rounded-xl p-4 mb-5">
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+                <div class="text-sm font-semibold text-white">Growth channel & content attribution</div>
+                <div class="text-[11px] text-gray-500 mt-1">Observed links + inferred impact · directional, not last-click attribution</div>
+            </div>
+            <span class="text-[10px] text-yellow-300 border border-yellow-800/60 bg-yellow-950/30 rounded px-2 py-1">${_esc(data.uncertainty || '')}</span>
+        </div>
+        ${stageHtml}
+        <div class="text-xs font-medium text-gray-400 mb-2">Representative content</div>
+        ${contentHtml}
+        ${unsupported.length ? `<div class="text-[10px] text-gray-600 mt-3">Searched without supporting evidence: ${unsupported.map(x => _esc(channelLabels[x] || x)).join(', ')}</div>` : ''}
+        ${data.source_note ? `<div class="text-[10px] text-gray-600 mt-2 italic">${_esc(data.source_note)}</div>` : ''}
     </div>`;
 }
 

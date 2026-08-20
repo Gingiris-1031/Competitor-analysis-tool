@@ -178,6 +178,9 @@ async function startAnalysis() {
         return;
     }
     const name = document.getElementById('name-input').value.trim() || null;
+    if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
+        window.posthog?.capture?.('oss_full_report_unlocked', { repo_url: normalized, report_lang: window._ANALOOK_LANG || 'en' });
+    }
     _beginProgress(_t('🌐 Analyzing competitor website...', '🌐 正在分析竞品官网...'));
 
     // 附带 Auth token
@@ -476,6 +479,14 @@ async function loadReport() {
         _maybeShowLastCreditBanner();
         _renderPostReportCTA();
 
+        if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
+            window.posthog?.capture?.('oss_preview_completed', {
+                job_id: currentJobId,
+                report_lang: meta.lang || window._ANALOOK_LANG || 'en',
+                repo_url: urlForHistory,
+            });
+        }
+
         document.getElementById('hero-section')?.classList.add('hidden');
 
         const btn = document.getElementById('start-btn');
@@ -621,6 +632,9 @@ function esc(s) {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 window._doCheckout = async function (plan) {
+    if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
+        window.posthog?.capture?.(plan === 'single_report' ? 'oss_single_report_checkout_started' : 'oss_pro_checkout_started', { plan });
+    }
     const headers = {'Content-Type': 'application/json'};
     const token = window._analookAuth?.getToken?.();
     if (token) headers['Authorization'] = 'Bearer ' + token;
@@ -651,6 +665,20 @@ document.addEventListener('DOMContentLoaded', () => {
     renderHistory();
     // 暴露给 auth.js 调用：首次同步交给 auth.js 的 onAuthStateChange 触发
     window.syncServerHistory = syncServerHistory;
+
+    // Preserve the landing-page source through auth, report generation and
+    // checkout. Prefill without spending a credit automatically.
+    const entryParams = new URLSearchParams(window.location.search);
+    const ossRepo = entryParams.get('oss_repo');
+    if (ossRepo) {
+        sessionStorage.setItem('analook_entry_source', 'oss_attribution');
+        const urlInput = document.getElementById('url-input');
+        if (urlInput) urlInput.value = ossRepo;
+        window.posthog?.capture?.('oss_main_product_arrived', {
+            repo_url: ossRepo,
+            report_lang: window._ANALOOK_LANG || 'en',
+        });
+    }
 
     const pathMatch = window.location.pathname.match(/^(?:\/zh)?\/report\/([a-f0-9]+)/);
     if (pathMatch) {
@@ -739,7 +767,11 @@ async function _renderPostReportCTA() {
         container.innerHTML = `
             <button onclick="newAnalysis()" class="inline-flex items-center gap-2 bg-[color:var(--ink)] hover:bg-white text-[color:var(--bg)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
                 Analyze another competitor &rarr;
-            </button>`;
+            </button>
+            ${sessionStorage.getItem('analook_entry_source') === 'oss_attribution' ? `
+            <a href="${_LANG_ZH ? '/zh/growth-audit.html' : '/growth-audit.html'}" onclick="window.posthog?.capture?.('oss_to_growth_audit_clicked', {placement:'post_report'})" class="inline-flex items-center gap-2 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
+                ${_t('Build a 30-day growth plan →', '生成 30 天增长计划 →')}
+            </a>` : ''}`;
     } else {
         // No credits → show upgrade options
         container.innerHTML = `
