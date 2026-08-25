@@ -22,3 +22,31 @@ posthog.init("phc_syZTd93YA3LxUjLRhyQAKkDpvrUoEC88vXDk8ckymQg3",{
     return event;
   }
 })
+
+// GA4 bridge for product pages. GA4 had previously been present mainly on
+// content pages, while the product funnel only reached PostHog. Keep the
+// payload deliberately small: no email, URL entered by the user, report data,
+// auth token, or payment identifier is sent to either analytics destination.
+;(function () {
+  var measurementId = 'G-QJDYKDLLVY';
+  if (typeof window.gtag !== 'function') {
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function () { window.dataLayer.push(arguments); };
+    window.gtag('js', new Date());
+    window.gtag('config', measurementId, { send_page_view: true });
+    var tag = document.createElement('script');
+    tag.async = true;
+    tag.src = 'https://www.googletagmanager.com/gtag/js?id=' + measurementId;
+    document.head.appendChild(tag);
+  }
+
+  var allowed = { plan: 1, report_lang: 1, surface: 1, placement: 1, method: 1, landing_lang: 1 };
+  window.analookTrack = function (eventName, properties) {
+    var safe = {};
+    Object.keys(properties || {}).forEach(function (key) {
+      if (allowed[key] && typeof properties[key] !== 'object') safe[key] = properties[key];
+    });
+    try { window.posthog && window.posthog.capture && window.posthog.capture(eventName, safe); } catch (_) {}
+    try { window.gtag && window.gtag('event', eventName, safe); } catch (_) {}
+  };
+})();

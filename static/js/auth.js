@@ -109,7 +109,7 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
       window.posthog.identify(`user:${user.id}`, {
         auth_provider: user.app_metadata?.provider || 'email',
       });
-      if (event === 'SIGNED_IN') window.posthog.capture('auth_signed_in');
+      if (event === 'SIGNED_IN') window.analookTrack?.('login', { method: user.app_metadata?.provider || 'email' });
     } catch (_) {
       // Analytics must never affect authentication.
     }
@@ -317,6 +317,7 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
       const { error } = await sb.auth.signUp({ email, password: pass });
       _setLoading(false);
       if (error) return _setAuthError(error.message);
+      window.analookTrack?.('sign_up', { method: 'email' });
       _setAuthError('✅ Registration successful! Check your email to verify.');
       _switchAuthTab('login');
     });

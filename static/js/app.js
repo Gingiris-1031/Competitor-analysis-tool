@@ -199,8 +199,12 @@ async function startAnalysis() {
     const repoName = isOssAttributionMode() ? normalized.split('/').pop() : null;
     const name = document.getElementById('name-input').value.trim() || repoName || null;
     if (isOssAttributionMode()) {
-        window.posthog?.capture?.('oss_full_report_unlocked', { repo_url: normalized, report_lang: window._ANALOOK_LANG || 'en' });
+        window.analookTrack?.('oss_full_report_unlocked', { report_lang: window._ANALOOK_LANG || 'en' });
     }
+    window.analookTrack?.('report_generation_started', {
+        surface: isOssAttributionMode() ? 'oss_attribution' : 'competitor_report',
+        report_lang: window._ANALOOK_LANG || 'en',
+    });
     _beginProgress(isOssAttributionMode()
         ? _t('⭐ Reconstructing open-source growth evidence...', '⭐ 正在还原开源项目增长证据...')
         : _t('🌐 Analyzing competitor website...', '🌐 正在分析竞品官网...'));
@@ -500,13 +504,15 @@ async function loadReport() {
 
         _maybeShowLastCreditBanner();
         _renderPostReportCTA();
+        window.analookTrack?.('report_generated', {
+            surface: isOssAttributionMode() ? 'oss_attribution' : 'competitor_report',
+            report_lang: meta.lang || window._ANALOOK_LANG || 'en',
+        });
 
         if (isOssAttributionMode()) {
             sessionStorage.setItem('analook_oss_value_completed', sessionStorage.getItem('analook_oss_repo') || '1');
-            window.posthog?.capture?.('oss_preview_completed', {
-                job_id: currentJobId,
+            window.analookTrack?.('oss_preview_completed', {
                 report_lang: meta.lang || window._ANALOOK_LANG || 'en',
-                repo_url: urlForHistory,
             });
         }
 
@@ -656,8 +662,9 @@ function esc(s) {
 // ── Init ─────────────────────────────────────────────────────────────────────
 window._doCheckout = async function (plan) {
     if (sessionStorage.getItem('analook_entry_source') === 'oss_attribution') {
-        window.posthog?.capture?.(plan === 'single_report' ? 'oss_single_report_checkout_started' : 'oss_pro_checkout_started', { plan });
+        window.analookTrack?.(plan === 'single_report' ? 'oss_single_report_checkout_started' : 'oss_pro_checkout_started', { plan });
     }
+    window.analookTrack?.('checkout_started', { plan, placement: 'upgrade_modal' });
     const headers = {'Content-Type': 'application/json'};
     const token = window._analookAuth?.getToken?.();
     if (token) headers['Authorization'] = 'Bearer ' + token;
@@ -724,8 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (advancedInput) advancedInput.classList.add('hidden');
         if (urlInput) urlInput.placeholder = 'github.com/owner/repository';
         if (startBtn) startBtn.textContent = _t('Analyze OSS growth →', '开始开源增长归因 →');
-        window.posthog?.capture?.('oss_main_product_arrived', {
-            repo_url: ossRepo,
+        window.analookTrack?.('oss_main_product_arrived', {
             report_lang: window._ANALOOK_LANG || 'en',
         });
     }
@@ -819,7 +825,7 @@ async function _renderPostReportCTA() {
                 Analyze another competitor &rarr;
             </button>
             ${sessionStorage.getItem('analook_entry_source') === 'oss_attribution' ? `
-            <a href="${_LANG_ZH ? '/zh/growth-audit.html' : '/growth-audit.html'}" onclick="window.posthog?.capture?.('oss_to_growth_audit_clicked', {placement:'post_report'})" class="inline-flex items-center gap-2 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
+            <a href="${_LANG_ZH ? '/zh/growth-audit.html' : '/growth-audit.html'}" onclick="window.analookTrack?.('oss_to_growth_audit_clicked', {placement:'post_report'})" class="inline-flex items-center gap-2 bg-[color:var(--cream-elev)] border border-[color:var(--warm-border)] text-[color:var(--ink)] font-medium text-sm px-6 py-3 rounded-full transition-colors">
                 ${_t('Build a 30-day growth plan →', '生成 30 天增长计划 →')}
             </a>` : ''}`;
     } else {

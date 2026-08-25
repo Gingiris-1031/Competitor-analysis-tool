@@ -5,9 +5,7 @@
   const error = document.getElementById('repo-error');
 
   function capture(event, properties) {
-    if (window.posthog && typeof window.posthog.capture === 'function') {
-      window.posthog.capture(event, Object.assign({ landing_lang: isZh ? 'zh' : 'en' }, properties || {}));
-    }
+    window.analookTrack?.(event, Object.assign({ landing_lang: isZh ? 'zh' : 'en' }, properties || {}));
   }
 
   function normalizeRepo(raw) {
