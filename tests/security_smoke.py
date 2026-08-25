@@ -9,7 +9,8 @@ Analook 安全冒烟测试 — 验证生产环境的安全加固(commit b39a8ea)
 检查项:
   1. /docs /redoc /openapi.json 在生产返回 404(Swagger 不暴露;EXPOSE_API_DOCS 未设时)
   2. 6 个安全响应头存在(HSTS / X-Frame-Options / X-Content-Type-Options / CSP / Referrer-Policy / Permissions-Policy)
-  3. bare /mcp → 307 重定向到 /mcp/
+  3. GET /mcp → MCP 文档；POST /mcp → 307 保留请求体并进入协议端点
+  4. legacy /unlock → 308 到 pricing
 """
 import os
 import sys
@@ -57,10 +58,19 @@ for h in ("strict-transport-security", "x-frame-options", "x-content-type-option
           "content-security-policy", "referrer-policy", "permissions-policy"):
     check(f"{h} 存在", h in hdrs, hdrs.get(h, "缺")[:40])
 
-# 3. MCP bare 路径重定向
+# 3. MCP 浏览器落地页与协议重定向
 print("\n[MCP]")
 code, hdrs = _req("/mcp", method="GET", follow=False)
-check("/mcp → 307 重定向到 /mcp/", code == 307 and "/mcp/" in (hdrs.get("location", "")),
+check("GET /mcp → 308 MCP 文档", code == 308 and "/docs/mcp.html" in (hdrs.get("location", "")),
+      f"{code} → {hdrs.get('location', '')}")
+code, hdrs = _req("/mcp", method="POST", follow=False)
+check("POST /mcp → 307 协议端点", code == 307 and "/mcp/" in (hdrs.get("location", "")),
+      f"{code} → {hdrs.get('location', '')}")
+
+# 4. 旧转化路径保留历史链接信号
+print("\n[Legacy SEO redirects]")
+code, hdrs = _req("/unlock", method="GET", follow=False)
+check("/unlock → 308 pricing", code == 308 and "/pricing.html" in (hdrs.get("location", "")),
       f"{code} → {hdrs.get('location', '')}")
 
 # 汇总

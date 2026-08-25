@@ -9,7 +9,7 @@ import uuid
 log = logging.getLogger(__name__)
 from fastapi import FastAPI, BackgroundTasks, UploadFile, File, Form, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import FileResponse, PlainTextResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 from urllib.parse import urlparse
@@ -3563,18 +3563,29 @@ try:
     # otherwise 405s. Register a 307 (method + body preserving) redirect so the
     # documented no-slash URL works. Must be added BEFORE the mount so the
     # exact-path route wins over the /mcp/* prefix mount.
-    from starlette.responses import RedirectResponse as _RR
+    @app.get("/mcp", include_in_schema=False)
+    async def _mcp_browser_landing():
+        # A browser/crawler GET is documentation intent, not an MCP transport
+        # request. Keep it away from the streamable-HTTP endpoint, which
+        # correctly returns 406 unless the client advertises MCP media types.
+        return RedirectResponse(url="/docs/mcp.html", status_code=308)
 
-    @app.api_route("/mcp", methods=["GET", "POST", "DELETE", "OPTIONS"], include_in_schema=False)
+    @app.api_route("/mcp", methods=["POST", "DELETE", "OPTIONS"], include_in_schema=False)
     async def _mcp_trailing_slash(request: Request):
         qs = ("?" + request.url.query) if request.url.query else ""
-        return _RR(url=f"/mcp/{qs}", status_code=307)
+        return RedirectResponse(url=f"/mcp/{qs}", status_code=307)
 
     app.mount("/mcp", build_mcp_app(), name="mcp")
 except Exception as _mcp_err:
     # Non-fatal: if mcp dep is missing or mounting fails, keep HTTP API running.
     import logging as _log
     _log.getLogger(__name__).warning("MCP server not mounted: %s", _mcp_err)
+
+@app.get("/unlock", include_in_schema=False)
+async def _legacy_unlock_redirect():
+    # Legacy conversion URL found by Google. The old page no longer exists;
+    # consolidate any residual links/signals into the current pricing page.
+    return RedirectResponse(url="/pricing.html", status_code=308)
 
 # ─── Extension-less path → .html alias ─────────────────────────────────────
 # Starlette's StaticFiles(html=True) maps a DIRECTORY path to its index.html,
