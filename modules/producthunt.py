@@ -513,7 +513,7 @@ async def _query_post(client, headers, slug) -> dict:
     except Exception as e:
         return {"found": False, "error": str(e)[:100]}
     finally:
-        track_data_source("ProductHunt", "_query_post", elapsed(), success, {"slug": slug})
+        track_data_source("ProductHunt", "_query_post", elapsed(), success)
 
 
 async def _query_by_url(client, headers, url) -> dict:
@@ -541,7 +541,7 @@ async def _query_by_url(client, headers, url) -> dict:
     except Exception as e:
         return {"found": False, "error": str(e)[:100]}
     finally:
-        track_data_source("ProductHunt", "_query_by_url", elapsed(), success, {"url": url})
+        track_data_source("ProductHunt", "_query_by_url", elapsed(), success)
 
 
 async def _search_posts(client, headers, product_name, brand) -> dict:
