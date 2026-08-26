@@ -1,5 +1,6 @@
 """GitHub OSS 分析模块 — Stars 增长历史、贡献者、发版、里程碑"""
 from .i18n import _T
+from .posthog_track import track_data_source, timeit
 import asyncio
 import math
 import os
@@ -23,25 +24,33 @@ def _gh_headers(star_json: bool = False, include_token: bool = True) -> dict:
 async def _gh_get(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
     """GitHub API GET with rate-limit retry and invalid-token fallback."""
     import asyncio as _aio
-    headers = kwargs.pop("headers", _gh_headers())
-    for attempt in range(3):
-        resp = await client.get(url, headers=headers, **kwargs)
-        if resp.status_code == 200:
-            return resp
-        if resp.status_code == 401 and "Authorization" in headers:
-            # A stale deployment token must not make otherwise-public repo data
-            # unavailable. Retry once anonymously, preserving the requested
-            # media type (including timestamped stargazers).
-            headers = {k: v for k, v in headers.items() if k != "Authorization"}
+    elapsed = timeit()
+    success = False
+    try:
+        headers = kwargs.pop("headers", _gh_headers())
+        for attempt in range(3):
             resp = await client.get(url, headers=headers, **kwargs)
+            if resp.status_code == 200:
+                success = True
+                return resp
+            if resp.status_code == 401 and "Authorization" in headers:
+                # A stale deployment token must not make otherwise-public repo data
+                # unavailable. Retry once anonymously, preserving the requested
+                # media type (including timestamped stargazers).
+                headers = {k: v for k, v in headers.items() if k != "Authorization"}
+                resp = await client.get(url, headers=headers, **kwargs)
+                if resp.status_code == 200:
+                    success = True
+                return resp
+            if resp.status_code in (403, 429) and attempt < 2:
+                # GitHub returns 403 for rate limits (not 429)
+                retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
+                await _aio.sleep(min(retry_after, 5))
+                continue
             return resp
-        if resp.status_code in (403, 429) and attempt < 2:
-            # GitHub returns 403 for rate limits (not 429)
-            retry_after = int(resp.headers.get("Retry-After", 2 ** attempt))
-            await _aio.sleep(min(retry_after, 5))
-            continue
         return resp
-    return resp
+    finally:
+        track_data_source("GitHub", "_gh_get", elapsed(), success)
 
 
 async def analyze_github_oss(domain: str, product_name: str,

@@ -8,6 +8,7 @@ import logging
 from urllib.parse import quote
 
 from .i18n import _T
+from .posthog_track import track_data_source, timeit
 
 log = logging.getLogger(__name__)
 
@@ -561,58 +562,64 @@ async def _call_apify_twitter_search(handle: str, count: int = 10) -> dict:
 async def _call_apify_actor(actor_id: str, input_data: dict, wait_secs: int = 50) -> dict:
     """通用 Apify actor 调用器 — 启动 run → 等待 → 拉取 dataset items"""
     import asyncio as _aio
-    token = _get_apify_token()
-    if not token:
-        return {"success": False, "error": "No APIFY_API_TOKEN configured"}
-
-    api_base = "https://api.apify.com/v2"
-    headers = {"Authorization": f"Bearer {token}"}
-
+    elapsed = timeit()
+    success = False
     try:
-        async with httpx.AsyncClient(timeout=90, headers=headers) as client:
-            resp = await client.post(
-                f"{api_base}/acts/{actor_id}/runs",
-                json=input_data,
-                params={"waitForFinish": wait_secs},
-            )
-            if resp.status_code not in (200, 201):
-                return {"success": False, "error": f"Apify run HTTP {resp.status_code}"}
+        token = _get_apify_token()
+        if not token:
+            return {"success": False, "error": "No APIFY_API_TOKEN configured"}
 
-            run_data = resp.json().get("data", {})
-            run_id = run_data.get("id")
-            run_status = run_data.get("status", "")
+        api_base = "https://api.apify.com/v2"
+        headers = {"Authorization": f"Bearer {token}"}
 
-            if not run_id:
-                return {"success": False, "error": "Apify run missing id"}
+        try:
+            async with httpx.AsyncClient(timeout=90, headers=headers) as client:
+                resp = await client.post(
+                    f"{api_base}/acts/{actor_id}/runs",
+                    json=input_data,
+                    params={"waitForFinish": wait_secs},
+                )
+                if resp.status_code not in (200, 201):
+                    return {"success": False, "error": f"Apify run HTTP {resp.status_code}"}
 
-            # Poll if still running after waitForFinish
-            if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                for _ in range(4):
-                    await _aio.sleep(5)
-                    poll = await client.get(f"{api_base}/actor-runs/{run_id}")
-                    run_status = poll.json().get("data", {}).get("status", "")
-                    if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
-                        break
+                run_data = resp.json().get("data", {})
+                run_id = run_data.get("id")
+                run_status = run_data.get("status", "")
 
-            if run_status != "SUCCEEDED":
-                return {"success": False, "error": f"Apify run ended: {run_status}"}
+                if not run_id:
+                    return {"success": False, "error": "Apify run missing id"}
 
-            ds_resp = await client.get(
-                f"{api_base}/actor-runs/{run_id}/dataset/items",
-                params={"format": "json"},
-            )
-            if ds_resp.status_code != 200:
-                return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+                # Poll if still running after waitForFinish
+                if run_status not in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                    for _ in range(4):
+                        await _aio.sleep(5)
+                        poll = await client.get(f"{api_base}/actor-runs/{run_id}")
+                        run_status = poll.json().get("data", {}).get("status", "")
+                        if run_status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT"):
+                            break
 
-            items = ds_resp.json()
-            if not isinstance(items, list):
-                return {"success": False, "error": "Unexpected Apify dataset format"}
-            return {"success": True, "items": items}
+                if run_status != "SUCCEEDED":
+                    return {"success": False, "error": f"Apify run ended: {run_status}"}
 
-    except httpx.TimeoutException:
-        return {"success": False, "error": f"Apify actor {actor_id} timed out"}
-    except Exception as e:
-        return {"success": False, "error": f"Apify actor error: {str(e)[:120]}"}
+                ds_resp = await client.get(
+                    f"{api_base}/actor-runs/{run_id}/dataset/items",
+                    params={"format": "json"},
+                )
+                if ds_resp.status_code != 200:
+                    return {"success": False, "error": f"Apify dataset HTTP {ds_resp.status_code}"}
+
+                items = ds_resp.json()
+                if not isinstance(items, list):
+                    return {"success": False, "error": "Unexpected Apify dataset format"}
+                success = True
+                return {"success": True, "items": items}
+
+        except httpx.TimeoutException:
+            return {"success": False, "error": f"Apify actor {actor_id} timed out"}
+        except Exception as e:
+            return {"success": False, "error": f"Apify actor error: {str(e)[:120]}"}
+    finally:
+        track_data_source("Apify", actor_id, elapsed(), success)
 
 
 async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:

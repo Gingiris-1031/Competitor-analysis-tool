@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from .i18n import _T
+from .posthog_track import track_data_source, timeit
 
 logger = logging.getLogger(__name__)
 
@@ -26,27 +27,33 @@ def _get_auth_header() -> str:
 
 async def _post_with_retry(client, url: str, headers: dict, json_body, max_retries: int = MAX_RETRIES):
     """POST with exponential backoff for retryable errors (402/429/5xx/timeout)."""
-    last_error = None
-    for attempt in range(max_retries):
-        try:
-            resp = await client.post(url, headers=headers, json=json_body)
-            if resp.status_code == 200:
-                return resp
-            if resp.status_code in RETRYABLE_STATUS and attempt < max_retries - 1:
-                wait = 2 ** attempt  # 1s, 2s, 4s
-                logger.warning(f"DataForSEO {resp.status_code} on {url}, retry {attempt+1}/{max_retries} in {wait}s")
-                await asyncio.sleep(wait)
-                continue
-            return resp  # Non-retryable error, return as-is
-        except (httpx.TimeoutException, httpx.ConnectError) as e:
-            last_error = e
-            if attempt < max_retries - 1:
-                wait = 2 ** attempt
-                logger.warning(f"DataForSEO timeout/connect error, retry {attempt+1}/{max_retries} in {wait}s: {e}")
-                await asyncio.sleep(wait)
-            else:
-                raise
-    raise last_error
+    elapsed = timeit()
+    success = False
+    try:
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                resp = await client.post(url, headers=headers, json=json_body)
+                if resp.status_code == 200:
+                    success = True
+                    return resp
+                if resp.status_code in RETRYABLE_STATUS and attempt < max_retries - 1:
+                    wait = 2 ** attempt  # 1s, 2s, 4s
+                    logger.warning(f"DataForSEO {resp.status_code} on {url}, retry {attempt+1}/{max_retries} in {wait}s")
+                    await asyncio.sleep(wait)
+                    continue
+                return resp  # Non-retryable error, return as-is
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    wait = 2 ** attempt
+                    logger.warning(f"DataForSEO timeout/connect error, retry {attempt+1}/{max_retries} in {wait}s: {e}")
+                    await asyncio.sleep(wait)
+                else:
+                    raise
+        raise last_error
+    finally:
+        track_data_source("DataForSEO", "_post_with_retry", elapsed(), success)
 
 
 async def _resolve_canonical_domain(domain: str) -> tuple:
