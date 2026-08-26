@@ -6,6 +6,7 @@ import json
 import logging
 
 from .i18n import _T
+from .posthog_track import track_data_source, timeit
 
 PH_API = "https://api.producthunt.com/v2/api/graphql"
 PH_PRODUCT_URL = "https://www.producthunt.com/products/{slug}"
@@ -481,6 +482,8 @@ def _build_result(all_hits: list, product_slug: str, brand: str, product_name: s
 
 
 async def _query_post(client, headers, slug) -> dict:
+    elapsed = timeit()
+    success = False
     query = """query($slug: String!) {
         post(slug: $slug) {
             id name tagline description votesCount commentsCount
@@ -505,12 +508,17 @@ async def _query_post(client, headers, slug) -> dict:
         post = (data.get("data") or {}).get("post")
         if not post:
             return {"found": False}
+        success = True
         return _format_post(post)
     except Exception as e:
         return {"found": False, "error": str(e)[:100]}
+    finally:
+        track_data_source("ProductHunt", "_query_post", elapsed(), success)
 
 
 async def _query_by_url(client, headers, url) -> dict:
+    elapsed = timeit()
+    success = False
     query = """query($url: String!) {
         posts(url: $url, first: 3, order: VOTES) {
             edges { node {
@@ -528,9 +536,12 @@ async def _query_by_url(client, headers, url) -> dict:
         edges = data.get("data", {}).get("posts", {}).get("edges", [])
         if not edges:
             return {"found": False}
+        success = True
         return _format_post(edges[0]["node"])
     except Exception as e:
         return {"found": False, "error": str(e)[:100]}
+    finally:
+        track_data_source("ProductHunt", "_query_by_url", elapsed(), success)
 
 
 async def _search_posts(client, headers, product_name, brand) -> dict:
