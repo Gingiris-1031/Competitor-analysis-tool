@@ -96,6 +96,45 @@ async def verify_user_token(token: str) -> Optional[dict]:
         return None
 
 
+async def link_insforge_identity(user: dict) -> Optional[dict]:
+    """Resolve a verified InsForge user to its legacy Analook account.
+
+    Identity creation remains entirely in InsForge Auth. This function only
+    links an already verified identity to a pre-existing account with the same
+    normalized email, via a server-only, conflict-safe database RPC. It never
+    trusts a browser-supplied email or accepts an unverified token.
+    """
+    if not enabled() or not user:
+        return None
+    user_id = str(user.get("id") or "").strip()
+    email = str(user.get("email") or "").strip().lower()
+    if not user_id or not email:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            resp = await c.post(
+                _rpc_url("link_insforge_identity"),
+                json={"p_insforge_user_id": user_id, "p_email": email},
+                headers=_headers(write=True),
+            )
+            if resp.status_code >= 300:
+                # Do not log email or bearer material. A conflict is expected
+                # for a suspicious/mismatched identity and must fail closed.
+                log.warning("InsForge identity link rejected status=%s", resp.status_code)
+                return None
+            legacy_user_id = resp.json()
+            if not legacy_user_id:
+                return None
+            return {
+                "id": str(legacy_user_id),
+                "email": email,
+                "insforge_user_id": user_id,
+            }
+    except Exception as e:
+        log.warning("InsForge identity link failed: %s", e)
+        return None
+
+
 async def save_scorecard(card_hash, user_id, domain, category,
                          inputs, result, competitors=None,
                          is_public=True, unlocked=False) -> bool:

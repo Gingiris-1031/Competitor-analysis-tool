@@ -121,14 +121,18 @@ async def _resolve_user() -> Optional[dict]:
             }
     except Exception:
         pass
-    # Transitional compatibility only. The public documentation never asks
-    # users to copy a browser session token.
+    # Transitional browser-token compatibility: an InsForge identity must be
+    # linked to the matching legacy account before it can access legacy credits
+    # or reports. The public documentation never asks users to copy a session
+    # token; MCP API keys remain the documented integration path.
     try:
-        from modules.insforge_client import verify_user_token
+        from modules.insforge_client import link_insforge_identity, verify_user_token
         user = await verify_user_token(token)
         if user:
-            user["auth_type"] = "insforge_jwt"
-            return user
+            linked = await link_insforge_identity(user)
+            if linked:
+                linked["auth_type"] = "insforge_jwt"
+                return linked
     except Exception:
         pass
     try:

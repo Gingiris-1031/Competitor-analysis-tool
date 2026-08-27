@@ -142,14 +142,29 @@ async def apex_to_www_redirect(request: Request, call_next):
 # ---------------------------------------------------------------------------
 
 async def _extract_user(request: Request) -> dict | None:
-    """从 Authorization: Bearer <token> 提取并验证用户，失败返回 None。"""
+    """Resolve legacy or safely linked InsForge bearer identities.
+
+    Supabase remains the account/credit authority during the staged cutover.
+    An InsForge token is accepted only after the verified identity is atomically
+    bound to the same-email legacy account; otherwise it fails closed.
+    """
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return None
     token = auth[7:].strip()
     if not token:
         return None
-    return await verify_token_and_get_user(token)
+    legacy_user = await verify_token_and_get_user(token)
+    if legacy_user:
+        return legacy_user
+    try:
+        from modules.insforge_client import link_insforge_identity, verify_user_token
+        insforge_user = await verify_user_token(token)
+        if insforge_user:
+            return await link_insforge_identity(insforge_user)
+    except Exception as exc:
+        log.debug("InsForge identity bridge unavailable: %s", exc)
+    return None
 
 
 def _service_degraded_response() -> JSONResponse | None:
@@ -387,12 +402,10 @@ async def create_checkout_session(request: Request):
     # Get user info if authenticated
     user_email = ""
     user_id = ""
-    auth = request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        user = await verify_token_and_get_user(auth[7:])
-        if user:
-            user_email = user.get("email", "")
-            user_id = user.get("id", "")
+    user = await _extract_user(request)
+    if user:
+        user_email = user.get("email", "")
+        user_id = user.get("id", "")
 
     success_url = body.get("success_url", "https://www.analook.com/?payment=success")
     cancel_url = body.get("cancel_url", "https://www.analook.com/pricing.html?payment=canceled")
@@ -725,19 +738,8 @@ class McpKeyCreateRequest(BaseModel):
 
 
 async def _extract_mcp_key_owner(request: Request) -> dict | None:
-    """Accept InsForge user JWTs first; keep legacy login tokens during migration."""
-    auth = request.headers.get("Authorization", "")
-    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
-    if not token:
-        return None
-    try:
-        from modules.insforge_client import verify_user_token
-        user = await verify_user_token(token)
-        if user:
-            return user
-    except Exception:
-        pass
-    return await verify_token_and_get_user(token)
+    """Use the same stable account identity for browser and MCP-key controls."""
+    return await _extract_user(request)
 
 
 @app.get("/api/mcp/keys")
