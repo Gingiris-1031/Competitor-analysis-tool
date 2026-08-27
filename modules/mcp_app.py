@@ -153,6 +153,30 @@ def _auth_required_error() -> dict:
     }
 
 
+def _coerce_report_id(
+    job_id: Optional[str], id: Optional[str], report_id: Optional[str]
+) -> Optional[str]:
+    """Resolve a report identifier from any of the names clients actually send.
+
+    ``list_my_reports()`` / ``browse_public_reports()`` return the identifier
+    under the field name ``id``, while the canonical MCP argument is
+    ``job_id``. Some agents also pass ``report_id``. Accept all three so the
+    list→get round-trip works instead of failing FastMCP argument validation.
+    """
+    return (job_id or id or report_id or "").strip() or None
+
+
+def _missing_id_error() -> dict:
+    return {
+        "error": "MISSING_JOB_ID",
+        "hint": (
+            "Pass the report id as job_id (or id / report_id). The id is the "
+            "`id` field returned by list_my_reports() / browse_public_reports(), "
+            "or the `job_id` returned by analyze_competitor()."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -285,11 +309,17 @@ async def analyze_competitor(
 
 
 @mcp.tool()
-async def get_report_status(job_id: str) -> dict:
+async def get_report_status(
+    job_id: Optional[str] = None,
+    id: Optional[str] = None,
+    report_id: Optional[str] = None,
+) -> dict:
     """Poll an analysis job's status.
 
     Args:
-        job_id: ID returned from analyze_competitor()
+        job_id: Report identifier — the `id` returned by list_my_reports() or
+                browse_public_reports(), or the `job_id` returned by
+                analyze_competitor(). (`id` / `report_id` also accepted.)
 
     Returns:
         {status: 'running'|'completed'|'failed', progress?: str, report_url?: str}
@@ -297,6 +327,9 @@ async def get_report_status(job_id: str) -> dict:
     user = await _resolve_user()
     if not user:
         return _auth_required_error()
+    job_id = _coerce_report_id(job_id, id, report_id)
+    if not job_id:
+        return _missing_id_error()
     try:
         from app import jobs, _load_persisted_report
     except ImportError:
@@ -326,7 +359,11 @@ async def get_report_status(job_id: str) -> dict:
 
 
 @mcp.tool()
-async def get_report(job_id: str) -> dict:
+async def get_report(
+    job_id: Optional[str] = None,
+    id: Optional[str] = None,
+    report_id: Optional[str] = None,
+) -> dict:
     """Fetch the full competitor analysis report as structured JSON.
 
     Reports contain: website snapshot, Wayback Machine history, SEO/traffic
@@ -335,7 +372,10 @@ async def get_report(job_id: str) -> dict:
     playbooks, and more.
 
     Args:
-        job_id: ID from analyze_competitor(); status must be 'completed'
+        job_id: Report identifier — the `id` returned by list_my_reports() or
+                browse_public_reports(), or the `job_id` returned by
+                analyze_competitor(). Pass an id, not a URL or domain.
+                (`id` / `report_id` also accepted.)
 
     Returns:
         The full report dict (nested structure), or {error} if not found / not ready.
@@ -343,6 +383,9 @@ async def get_report(job_id: str) -> dict:
     user = await _resolve_user()
     if not user:
         return _auth_required_error()
+    job_id = _coerce_report_id(job_id, id, report_id)
+    if not job_id:
+        return _missing_id_error()
     try:
         from app import jobs, _load_persisted_report
     except ImportError:
@@ -362,14 +405,21 @@ async def get_report(job_id: str) -> dict:
 
 
 @mcp.tool()
-async def get_report_markdown(job_id: str) -> dict:
+async def get_report_markdown(
+    job_id: Optional[str] = None,
+    id: Optional[str] = None,
+    report_id: Optional[str] = None,
+) -> dict:
     """Fetch the competitor analysis report as human-readable Markdown.
 
     Suitable for piping into agents that prefer text over structured JSON,
     or for direct display to end users.
 
     Args:
-        job_id: ID from analyze_competitor(); status must be 'completed'
+        job_id: Report identifier — the `id` returned by list_my_reports() or
+                browse_public_reports(), or the `job_id` returned by
+                analyze_competitor(). Pass an id, not a URL or domain.
+                (`id` / `report_id` also accepted.)
 
     Returns:
         {markdown: str} or {error: str}
@@ -377,6 +427,9 @@ async def get_report_markdown(job_id: str) -> dict:
     user = await _resolve_user()
     if not user:
         return _auth_required_error()
+    job_id = _coerce_report_id(job_id, id, report_id)
+    if not job_id:
+        return _missing_id_error()
     try:
         from app import jobs
     except ImportError:
@@ -416,6 +469,10 @@ async def list_my_reports() -> dict:
     except Exception:
         return {"error": "SERVER_ERROR"}
     rows = await list_user_reports(user["id"], limit=50)
+    for r in rows:
+        # Mirror the identifier under the canonical `job_id` name so agents
+        # can pass it straight to get_report()/get_report_markdown().
+        r["job_id"] = r.get("id")
     return {"reports": rows}
 
 
@@ -519,12 +576,19 @@ async def run_growth_audit(
 
 
 @mcp.tool()
-async def get_growth_audit(job_id: str) -> dict:
+async def get_growth_audit(
+    job_id: Optional[str] = None,
+    id: Optional[str] = None,
+    report_id: Optional[str] = None,
+) -> dict:
     """Fetch a Growth Audit's three reports (Executive Summary, Diagnosis,
     Action Plan) as Markdown.
 
     Args:
-        job_id: ID from run_growth_audit() (starts with 'ga-')
+        job_id: Report identifier — the `id` returned by list_my_reports() or
+                browse_public_reports(), or the `job_id` returned by
+                run_growth_audit() (starts with 'ga-'). Pass an id, not a URL
+                or domain. (`id` / `report_id` also accepted.)
 
     Returns:
         {status, reports: {executive_summary, diagnosis_report, action_plan}}
@@ -533,6 +597,9 @@ async def get_growth_audit(job_id: str) -> dict:
     user = await _resolve_user()
     if not user:
         return _auth_required_error()
+    job_id = _coerce_report_id(job_id, id, report_id)
+    if not job_id:
+        return _missing_id_error()
     try:
         from app import _growth_audit_jobs
     except ImportError:
@@ -589,6 +656,7 @@ async def browse_public_reports(category: Optional[str] = None) -> dict:
         path = f"/share/audit/{rid}" if str(rid).startswith("ga-") else f"/report/{rid}"
         out.append({
             "id": rid,
+            "job_id": rid,
             "product_name": r.get("product_name"),
             "domain": r.get("domain"),
             "category": r.get("category"),
