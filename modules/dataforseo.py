@@ -29,15 +29,19 @@ async def _post_with_retry(client, url: str, headers: dict, json_body, max_retri
     """POST with exponential backoff for retryable errors (402/429/5xx/timeout)."""
     elapsed = timeit()
     success = False
+    http_status = None
+    retry_count = 0
     try:
         last_error = None
         for attempt in range(max_retries):
             try:
                 resp = await client.post(url, headers=headers, json=json_body)
+                http_status = resp.status_code
                 if resp.status_code == 200:
                     success = True
                     return resp
                 if resp.status_code in RETRYABLE_STATUS and attempt < max_retries - 1:
+                    retry_count += 1
                     wait = 2 ** attempt  # 1s, 2s, 4s
                     logger.warning(f"DataForSEO {resp.status_code} on {url}, retry {attempt+1}/{max_retries} in {wait}s")
                     await asyncio.sleep(wait)
@@ -45,7 +49,9 @@ async def _post_with_retry(client, url: str, headers: dict, json_body, max_retri
                 return resp  # Non-retryable error, return as-is
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
+                http_status = "timeout" if isinstance(e, httpx.TimeoutException) else "connect_error"
                 if attempt < max_retries - 1:
+                    retry_count += 1
                     wait = 2 ** attempt
                     logger.warning(f"DataForSEO timeout/connect error, retry {attempt+1}/{max_retries} in {wait}s: {e}")
                     await asyncio.sleep(wait)
@@ -53,7 +59,14 @@ async def _post_with_retry(client, url: str, headers: dict, json_body, max_retri
                     raise
         raise last_error
     finally:
-        track_data_source("DataForSEO", "_post_with_retry", elapsed(), success)
+        track_data_source(
+            "DataForSEO", "_post_with_retry", elapsed(), success,
+            extra={
+                "http_status": http_status or "unknown",
+                "retry_count": retry_count,
+                "cache_hit": False,
+            },
+        )
 
 
 async def _resolve_canonical_domain(domain: str) -> tuple:
@@ -113,6 +126,13 @@ async def analyze_domain(domain: str) -> dict:
             res["redirect_note"] = redirect_note
         return res
 
+    analysis_elapsed = timeit()
+    cache_hit = False
+
+    def _record_cache_result(hit: bool):
+        nonlocal cache_hit
+        cache_hit = bool(hit)
+
     try:
         from .audit_cache import cached_fetch, TTL
         res = await cached_fetch(
@@ -120,10 +140,20 @@ async def analyze_domain(domain: str) -> dict:
             cache_key=resolved,
             ttl_seconds=TTL.DATAFORSEO,
             fetch_fn=_fetch_and_annotate,
+            on_cache_result=_record_cache_result,
         )
     except Exception:
         # Defensive — cache layer failures must never block the audit.
         res = await _fetch_and_annotate()
+
+    # This event is intentionally separate from individual supplier HTTP calls:
+    # it tells the dashboard whether an audit reused cached SEO data without
+    # contaminating the vendor-latency percentile with cache-hit timings.
+    track_data_source(
+        "DataForSEO", "analyze_domain_cache", analysis_elapsed(),
+        not (isinstance(res, dict) and bool(res.get("error"))),
+        extra={"http_status": "cache" if cache_hit else "not_applicable", "retry_count": 0, "cache_hit": cache_hit},
+    )
 
     # Recompute growth_analysis OUTSIDE the cache: it produces language-sensitive
     # text (via the report-lang ContextVar), but the cache key is domain-only, so

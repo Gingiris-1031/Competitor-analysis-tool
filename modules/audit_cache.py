@@ -66,6 +66,7 @@ async def cached_fetch(
     fetch_fn: Callable[[], Awaitable[Any]],
     *,
     force_refresh: bool = False,
+    on_cache_result: Optional[Callable[[bool], None]] = None,
 ) -> Any:
     """Return cached value if fresh, else call fetch_fn() and cache result.
 
@@ -85,6 +86,14 @@ async def cached_fetch(
              are returned uncached (and a warning logged).
     """
     sb = _sb()
+
+    def _report_cache_result(hit: bool) -> None:
+        if on_cache_result:
+            try:
+                on_cache_result(hit)
+            except Exception:
+                # Observability callbacks must never affect the fetch path.
+                pass
 
     # ── Read path ──────────────────────────────────────────────────────────
     if sb and not force_refresh:
@@ -109,6 +118,7 @@ async def cached_fetch(
                         }).eq("source", source).eq("cache_key", cache_key).execute()
                     except Exception:
                         pass
+                    _report_cache_result(True)
                     return hit["value"]
                 else:
                     log.info("Cache EXPIRED %s/%s — refetching", source, cache_key[:60])
@@ -117,6 +127,7 @@ async def cached_fetch(
             # Fall through to fetch
 
     # ── Miss / expired / disabled → live fetch ────────────────────────────
+    _report_cache_result(False)
     value = await fetch_fn()
 
     # ── Write path ────────────────────────────────────────────────────────

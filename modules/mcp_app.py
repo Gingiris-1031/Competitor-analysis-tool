@@ -30,9 +30,11 @@ Tools:
 # which is exactly what happened to us in prod on Railway.
 
 import contextvars
+import functools
 import hashlib
 import logging
 import os
+import time
 import uuid
 from typing import Optional
 
@@ -157,10 +159,62 @@ def _auth_required_error() -> dict:
     }
 
 
+def _track_mcp_tool(tool_name: str):
+    """Emit one privacy-safe outcome per tool call without changing behavior.
+
+    FastMCP validates request shapes before it invokes a tool, so framework
+    validation remains separately visible through PostHog's native telemetry.
+    This wrapper covers the application layer and gives the operational
+    dashboard a stable same-call denominator via an opaque call id.
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        async def wrapped(*args, **kwargs):
+            from modules.posthog_track import track_mcp_tool_outcome
+
+            started = time.monotonic()
+            call_id = str(uuid.uuid4())
+            distinct_id = _posthog_distinct_id()
+            try:
+                result = await fn(*args, **kwargs)
+            except Exception as exc:
+                track_mcp_tool_outcome(
+                    distinct_id, tool_name, "execution_failure", "exception",
+                    int((time.monotonic() - started) * 1000),
+                    error_class=type(exc).__name__, call_id=call_id,
+                )
+                raise
+
+            # Returned errors are deliberately classified from a fixed allowlist
+            # rather than emitting message text, which could contain private
+            # report data or user-provided input.
+            error = result.get("error") if isinstance(result, dict) else None
+            failed_status = result.get("status") == "failed" if isinstance(result, dict) else False
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            if error in {"INVALID_URL", "INVALID_ARGUMENT", "VALIDATION_ERROR"}:
+                track_mcp_tool_outcome(
+                    distinct_id, tool_name, "validation_error", "rejected", elapsed_ms,
+                    error_class=error, call_id=call_id,
+                )
+            elif error in {"SERVER_ERROR"} or failed_status:
+                track_mcp_tool_outcome(
+                    distinct_id, tool_name, "execution_failure", "failed", elapsed_ms,
+                    error_class="ServerError" if error else "ToolError", call_id=call_id,
+                )
+            else:
+                track_mcp_tool_outcome(
+                    distinct_id, tool_name, "success", "ok", elapsed_ms, call_id=call_id,
+                )
+            return result
+        return wrapped
+    return decorator
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
 @mcp.tool()
+@_track_mcp_tool("analyze_competitor")
 async def analyze_competitor(
     url: str, product_name: Optional[str] = None, lang: Optional[str] = None
 ) -> dict:
@@ -289,6 +343,7 @@ async def analyze_competitor(
 
 
 @mcp.tool()
+@_track_mcp_tool("get_report_status")
 async def get_report_status(job_id: str) -> dict:
     """Poll an analysis job's status.
 
@@ -330,6 +385,7 @@ async def get_report_status(job_id: str) -> dict:
 
 
 @mcp.tool()
+@_track_mcp_tool("get_report")
 async def get_report(job_id: str) -> dict:
     """Fetch the full competitor analysis report as structured JSON.
 
@@ -366,6 +422,7 @@ async def get_report(job_id: str) -> dict:
 
 
 @mcp.tool()
+@_track_mcp_tool("get_report_markdown")
 async def get_report_markdown(job_id: str) -> dict:
     """Fetch the competitor analysis report as human-readable Markdown.
 
@@ -402,6 +459,7 @@ async def get_report_markdown(job_id: str) -> dict:
 
 
 @mcp.tool()
+@_track_mcp_tool("list_my_reports")
 async def list_my_reports() -> dict:
     """List your recent competitor analysis reports (up to 50).
 
@@ -424,6 +482,7 @@ async def list_my_reports() -> dict:
 
 
 @mcp.tool()
+@_track_mcp_tool("run_growth_audit")
 async def run_growth_audit(
     url: str, product_name: Optional[str] = None, lang: Optional[str] = None
 ) -> dict:
@@ -523,6 +582,7 @@ async def run_growth_audit(
 
 
 @mcp.tool()
+@_track_mcp_tool("get_growth_audit")
 async def get_growth_audit(job_id: str) -> dict:
     """Fetch a Growth Audit's three reports (Executive Summary, Diagnosis,
     Action Plan) as Markdown.
@@ -568,6 +628,7 @@ async def get_growth_audit(job_id: str) -> dict:
 
 
 @mcp.tool()
+@_track_mcp_tool("browse_public_reports")
 async def browse_public_reports(category: Optional[str] = None) -> dict:
     """Browse Analook's public competitor-intelligence report gallery.
 
@@ -606,22 +667,9 @@ async def browse_public_reports(category: Optional[str] = None) -> dict:
 # ---------------------------------------------------------------------------
 def build_mcp_app():
     """Build the Streamable HTTP ASGI app, wrapped with Bearer middleware."""
-    raw_app = mcp.streamable_http_app()
-    # Starlette apps support add_middleware AFTER instantiation only if the
-    # middleware stack hasn't been built yet; FastMCP's app is already built.
-    # So we wrap it manually using a simple ASGI adapter.
-    from starlette.applications import Starlette
-    from starlette.routing import Mount
-
-    wrapped = Starlette(
-        routes=[Mount("/", app=raw_app)],
-        middleware=[],
-    )
-    wrapped.add_middleware(BearerAuthMiddleware)
-
-    # PostHog MCP analytics — auto-captures $mcp_tool_call / $mcp_initialize /
-    # $exception / $mcp_tools_list. Best-effort: if the SDK is unavailable or
-    # misconfigured, the MCP endpoint still mounts without analytics.
+    # Instrument BEFORE generating the ASGI app. FastMCP materializes its
+    # middleware stack in streamable_http_app(); doing this afterwards means
+    # PostHog cannot observe stateless sessions or tool calls.
     try:
         from modules.posthog_track import get_client
         from posthog.mcp import instrument
@@ -644,5 +692,18 @@ def build_mcp_app():
         )
     except Exception as _ph_err:
         log.warning("PostHog MCP instrumentation skipped: %s", _ph_err, exc_info=True)
+
+    raw_app = mcp.streamable_http_app()
+    # Starlette apps support add_middleware AFTER instantiation only if the
+    # middleware stack hasn't been built yet; FastMCP's app is already built.
+    # So we wrap it manually using a simple ASGI adapter.
+    from starlette.applications import Starlette
+    from starlette.routing import Mount
+
+    wrapped = Starlette(
+        routes=[Mount("/", app=raw_app)],
+        middleware=[],
+    )
+    wrapped.add_middleware(BearerAuthMiddleware)
 
     return wrapped

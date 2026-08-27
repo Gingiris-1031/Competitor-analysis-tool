@@ -22,7 +22,7 @@ import logging
 import os
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import httpx
@@ -35,6 +35,7 @@ MCP_KEYS_TABLE = "mcp_api_keys"
 MCP_ACCOUNTS_TABLE = "mcp_accounts"
 ACCOUNT_PROFILES_TABLE = "account_profiles"
 ACCOUNT_CREDIT_LEDGER_TABLE = "account_credit_ledger"
+INTERNAL_CACHE_TABLE = "internal_cache"
 _TIMEOUT = httpx.Timeout(15.0)
 
 
@@ -133,6 +134,85 @@ async def link_insforge_identity(user: dict) -> Optional[dict]:
     except Exception as e:
         log.warning("InsForge identity link failed: %s", e)
         return None
+
+
+async def get_public_report_gallery_rows() -> list[dict]:
+    """Read the lightweight public-report projection from InsForge only.
+
+    The SQL function intentionally exposes no report JSON or owner data. It is
+    callable only with the server's project-admin key, so a public browser
+    never gains direct access to the base reports table during the migration.
+    """
+    if not enabled():
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            resp = await c.post(
+                _rpc_url("public_report_gallery_rows"), json={},
+                headers=_headers(write=True),
+            )
+            if resp.status_code >= 300:
+                log.warning("InsForge public-report projection failed status=%s", resp.status_code)
+                return []
+            rows = resp.json() or []
+            return rows if isinstance(rows, list) else []
+    except Exception as e:
+        log.warning("InsForge public-report projection failed: %s", e)
+        return []
+
+
+async def get_internal_cache(cache_key: str) -> Optional[dict]:
+    """Return a fresh server-only cache value, or ``None`` on a miss/error."""
+    if not enabled() or not cache_key:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            resp = await c.get(
+                _records_url(INTERNAL_CACHE_TABLE),
+                params={"cache_key": f"eq.{cache_key}", "limit": 1},
+                headers=_headers(),
+            )
+            if resp.status_code >= 300:
+                return None
+            rows = resp.json() or []
+            row = rows[0] if isinstance(rows, list) and rows else None
+            if not row or not row.get("expires_at"):
+                return None
+            expires_at = datetime.fromisoformat(row["expires_at"].replace("Z", "+00:00"))
+            if expires_at <= datetime.now(timezone.utc):
+                return None
+            value = row.get("value")
+            return value if isinstance(value, dict) else None
+    except Exception as e:
+        log.debug("InsForge internal-cache read failed: %s", e)
+        return None
+
+
+async def set_internal_cache(cache_key: str, value: dict, ttl_seconds: int) -> bool:
+    """Best-effort shared cache write. Cache failures never affect requests."""
+    if not enabled() or not cache_key or not isinstance(value, dict):
+        return False
+    expires_at = (datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat()
+    row = {"cache_key": cache_key, "value": value, "expires_at": expires_at}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            # Patch first avoids delete/reinsert gaps for readers on another
+            # machine. A concurrent first writer may still win; then POST will
+            # conflict harmlessly and the request remains a cache miss.
+            patch = await c.patch(
+                _records_url(INTERNAL_CACHE_TABLE),
+                params={"cache_key": f"eq.{cache_key}"}, json=row,
+                headers=_headers(write=True),
+            )
+            if patch.status_code < 300 and patch.json():
+                return True
+            created = await c.post(
+                _records_url(INTERNAL_CACHE_TABLE), json=[row], headers=_headers(write=True),
+            )
+            return created.status_code < 300
+    except Exception as e:
+        log.debug("InsForge internal-cache write failed: %s", e)
+        return False
 
 
 async def save_scorecard(card_hash, user_id, domain, category,

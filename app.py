@@ -3133,6 +3133,8 @@ _CATEGORY_RULES = [
     ("Productivity",  r"note|task|calendar|productivity|workspace|docs|wiki|crm|meeting"),
 ]
 _public_reports_cache = {"ts": 0.0, "data": None}
+_PUBLIC_REPORTS_CACHE_KEY = "public-report-gallery-v1"
+_PUBLIC_REPORTS_CACHE_TTL = 300
 
 
 def _categorize_report(name: str, url: str) -> str:
@@ -3149,24 +3151,26 @@ async def _public_reports_data():
     dynamic sitemap. Returns the cached list of public report dicts.
 
     Deduped by domain (latest wins), partial audits excluded, 5-min cache.
+
+    InsForge is the source of truth for the read. Its internal cache keeps the
+    same small, safe gallery projection warm across both Fly machines; the
+    process cache remains a zero-latency first hop for bursts on one machine.
     """
     if _public_reports_cache["data"] is not None and \
-       time.time() - _public_reports_cache["ts"] < 300:
+       time.time() - _public_reports_cache["ts"] < _PUBLIC_REPORTS_CACHE_TTL:
         return _public_reports_cache["data"]["reports"]
     try:
-        from modules.supabase_client import get_supabase
-        sb = get_supabase()
-        if not sb:
-            return {"reports": []}
-        # LIGHT query only — pulling the full `report` JSONB for 120 rows
-        # (some >100KB each) blew past client limits and dropped the whole
-        # endpoint into the exception path (round-1 self-test: 328 public
-        # rows in DB, endpoint returned []). The PostgREST arrow selector
-        # extracts just the _partial flag.
-        rows = sb.table("reports") \
-            .select("id,url,product_name,created_at,partial:report->_partial") \
-            .eq("is_public", True) \
-            .order("created_at", desc=True).limit(150).execute().data or []
+        from modules.insforge_client import (
+            get_internal_cache,
+            get_public_report_gallery_rows,
+            set_internal_cache,
+        )
+        cached = await get_internal_cache(_PUBLIC_REPORTS_CACHE_KEY)
+        if cached and isinstance(cached.get("reports"), list):
+            _public_reports_cache["ts"] = time.time()
+            _public_reports_cache["data"] = cached
+            return cached["reports"]
+        rows = await get_public_report_gallery_rows()
     except Exception as e:
         log.warning("public-reports query failed: %s", e)
         return []
@@ -3174,7 +3178,7 @@ async def _public_reports_data():
     out, seen_domains = [], set()
     for r in rows:
         # Skip partial (still-generating / deploy-orphaned) audits
-        if r.get("partial"):
+        if r.get("is_partial"):
             continue
         url = (r.get("url") or "").strip()
         if not url or url == "—":
@@ -3195,8 +3199,16 @@ async def _public_reports_data():
         })
         if len(out) >= 60:
             break
+    payload = {"reports": out}
     _public_reports_cache["ts"] = time.time()
-    _public_reports_cache["data"] = {"reports": out}
+    _public_reports_cache["data"] = payload
+    try:
+        await set_internal_cache(
+            _PUBLIC_REPORTS_CACHE_KEY, payload, _PUBLIC_REPORTS_CACHE_TTL
+        )
+    except Exception:
+        # The gallery itself stays available if an optional cache write fails.
+        pass
     return out
 
 

@@ -56,6 +56,39 @@ def track_data_source(source, fn_name, latency_ms, success, extra=None):
         pass
 
 
+def track_mcp_tool_outcome(
+    distinct_id, tool_name, outcome, status, latency_ms, *,
+    error_class=None, call_id=None,
+):
+    """Record a privacy-safe MCP outcome for reliable operational metrics.
+
+    Deliberately accepts only a stable hashed caller id plus classification
+    fields. Do not add tool arguments, URLs, report IDs, emails, bearer tokens
+    or result bodies here: MCP inputs and outputs may contain user data.
+    """
+    if not _posthog.api_key:
+        return
+    props = {
+        "tool_name": tool_name,
+        "outcome": outcome,
+        "status": status,
+        "latency_ms": latency_ms,
+        "$lib": "analook-backend",
+    }
+    if error_class:
+        props["error_class"] = str(error_class)[:80]
+    if call_id:
+        props["call_id"] = call_id
+    try:
+        _posthog.capture(
+            distinct_id=distinct_id or "anonymous",
+            event="mcp_tool_outcome",
+            properties=props,
+        )
+    except Exception:
+        pass
+
+
 def timeit():
     """Return an ``elapsed_ms()`` callable.
 
