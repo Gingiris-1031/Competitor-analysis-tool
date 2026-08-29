@@ -12,20 +12,20 @@ function renderResearchMap(report) {
         eyebrow: '研究路径', title: '从判断到证据，而不是从数据源开始',
         subtitle: '按下面顺序阅读；每章只回答一个关键决策问题。',
         chapters: [
-            ['chapter-positioning', '01', '定位与商业模式', '它卖给谁，靠什么变现'],
-            ['chapter-archaeology', '02', '增长考古', '它在成名前做了什么'],
-            ['chapter-channels', '03', '渠道与传播', '增长是如何被获得与放大的'],
-            ['chapter-actions', '04', '可行动结论', '哪些动作值得复制，哪些不值得'],
+            ['chapter-actions', '01', '决策摘要', '先看该复制、避开和验证什么'],
+            ['chapter-positioning', '02', '定位与商业模式', '它卖给谁，靠什么变现'],
+            ['chapter-archaeology', '03', '增长考古', '它在成名前做了什么'],
+            ['chapter-channels', '04', '渠道与传播', '增长是如何被获得与放大的'],
             ['chapter-evidence', '05', '证据与来源', '结论的来源、时间与可信度'],
         ],
     } : {
         eyebrow: 'Research path', title: 'Read from decision to evidence',
         subtitle: 'Each chapter answers one decision question — not another data-source list.',
         chapters: [
-            ['chapter-positioning', '01', 'Positioning & monetization', 'Who they sell to and how they capture value'],
-            ['chapter-archaeology', '02', 'Growth archaeology', 'What they did before they became visible'],
-            ['chapter-channels', '03', 'Channels & propagation', 'How growth is acquired and amplified'],
-            ['chapter-actions', '04', 'What to do next', 'What to copy, avoid, and validate'],
+            ['chapter-actions', '01', 'Decision brief', 'What to copy, avoid, and validate first'],
+            ['chapter-positioning', '02', 'Positioning & monetization', 'Who they sell to and how they capture value'],
+            ['chapter-archaeology', '03', 'Growth archaeology', 'What they did before they became visible'],
+            ['chapter-channels', '04', 'Channels & propagation', 'How growth is acquired and amplified'],
             ['chapter-evidence', '05', 'Evidence & sources', 'Source, timing, and confidence behind each claim'],
         ],
     };

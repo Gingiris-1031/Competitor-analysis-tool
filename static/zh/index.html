@@ -87,8 +87,8 @@
         .report-chapter>summary::after{content:'⌄';margin-left:auto;color:var(--ink-faint);transition:transform .15s ease}
         .report-chapter:not([open])>summary::after{transform:rotate(-90deg)}
         .report-chapter-body{padding:0 20px 20px;border-top:1px solid var(--warm-border)}
-        .research-map{margin:0 0 20px;padding:20px;border:1px solid var(--warm-border);border-radius:14px;background:linear-gradient(135deg,rgba(96,165,250,.10),rgba(20,20,22,.72) 42%,rgba(251,146,60,.07))}
-        .research-map-heading>span{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase}.research-map h3{margin:7px 0 4px;font-size:18px}.research-map p{margin:0;color:var(--ink-muted);font-size:12px}.research-map-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.research-map-card{display:flex;align-items:flex-start;gap:8px;min-height:72px;padding:10px;text-align:left;border:1px solid var(--warm-border);border-radius:10px;color:var(--ink);background:rgba(13,13,15,.56);transition:border-color .15s,transform .15s}.research-map-card:hover{border-color:var(--warm-border-strong);transform:translateY(-1px)}.research-map-card strong,.research-map-card small{display:block}.research-map-card strong{font-size:11px;line-height:1.25}.research-map-card small{margin-top:4px;color:var(--ink-muted);font-size:10px;line-height:1.35}.research-map-number{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace}.research-map-state{margin-left:auto;color:#86efac;font-size:12px}.research-map-card.is-pending .research-map-state{color:var(--ink-faint)}@media(max-width:800px){.research-map-grid{grid-template-columns:1fr}.research-map-card{min-height:0}}
+        .research-map{margin:0 0 20px;padding:20px;border:1px solid var(--warm-border);border-radius:14px;background:linear-gradient(135deg,rgba(169,201,215,.18),rgba(255,255,255,.76) 42%,rgba(198,214,170,.16));box-shadow:0 14px 34px rgba(53,72,54,.05)}
+        .research-map-heading>span{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase}.research-map h3{margin:7px 0 4px;font-size:18px}.research-map p{margin:0;color:var(--ink-muted);font-size:12px}.research-map-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.research-map-card{display:flex;align-items:flex-start;gap:8px;min-height:72px;padding:10px;text-align:left;border:1px solid var(--warm-border);border-radius:10px;color:var(--ink);background:rgba(255,255,255,.72);transition:border-color .15s,transform .15s,box-shadow .15s}.research-map-card:hover{border-color:var(--warm-border-strong);transform:translateY(-1px);box-shadow:0 8px 18px rgba(53,72,54,.08)}.research-map-card strong,.research-map-card small{display:block}.research-map-card strong{font-size:11px;line-height:1.25}.research-map-card small{margin-top:4px;color:var(--ink-muted);font-size:10px;line-height:1.35}.research-map-number{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace}.research-map-state{margin-left:auto;color:#477f52;font-size:12px}.research-map-card.is-pending .research-map-state{color:var(--ink-faint)}@media(max-width:800px){.research-map-grid{grid-template-columns:1fr}.research-map-card{min-height:0}}
         .chip-light{color:var(--ink-muted);transition:color .15s}
         .chip-light:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
         /* Report source-confidence badges (were unstyled on ZH before) */
@@ -428,14 +428,23 @@
             <div id="section-research-map"></div>
             <div class="space-y-5">
                 <details class="report-chapter" open>
-                    <summary id="chapter-positioning"><span class="font-mono text-xs text-[color:var(--accent)]">01</span><span class="font-semibold">定位与商业模式</span><span class="text-xs text-[color:var(--ink-muted)]">它卖给谁，如何变现</span></summary>
+                    <summary id="chapter-actions"><span class="font-mono text-xs text-[color:var(--accent)]">01</span><span class="font-semibold">决策摘要与下一步</span><span class="text-xs text-[color:var(--ink-muted)]">先看该复制、避开和验证什么</span></summary>
+                    <div class="report-chapter-body space-y-6 pt-5">
+                <div id="section-insights" class="fade-in"></div>
+                <div id="section-summary" class="fade-in"></div>
+                <div id="section-strategy" class="fade-in"></div>
+                <div id="section-playbooks" class="fade-in"></div>
+                    </div>
+                </details>
+                <details class="report-chapter">
+                    <summary id="chapter-positioning"><span class="font-mono text-xs text-[color:var(--accent)]">02</span><span class="font-semibold">定位与商业模式</span><span class="text-xs text-[color:var(--ink-muted)]">它卖给谁，如何变现</span></summary>
                     <div class="report-chapter-body space-y-6 pt-5">
                 <div id="section-pricing" class="fade-in"></div>
                 <div id="section-bizmodel" class="fade-in"></div>
                     </div>
                 </details>
-                <details class="report-chapter" open>
-                    <summary id="chapter-archaeology"><span class="font-mono text-xs text-[color:var(--accent)]">02</span><span class="font-semibold">增长考古</span><span class="text-xs text-[color:var(--ink-muted)]">官网演变、发布信号与关键拐点</span></summary>
+                <details class="report-chapter">
+                    <summary id="chapter-archaeology"><span class="font-mono text-xs text-[color:var(--accent)]">03</span><span class="font-semibold">增长考古</span><span class="text-xs text-[color:var(--ink-muted)]">官网演变、发布信号与关键拐点</span></summary>
                     <div class="report-chapter-body space-y-6 pt-5">
                 <div id="section-website" class="fade-in"></div>
                 <div id="section-github" class="fade-in"></div>
@@ -444,8 +453,8 @@
                 <div id="section-pr" class="fade-in"></div>
                     </div>
                 </details>
-                <details class="report-chapter" open>
-                    <summary id="chapter-channels"><span class="font-mono text-xs text-[color:var(--accent)]">03</span><span class="font-semibold">渠道与传播</span><span class="text-xs text-[color:var(--ink-muted)]">获客、放大与增长飞轮证据</span></summary>
+                <details class="report-chapter">
+                    <summary id="chapter-channels"><span class="font-mono text-xs text-[color:var(--accent)]">04</span><span class="font-semibold">渠道与传播</span><span class="text-xs text-[color:var(--ink-muted)]">获客、放大与增长飞轮证据</span></summary>
                     <div class="report-chapter-body space-y-6 pt-5">
                 <div id="section-traffic" class="fade-in"></div>
                 <div id="section-peaks" class="fade-in"></div>
@@ -453,15 +462,6 @@
                 <div id="section-propagation" class="fade-in"></div>
                 <div id="section-radar" class="fade-in"></div>
                 <div id="section-growth" class="fade-in"></div>
-                    </div>
-                </details>
-                <details class="report-chapter" open>
-                    <summary id="chapter-actions"><span class="font-mono text-xs text-[color:var(--accent)]">04</span><span class="font-semibold">下一步怎么做</span><span class="text-xs text-[color:var(--ink-muted)]">判断、风险与可复用动作</span></summary>
-                    <div class="report-chapter-body space-y-6 pt-5">
-                <div id="section-insights" class="fade-in"></div>
-                <div id="section-summary" class="fade-in"></div>
-                <div id="section-strategy" class="fade-in"></div>
-                <div id="section-playbooks" class="fade-in"></div>
                     </div>
                 </details>
                 <details class="report-chapter">

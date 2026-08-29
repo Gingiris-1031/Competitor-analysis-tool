@@ -565,25 +565,30 @@ function renderSummaryCard(report) {
     const phStr = phScore ? `⬆${fmtNum(phScore)}` : _t('Not launched', '未上线');
 
     el.innerHTML = `
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
-        <div class="text-xs text-gray-500 uppercase tracking-wider mb-3">${_t("Core Metrics", "核心指标")}</div>
+    <div class="card-cream p-5 mb-6">
+        <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+            <div>
+                <div class="text-xs text-[color:var(--accent)] uppercase tracking-wider">${_t("Decision context", "决策背景")}</div>
+                <div class="text-sm text-[color:var(--ink-muted)] mt-1">${_t("Observed public signals — estimates are labeled and missing data stays blank.", "公开信号快照——估算值会明确标注，缺失数据保持为空。")}</div>
+            </div>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">${_t("Organic search estimate", "有机搜索流量估算")}</div>
-                <div class="text-xl font-bold text-white">${trafficStr}</div>
-                <div class="text-xs text-gray-600 mt-0.5">via keyword rankings</div>
+            <div class="card-cream-subtle p-3">
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("Organic search estimate", "有机搜索流量估算")}</div>
+                <div class="text-xl font-bold text-[color:var(--ink)]">${trafficStr}</div>
+                <div class="text-xs text-[color:var(--ink-faint)] mt-0.5">${_t("Estimated from keyword rankings", "基于关键词排名估算")}</div>
             </div>
-            <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">${_t("Twitter followers", "Twitter 粉丝")}</div>
-                <div class="text-xl font-bold text-white">${twStr}</div>
+            <div class="card-cream-subtle p-3">
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("Twitter followers", "Twitter 粉丝")}</div>
+                <div class="text-xl font-bold text-[color:var(--ink)]">${twStr}</div>
             </div>
-            <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">Product Hunt</div>
-                <div class="text-xl font-bold text-white">${phStr}</div>
+            <div class="card-cream-subtle p-3">
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1">Product Hunt</div>
+                <div class="text-xl font-bold text-[color:var(--ink)]">${phStr}</div>
             </div>
-            <div class="bg-gray-800/60 rounded-lg p-3">
-                <div class="text-xs text-gray-500 mb-1">${_t("First seen", "首次出现")}</div>
-                <div class="text-xl font-bold text-white">${esc(firstSeen)}</div>
+            <div class="card-cream-subtle p-3">
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("First seen", "首次出现")}</div>
+                <div class="text-xl font-bold text-[color:var(--ink)]">${esc(firstSeen)}</div>
             </div>
         </div>
     </div>`;
