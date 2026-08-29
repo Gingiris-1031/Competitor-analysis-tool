@@ -123,25 +123,40 @@ def _build_references(sections: dict, gen_date: str, lang: str = "zh") -> list:
             return any(v.get(sk) for sk in subkeys)
         return bool(v)
 
-    def _add(source, cn, en_txt):
-        refs.append({"source": source, "used_for": en_txt if en else cn, "date": date})
+    def _add(source, cn, en_txt, url=None):
+        ref = {"source": source, "used_for": en_txt if en else cn, "date": date}
+        if isinstance(url, str) and url.startswith(("https://", "http://")):
+            ref["url"] = url
+        refs.append(ref)
+
+    website = sections.get("website_analysis") or {}
+    timeline = website.get("deep_timeline") or []
+    latest_snapshot = next((p.get("archive_url") for p in reversed(timeline)
+                            if isinstance(p, dict) and p.get("archive_url")), None)
+    current_snapshot = (website.get("current") or {}).get("archive_url")
+    social = sections.get("social_media") or {}
+    channels = social.get("channels") or {}
+    social_url = next((item.get("url") for item in channels.values()
+                       if isinstance(item, dict) and item.get("detected") and item.get("url")), None)
+    pricing = sections.get("pricing") or {}
+    github = sections.get("github_oss") or {}
 
     if _has("website_analysis", "deep_timeline", "total_snapshots"):
-        _add("Wayback Machine CDX API", "官网历史快照与演变分析", "Website history snapshots & evolution")
+        _add("Wayback Machine CDX API", "官网历史快照与演变分析", "Website history snapshots & evolution", current_snapshot or latest_snapshot)
     if _has("traffic_analysis", "seo_metrics", "domain_rank", "top_keywords"):
         _add("DataForSEO + SEO Review Tools", "流量估算、SEO 指标、关键词、外链", "Traffic estimate, SEO metrics, keywords, backlinks")
     if _has("social_media", "channels"):
-        _add("TwitterAPI.io / Brave Search", "社媒矩阵与官方账号识别", "Social matrix & official handle discovery")
+        _add("TwitterAPI.io / Brave Search", "社媒矩阵与官方账号识别", "Social matrix & official handle discovery", social_url)
     if _has("propagation"):
         _add("Social propagation harvest", "传播链路与关键帖", "Propagation chain & key posts")
     if _has("producthunt", "found", "posts", "launched"):
         _add("Product Hunt API", "Product Hunt 发布记录", "Product Hunt launch history")
     if _has("github_oss", "stars", "star_count"):
-        _add("GitHub API", "开源社区与 star 信号", "Open-source community & star signals")
+        _add("GitHub API", "开源社区与 star 信号", "Open-source community & star signals", github.get("repo_url"))
     if _has("traffic_peaks"):
         _add("SerpAPI (Google Trends)", "流量峰值检测与拐点归因", "Traffic peak detection & inflection attribution")
     if _has("pricing"):
-        _add("On-site pricing scrape", "定价结构", "Pricing structure")
+        _add("On-site pricing scrape", "定价结构", "Pricing structure", pricing.get("source_url"))
     return refs
 
 

@@ -10,9 +10,12 @@ function renderReferences(refs, lang) {
     let rows = '';
     refs.forEach((r, i) => {
         const date = r.date ? `<span style="color:#4b5563; font-size:11px;">${zh ? '抓取 ' : 'fetched '}${_esc(r.date)}</span>` : '';
+        const original = /^https?:\/\//i.test(r.url || '')
+            ? ` <a href="${_esc(r.url)}" target="_blank" rel="noopener" style="color:#60a5fa; text-decoration:underline; text-underline-offset:2px;">${zh ? '打开原始证据 ↗' : 'Open original evidence ↗'}</a>`
+            : '';
         rows += `<div style="display:flex; gap:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,0.05); font-size:12.5px; line-height:1.5;">
             <span style="color:#6b7280; flex:none;">[${i + 1}]</span>
-            <span style="color:#d1d5db;"><strong style="color:#e5e7eb;">${_esc(r.source)}</strong> — ${_esc(r.used_for)} ${date}</span>
+            <span style="color:#d1d5db;"><strong style="color:#e5e7eb;">${_esc(r.source)}</strong> — ${_esc(r.used_for)} ${date}${original}</span>
         </div>`;
     });
 

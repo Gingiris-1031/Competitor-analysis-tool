@@ -201,14 +201,13 @@ def _find_price_cards(soup: BeautifulSoup) -> list:
         if len(card_text) < 20 or len(card_text) > 3000:
             continue
         
-        # Extract price from card
+        # Extract price from card.  Do not turn generic "try for free"
+        # marketing copy into a Free plan: a wrong pricing card destroys more
+        # trust than an explicit "no public pricing verified" result.
         dollar_match = _DOLLAR_RE.search(card_text)
         if not dollar_match:
-            if "free" not in card_text.lower():
-                continue
-            price = 0.0
-        else:
-            price = _parse_price(dollar_match.group(1))
+            continue
+        price = _parse_price(dollar_match.group(1))
         
         # Extract name from headings — prefer short, plan-name-like headings
         headings = card.find_all(["h1", "h2", "h3", "h4", "h5", "strong", "b"])
@@ -232,7 +231,9 @@ def _find_price_cards(soup: BeautifulSoup) -> list:
             if headings:
                 plan_name = headings[0].get_text(strip=True)[:30]
         
-        if plan_name in seen_prices:
+        # A generic page heading (or no nearby heading) is not enough
+        # evidence to label a price as a plan.
+        if plan_name == "Plan" or plan_name in seen_prices:
             continue
         seen_prices.add(plan_name)
         
@@ -299,12 +300,11 @@ def _regex_extract_tiers(plain: str) -> list:
         window_text = " ".join(window)
         dollar_match = _DOLLAR_RE.search(window_text)
         
-        price = 0.0 if "free" in line_lower else None
-        if dollar_match:
-            price = _parse_price(dollar_match.group(1))
-        
-        if price is None:
+        # Same fail-closed rule as card extraction: plan labels alone are
+        # insufficient evidence for a real free tier.
+        if not dollar_match:
             continue
+        price = _parse_price(dollar_match.group(1))
         
         tiers.append({
             "name": line.strip()[:40],

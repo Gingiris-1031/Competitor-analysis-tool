@@ -158,8 +158,17 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
       banner.setAttribute('role', 'status');
       banner.className = 'fixed inset-x-0 top-0 z-[60] border-b border-amber-300/35 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950 shadow-sm';
       banner.innerHTML = isZh
-        ? '<strong>账户系统升级中</strong>：你的报告和积分安全无虞；后续可能需要重新登录或重设密码。'
-        : '<strong>Account system upgrade in progress.</strong> Your reports and credits are safe; you may be asked to sign in again or reset your password later.';
+        ? '<span><strong>账户系统升级中</strong>：你的报告和积分安全无虞；后续可能需要重新登录或重设密码。</span><button type="button" aria-label="关闭提示" class="ml-3 text-amber-900/60 hover:text-amber-950">×</button>'
+        : '<span><strong>Account system upgrade in progress.</strong> Your reports and credits are safe; you may be asked to sign in again or reset your password later.</span><button type="button" aria-label="Dismiss notice" class="ml-3 text-amber-900/60 hover:text-amber-950">×</button>';
+      banner.querySelector('button')?.addEventListener('click', () => {
+        try { localStorage.setItem(`analook_migration_banner_dismissed:${user.id}`, _AUTH_MIGRATION_NOTICE_VERSION); } catch (_) {}
+        banner.remove();
+      });
+      try {
+        if (localStorage.getItem(`analook_migration_banner_dismissed:${user.id}`) === _AUTH_MIGRATION_NOTICE_VERSION) {
+          return;
+        }
+      } catch (_) {}
       document.body.appendChild(banner);
     }
 

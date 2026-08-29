@@ -63,9 +63,24 @@ function switchMode(mode) {
 
 // ── Example chips ───────────────────────────────────────────────────────────
 function fillExample(domain) {
-    document.getElementById('url-input').value = domain;
-    document.getElementById('url-input').focus();
+    const input = document.getElementById('url-input');
+    if (!input) return;
+    input.value = domain;
+    _syncUrlPrefix();
+    input.focus();
     clearError();
+}
+
+// The visible `https://` prefix is helpful when someone types a domain, but
+// confusing when a full URL is pasted: it looked like `https://https://...`.
+// Keep the input value untouched (normalization still happens on submit) and
+// only hide the decorative prefix for complete URLs.
+function _syncUrlPrefix() {
+    if (isOssAttributionMode()) return;
+    const input = document.getElementById('url-input');
+    const prefix = document.getElementById('url-prefix');
+    if (!input || !prefix) return;
+    prefix.classList.toggle('hidden', /^https?:\/\//i.test(input.value.trim()));
 }
 
 // ── History (server-side when logged in, localStorage fallback) ────────────
@@ -685,9 +700,12 @@ window._doCheckout = async function (plan) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('url-input')?.addEventListener('keypress', e => {
+    const mainUrlInput = document.getElementById('url-input');
+    mainUrlInput?.addEventListener('keypress', e => {
         if (e.key === 'Enter') startAnalysis();
     });
+    mainUrlInput?.addEventListener('input', _syncUrlPrefix);
+    _syncUrlPrefix();
     document.getElementById('text-input')?.addEventListener('keydown', e => {
         if (e.key === 'Enter' && e.ctrlKey) startAnalysis();
     });

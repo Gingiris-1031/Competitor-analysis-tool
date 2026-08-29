@@ -5,8 +5,9 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
  * referral-modal.js — first-time-authenticated referral source survey
  *
  * Fires once per user. Polls /api/me; if the user is authenticated and
- * `referral_source` is null, injects a blocking modal asking how they
- * found Analook. Blocks scroll + dismisses only after submit.
+ * `referral_source` is null, asks how they found Analook. It must never
+ * block the first report or trap a user in a modal: users may defer it and
+ * return later.
  *
  * Include via:  <script src="/js/referral-modal.js" defer></script>
  * No setup needed — it self-bootstraps.
@@ -100,6 +101,12 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
       .ana-ref-cta:hover:not(:disabled) { background: #FDBA74; }
       .ana-ref-cta:active:not(:disabled) { transform: translateY(1px); }
       .ana-ref-cta:disabled { opacity: 0.5; cursor: not-allowed; }
+      .ana-ref-skip {
+        display:block; width:100%; margin-top:10px; padding:7px;
+        border:0; background:transparent; color:rgba(245,241,235,0.58);
+        font-size:12px; cursor:pointer;
+      }
+      .ana-ref-skip:hover { color:#F5F1EB; }
       .ana-ref-err {
         color: #f87171; font-size: 12.5px; margin-top: 10px;
         min-height: 16px;
@@ -146,19 +153,44 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
             </div>
 
             <button class="ana-ref-cta" id="ana-ref-submit" disabled>${_t('Continue →', '继续 →')}</button>
+            <button type="button" class="ana-ref-skip" id="ana-ref-skip">${_t('Not now', '暂不填写')}</button>
             <div class="ana-ref-err" id="ana-ref-err"></div>
-            <div class="ana-ref-footer">${_t('Anonymous to other users · only Iris sees the aggregate', '对其他用户匿名 · 仅用于汇总渠道效果')}</div>
+            <div class="ana-ref-footer">${_t('Optional · anonymous to other users · only Iris sees the aggregate', '可选填写 · 对其他用户匿名 · 仅用于汇总渠道效果')}</div>
           </div>
         `;
         document.body.appendChild(overlay);
-        document.body.style.overflow = 'hidden';
 
         let chosen = null;
         const opts = overlay.querySelectorAll('.ana-ref-opt');
         const otherWrap = overlay.querySelector('#ana-ref-other-wrap');
         const otherInput = overlay.querySelector('#ana-ref-other-input');
         const submit = overlay.querySelector('#ana-ref-submit');
+        const skip = overlay.querySelector('#ana-ref-skip');
         const errEl = overlay.querySelector('#ana-ref-err');
+
+        function dismiss(snooze = false) {
+            if (snooze) {
+                // Avoid repeatedly interrupting a user who intentionally
+                // deferred the question. The server remains authoritative
+                // once they submit a source.
+                try { localStorage.setItem('analook_referral_snooze_until', String(Date.now() + 7 * 24 * 60 * 60 * 1000)); } catch (_) {}
+            }
+            overlay.style.transition = 'opacity 0.18s ease-in';
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 200);
+            document.removeEventListener('keydown', onEscape);
+            window._analookReferralDone = true;
+        }
+
+        skip?.addEventListener('click', () => dismiss(true));
+        overlay.addEventListener('click', (event) => { if (event.target === overlay) dismiss(true); });
+        const onEscape = (event) => {
+            if (event.key === 'Escape') {
+                dismiss(true);
+                document.removeEventListener('keydown', onEscape);
+            }
+        };
+        document.addEventListener('keydown', onEscape);
 
         function refreshSubmitEnabled() {
             if (!chosen) { submit.disabled = true; return; }
@@ -214,15 +246,8 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
                     submit.disabled = false; submit.textContent = _t('Continue →', '继续 →');
                     return;
                 }
-                // Success: dismiss
-                overlay.style.transition = 'opacity 0.18s ease-in';
-                overlay.style.opacity = '0';
-                setTimeout(() => {
-                    overlay.remove();
-                    document.body.style.overflow = '';
-                    // Cache success so we don't re-prompt this session.
-                    window._analookReferralDone = true;
-                }, 200);
+                // Success: dismiss and mark the question complete.
+                dismiss(false);
             } catch (e) {
                 errEl.textContent = _t('Network error: ', '网络错误：') + e.message;
                 submit.disabled = false; submit.textContent = _t('Continue →', '继续 →');
@@ -233,6 +258,9 @@ var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
     // ── Probe /api/me and decide ───────────────────────────────────────
     async function checkAndMaybeShow() {
         if (window._analookReferralDone) return;
+        try {
+            if (Number(localStorage.getItem('analook_referral_snooze_until') || 0) > Date.now()) return;
+        } catch (_) {}
         // The first OSS report is the activation moment. Never block it with a
         // survey; ask on a later, non-OSS page instead.
         if (new URLSearchParams(window.location.search).get('oss_repo')) return;
