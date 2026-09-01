@@ -17,11 +17,24 @@ function renderPR(data) {
         return;
     }
 
-    const hn      = data.hn_posts       || [];
-    const news    = data.news_articles  || [];
-    const press   = data.press_mentions || [];
-    const insights = data.insights      || [];
-    const total    = data.total_mentions || 0;
+    const isVerified = item => item?.verification?.status === 'verified';
+    const hn      = (data.hn_posts       || []).filter(isVerified);
+    const news    = (data.news_articles  || []).filter(isVerified);
+    const press   = (data.press_mentions || []).filter(isVerified);
+    const total    = hn.length + news.length + press.length;
+    const insights = total ? (data.insights || []) : [];
+
+    if (!total) {
+        const zh = (document.documentElement.lang || '').toLowerCase().startsWith('zh');
+        el.innerHTML = `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h3 class="text-base font-semibold text-white flex items-center gap-2 mb-3"><span>📰</span> ${zh ? '媒体与社区曝光' : 'Media & Community Coverage'}</h3>
+            <div class="text-sm text-[color:var(--ink-muted)] bg-white/60 border border-[color:var(--warm-border)] rounded-lg px-4 py-3">
+                ${zh ? '未找到经域名验证的媒体或社区曝光；同名但无法确认归属的结果已排除，不作为证据展示。' : 'No domain-verified media or community coverage was found. Similar-name results were excluded instead of being presented as evidence.'}
+            </div>
+        </div>`;
+        return;
+    }
 
     el.innerHTML = `
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">

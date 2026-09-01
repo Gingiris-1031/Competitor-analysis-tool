@@ -31,6 +31,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192x192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+    <link rel="stylesheet" href="/css/report-field-help.css?v=20260829">
     <!-- Supabase 配置（由服务端 Railway 环境变量注入，仅 anon key 安全公开） -->
     <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
@@ -88,7 +89,7 @@
         .report-chapter:not([open])>summary::after{transform:rotate(-90deg)}
         .report-chapter-body{padding:0 20px 20px;border-top:1px solid var(--warm-border)}
         .research-map{margin:0 0 20px;padding:20px;border:1px solid var(--warm-border);border-radius:14px;background:linear-gradient(135deg,rgba(169,201,215,.18),rgba(255,255,255,.76) 42%,rgba(198,214,170,.16));box-shadow:0 14px 34px rgba(53,72,54,.05)}
-        .research-map-heading>span{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase}.research-map h3{margin:7px 0 4px;font-size:18px}.research-map p{margin:0;color:var(--ink-muted);font-size:12px}.research-map-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.research-map-card{display:flex;align-items:flex-start;gap:8px;min-height:72px;padding:10px;text-align:left;border:1px solid var(--warm-border);border-radius:10px;color:var(--ink);background:rgba(255,255,255,.72);transition:border-color .15s,transform .15s,box-shadow .15s}.research-map-card:hover{border-color:var(--warm-border-strong);transform:translateY(-1px);box-shadow:0 8px 18px rgba(53,72,54,.08)}.research-map-card strong,.research-map-card small{display:block}.research-map-card strong{font-size:11px;line-height:1.25}.research-map-card small{margin-top:4px;color:var(--ink-muted);font-size:10px;line-height:1.35}.research-map-number{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace}.research-map-state{margin-left:auto;color:#477f52;font-size:12px}.research-map-card.is-pending .research-map-state{color:var(--ink-faint)}@media(max-width:800px){.research-map-grid{grid-template-columns:1fr}.research-map-card{min-height:0}}
+        .research-map-heading>span{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase}.research-map h3{margin:7px 0 4px;font-size:18px}.research-map p{margin:0;color:var(--ink-muted);font-size:12px}.research-map-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}.research-map-card{display:flex;align-items:flex-start;gap:8px;min-height:72px;padding:10px;text-align:left;border:1px solid var(--warm-border);border-radius:10px;color:var(--ink);background:rgba(255,255,255,.72);transition:border-color .15s,transform .15s,box-shadow .15s}.research-map-card:hover{border-color:var(--warm-border-strong);transform:translateY(-1px);box-shadow:0 8px 18px rgba(53,72,54,.08)}.research-map-card strong,.research-map-card small{display:block}.research-map-card strong{font-size:11px;line-height:1.25}.research-map-card small{margin-top:4px;color:var(--ink-muted);font-size:10px;line-height:1.35}.research-map-number{color:var(--accent);font:600 10px/1 "JetBrains Mono",monospace}.research-map-state{margin-left:auto;color:#477f52;font-size:12px}.research-map-card.is-pending .research-map-state{color:var(--ink-faint)}#report-section .bg-gray-900,#report-section .bg-gray-800{background:rgba(255,255,255,.72)!important}#report-section .border-gray-800,#report-section .border-gray-700{border-color:var(--warm-border)!important}#report-section .text-white,#report-section .text-gray-200,#report-section .text-gray-300{color:var(--ink)!important}#report-section .text-gray-400,#report-section .text-gray-500,#report-section .text-gray-600{color:var(--ink-muted)!important}.research-map{position:sticky;top:74px;z-index:20;backdrop-filter:blur(14px)}@media(max-width:800px){.research-map{position:static}.research-map-grid{grid-template-columns:1fr}.research-map-card{min-height:0}}
         .chip-light{color:var(--ink-muted);transition:color .15s}
         .chip-light:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
         /* Report source-confidence badges (were unstyled on ZH before) */
@@ -643,27 +644,30 @@
     <script src="/js/auth.js?v=20260820-2"></script>
     <script src="/js/referral-modal.js?v=20260820-2" defer></script>
     <script src="/js/promo-modal.js" defer></script>
-    <script src="/js/app.js?v=20260820-2"></script>
+    <script src="/js/app.js?v=20260901"></script>
     <script src="/js/render-research-map.js?v=20260722"></script>
     <script src="/zh/js/render-github.js?v=20260818"></script>
-    <script src="/zh/js/render-pr.js"></script>
+    <script src="/zh/js/render-pr.js?v=20260901"></script>
     <script src="/zh/js/render-funding.js"></script>
     <script src="/zh/js/render-bizmodel.js"></script>
     <script src="/zh/js/render-playbooks.js"></script>
     <script src="/zh/js/render-producthunt.js"></script>
     <script src="/zh/js/render-insights.js"></script>
-    <script src="/zh/js/render-radar.js"></script>
+    <script src="/zh/js/render-radar.js?v=20260901"></script>
     <script src="/zh/js/render-website.js"></script>
-    <script src="/zh/js/render-social.js"></script>
-    <script src="/zh/js/render-traffic.js"></script>
+    <script src="/zh/js/render-social.js?v=20260901"></script>
+    <script src="/zh/js/render-traffic.js?v=20260901"></script>
     <script src="/zh/js/render-pricing.js"></script>
     <script src="/zh/js/render-growth.js"></script>
     <script src="/zh/js/render-peaks.js"></script>
     <script src="/zh/js/render-propagation.js"></script>
     <script src="/zh/js/render-strategy.js"></script>
     <!-- 与 EN 对齐：thesis 纯数据驱动、references 自带 lang 分支，直接用共享版 -->
-    <script src="/js/render-thesis.js"></script>
+    <script src="/js/render-thesis.js?v=20260901"></script>
     <script src="/js/render-references.js"></script>
+    <script src="/js/report-glossary.js?v=20260829"></script>
+    <script src="/js/report-field-help.js?v=20260829"></script>
+    <script src="/js/report-modules.js?v=20260829"></script>
     <script src="/js/report-translate.js?v=20260708"></script>
 
     <!-- 使用说明 -->
@@ -691,20 +695,20 @@
         <div class="mb-16">
             <h3 class="text-xl font-bold text-center text-white mb-6">看看真实报告</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="/report/815b183b" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
+                <a href="/report/76bb0316" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
                     <div class="text-xs text-[color:var(--ink)] mb-1">示例报告</div>
-                    <div class="text-base font-semibold text-white group-hover:text-[color:var(--ink)] transition-colors">AFFiNE</div>
-                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">开源 Notion 替代品 · 67K GitHub Stars · 策略雷达 58/100</div>
+                    <div class="text-base font-semibold text-[color:var(--ink)]">Buffer</div>
+                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">社媒发布工具 · 定位、渠道、公开增长信号与下一步动作</div>
                 </a>
-                <a href="/report/4d329bdd" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
+                <a href="/report/17323774" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
                     <div class="text-xs text-[color:var(--ink)] mb-1">示例报告</div>
-                    <div class="text-base font-semibold text-white group-hover:text-[color:var(--ink)] transition-colors">Notion</div>
-                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">AI 工作空间 · 509K Twitter 粉丝 · PH 2,034 票</div>
+                    <div class="text-base font-semibold text-[color:var(--ink)]">Sudowrite</div>
+                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">AI 写作工具 · 商业化、获客证据与决策摘要</div>
                 </a>
-                <a href="/report/37230091" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
+                <a href="/report/b27d47be" class="card p-5 hover:border-[color:var(--border-strong)] transition-colors group">
                     <div class="text-xs text-[color:var(--ink)] mb-1">示例报告</div>
-                    <div class="text-base font-semibold text-white group-hover:text-[color:var(--ink)] transition-colors">Cal.com</div>
-                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">开源日程工具 · 41K GitHub Stars · 策略雷达 50/100</div>
+                    <div class="text-base font-semibold text-[color:var(--ink)]">Cloudflare</div>
+                    <div class="text-xs text-[color:var(--ink-faint)] mt-1">开发者基础设施 · 增长考古、分发与证据</div>
                 </a>
             </div>
         </div>

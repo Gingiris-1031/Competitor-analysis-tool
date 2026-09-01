@@ -27,6 +27,21 @@ function renderTraffic(tr) {
         <h3 class="text-lg font-semibold mb-1">📈 流量与 SEO 分析</h3>
         <p class="text-xs text-gray-500 mb-4">数据来源: DataForSEO + SEO Review Tools</p>`;
 
+    const allKeywordRows = [...(kw.product_keywords || []), ...(kw.non_branded_keywords || []), ...(kw.branded_keywords || kw.keywords || [])];
+    const opportunity = allKeywordRows.filter(k => Number(k.position || 0) > 10 && Number(k.search_volume || 0) > 0).sort((a, b) => Number(b.search_volume || 0) - Number(a.search_volume || 0))[0];
+    const brandedCount = Number(kw.branded_count || (kw.branded_keywords || []).length || 0);
+    const totalKeywordCount = Number(rank.total_keywords || kw.total || allKeywordRows.length || 0);
+    const contentCount = Number(kw.content_keyword_count || (kw.content_keywords || []).length || 0);
+    const conclusions = [];
+    if (rank.organic_traffic || seoM.organic_traffic_estimate) conclusions.push(`预估自然搜索流量为 ${Number(rank.organic_traffic || seoM.organic_traffic_estimate).toLocaleString()}；适合判断趋势，不等同于站内 Analytics 实数。`);
+    if (opportunity) conclusions.push(`近期最值得推进的机会词：“${opportunity.keyword}”（排名 #${opportunity.position}，月搜索量 ${Number(opportunity.search_volume).toLocaleString()}）。`);
+    if (totalKeywordCount) {
+        const contentShare = contentCount / totalKeywordCount;
+        const brandedShare = brandedCount / totalKeywordCount;
+        conclusions.push(contentShare >= .5 ? '多数关键词来自内容/工具页，应重点验证这些流量是否能转化为产品意图。' : brandedShare >= .5 ? '关键词曝光偏品牌词，非品牌品类词是主要增长缺口。' : '关键词结构相对均衡，应优先推进已接近首页的高意图词。');
+    }
+    if (conclusions.length) html += `<div class="mb-5 rounded-xl border border-[color:var(--warm-border)] bg-white/70 p-4"><div class="text-xs font-semibold text-[color:var(--accent)] mb-2">SEO 关键结论</div><ol class="space-y-1.5 text-sm text-[color:var(--ink)]">${conclusions.slice(0, 3).map((c, i) => `<li>${i + 1}. ${esc(c)}</li>`).join('')}</ol></div>`;
+
     // Domain Authority bar (if available from SEO Review Tools)
     if (seoM.domain_authority) {
         const da = seoM.domain_authority;
@@ -154,7 +169,8 @@ function renderTraffic(tr) {
 
     if (brandedKw.length) {
         html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">🏷️ 品牌词排名 <span class="text-gray-500 font-normal">(${(kw.branded_count||brandedKw.length)} 个)</span></h4>`;
-        html += _renderKeywordTable(brandedKw);
+        html += _renderKeywordTable(brandedKw.slice(0, 8));
+        if (brandedKw.length > 8) html += `<details class="mt-2"><summary class="text-xs cursor-pointer text-[color:var(--accent)]">查看全部 ${brandedKw.length} 个品牌词</summary><div class="mt-2">${_renderKeywordTable(brandedKw)}</div></details>`;
         html += `</div>`;
     }
 
@@ -165,7 +181,8 @@ function renderTraffic(tr) {
             ? `🔑 产品相关非品牌词 <span class="text-gray-500 font-normal">(${kw.product_keyword_count || kwToShow.length} 个，按搜索量排序)</span>`
             : `🔑 非品牌词 · 首页高曝光 <span class="text-gray-500 font-normal">(${kw.non_branded_count || kwToShow.length} 个，按搜索量排序)</span>`;
         html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">${label}</h4>`;
-        html += _renderKeywordTable(kwToShow);
+        html += _renderKeywordTable(kwToShow.slice(0, 8));
+        if (kwToShow.length > 8) html += `<details class="mt-2"><summary class="text-xs cursor-pointer text-[color:var(--accent)]">查看全部 ${kwToShow.length} 个关键词</summary><div class="mt-2">${_renderKeywordTable(kwToShow)}</div></details>`;
         html += `</div>`;
     } else if (brandedKw.length === 0 && kw.keywords && kw.keywords.length) {
         // Fallback: legacy format without branded/non-branded split
@@ -180,7 +197,7 @@ function renderTraffic(tr) {
             <h4 class="text-sm font-semibold text-gray-500 mb-2">📄 内容 SEO 页（非产品词，高流量模板/工具页）
                 <span class="text-gray-600 font-normal">${kw.content_keyword_count || contentKw.length} 个</span>
             </h4>`;
-        html += _renderKeywordTable(contentKw, 'opacity-60');
+        html += `<details><summary class="text-xs cursor-pointer text-[color:var(--accent)]">查看 ${contentKw.length} 个内容型关键词</summary><div class="mt-2">${_renderKeywordTable(contentKw, 'opacity-70')}</div></details>`;
         html += `</div>`;
     }
 

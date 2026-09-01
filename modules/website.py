@@ -1,4 +1,5 @@
 """官网深度分析模块 — Wayback Machine 多快照抓取 + 结构对比"""
+from __future__ import annotations
 import httpx
 import json as _json
 import os
@@ -30,7 +31,9 @@ def _read_cache(domain: str) -> dict | None:
             with open(path) as f:
                 data = _json.load(f)
             if time.time() - data.get("_ts", 0) < _WAYBACK_CACHE_TTL:
-                return data.get("result")
+                result = data.get("result") or {}
+                if result.get("_schema_v", 0) >= 3:
+                    return result
     except Exception:
         pass
 
@@ -54,7 +57,7 @@ def _read_cache(domain: str) -> dict | None:
                     # added in the ownership-discontinuity fix. Force a
                     # re-fetch when the cached result predates the schema
                     # bump (signalled by a missing `_schema_v` marker).
-                    if (result or {}).get("_schema_v", 0) < 2:
+                    if (result or {}).get("_schema_v", 0) < 3:
                         return None
                     # Warm disk cache
                     _write_disk_cache(domain, result)
@@ -214,7 +217,7 @@ async def analyze_website(url: str) -> dict:
                 ownership_gap_years = gap_size
 
     result = {
-        "_schema_v": 2,  # bump on incompatible cache changes — see _read_cache
+        "_schema_v": 3,  # v3 preserves social-link provenance/weight
         "domain": domain,
         "first_seen": first_seen,
         "first_seen_raw": raw_first_seen,
@@ -625,7 +628,12 @@ def _extract_social_links(soup, base_url: str = "") -> dict:
                 rank = (weight, -path_len)
                 cur = best.get(platform)
                 if cur is None or rank > cur[0]:
-                    best[platform] = (rank, {"handle": handle, "url": href})
+                    best[platform] = (rank, {
+                        "handle": handle, "url": href, "weight": weight,
+                        "source": "rel_me_or_same_as" if weight == 4 else (
+                            "meta" if weight == 3 else "site_link"
+                        ),
+                    })
                 break
 
     # === Source 1: <link rel="me"> tags (W3C official account declaration) ===
@@ -657,7 +665,10 @@ def _extract_social_links(soup, base_url: str = "") -> dict:
             cur = best.get("twitter")
             rank = (3, 0)
             if cur is None or rank > cur[0]:
-                best["twitter"] = (rank, {"handle": content, "url": f"https://x.com/{content}"})
+                best["twitter"] = (rank, {
+                    "handle": content, "url": f"https://x.com/{content}",
+                    "weight": 3, "source": "twitter_site_meta",
+                })
     # og:see_also is sometimes used for social profile URLs
     for meta in soup.find_all("meta", {"property": "og:see_also"}):
         _try_url(meta.get("content", ""), weight=3)
@@ -686,7 +697,12 @@ def _extract_social_links(soup, base_url: str = "") -> dict:
                 rank = (weight, -path_len)
                 cur = best.get(platform)
                 if cur is None or rank > cur[0]:
-                    best[platform] = (rank, {"handle": handle, "url": href})
+                    best[platform] = (rank, {
+                        "handle": handle, "url": href, "weight": weight,
+                        "source": "footer_link" if weight == 2 else (
+                            "navigation_link" if weight == 1 else "body_link"
+                        ),
+                    })
                 matched = True
                 break
             if matched:

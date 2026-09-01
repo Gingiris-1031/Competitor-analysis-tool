@@ -3093,26 +3093,14 @@ async def get_report(job_id: str, request: Request):
     job = jobs.get(job_id)
     if job and job.get("report"):
         return job["report"]
-    # 2. Disk
-    path = os.path.join(REPORTS_DIR, f"{job_id}.json")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            data = _json.load(f)
-        if data.get("report"):
-            return data["report"]
-    # 3. Supabase (survives Railway restarts)
-    try:
-        from modules.supabase_client import get_supabase
-        sb = get_supabase()
-        if sb:
-            result = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
-            if result.data and result.data[0].get("report"):
-                return result.data[0]["report"]
-    except Exception:
-        pass
+    # 2. Persistent storage. Keep the blocking compatibility bridge off the
+    # event loop; it reads disk → InsForge → legacy Supabase in that order.
+    report = await asyncio.to_thread(_load_persisted_report, job_id)
+    if report:
+        return report
     if job and not job.get("report"):
         return JSONResponse({"error": "Report not ready", "status": job["status"]}, status_code=202)
-    # 4. Dual-machine split-brain: an in-flight job may live on the sibling.
+    # 3. Dual-machine split-brain: an in-flight job may live on the sibling.
     replay = _fly_replay_if_foreign(request)
     if replay is not None:
         return replay
@@ -3420,21 +3408,32 @@ async def get_share_info(job_id: str):
             product_name = data.get("product_name")
             url = data.get("url")
             lang = ((data.get("report") or {}).get("meta") or {}).get("lang") or data.get("lang")
-    # Supabase fallback (survives Railway restarts / cross-instance shares)
+    # InsForge-aware fallback. New reports no longer necessarily exist in
+    # Supabase, so a direct legacy lookup made Share fail while report loading
+    # itself still worked.
+    if not product_name:
+        try:
+            from modules.insforge_client import get_report_record_sync
+            record = await asyncio.to_thread(get_report_record_sync, job_id)
+            if record:
+                product_name = record.get("product_name")
+                url = record.get("url")
+                lang = ((record.get("report") or {}).get("meta") or {}).get("lang")
+        except Exception as e:
+            log.error("Share info fetch from InsForge failed: %s", e)
+    # Legacy Supabase remains a read fallback during the migration window.
     if not product_name:
         try:
             from modules.supabase_client import get_supabase
             sb = get_supabase()
             if sb:
-                result = sb.table("reports").select(
-                    "product_name,url,report"
-                ).eq("id", job_id).limit(1).execute()
+                result = sb.table("reports").select("product_name,url,report").eq("id", job_id).limit(1).execute()
                 if result.data:
                     product_name = result.data[0].get("product_name")
                     url = result.data[0].get("url")
                     lang = ((result.data[0].get("report") or {}).get("meta") or {}).get("lang")
         except Exception as e:
-            log.error("Share info fetch from Supabase failed: %s", e)
+            log.error("Share info fetch from legacy Supabase failed: %s", e)
     if not product_name:
         return JSONResponse({"error": "Job not found"}, status_code=404)
 

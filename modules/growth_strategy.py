@@ -179,15 +179,15 @@ def recommend_playbooks(report_data: dict) -> dict:
             "竞品 Logo 墙已成为重要的 B2B 信任背书。Playbook 第 7 章有 Logo 墙设计和主动邀请客户展示的 SOP。"))
 
     linkedin_ch = channels.get("linkedin", {}) or {}
-    if linkedin_ch.get("detected") or linkedin_ch.get("detected") is None:
-        if linkedin_ch.get("url") or linkedin_ch.get("detected") is None:
-            bs["score"] += 1
-            bs["reasons"].append(_T(
-                "A LinkedIn channel exists or is likely — a clear path to reach B2B decision-makers",
-                "LinkedIn 渠道存在或待确认，B2B 决策者触达路径清晰"))
-            bs["custom_tips"].append(_T(
-                "The Playbook's LinkedIn chapter includes a high-ROI content-repurposing SOP for turning product-update tweets into LinkedIn articles.",
-                "Playbook 的 LinkedIn 章节包含「产品更新推文转 LinkedIn 文章」的内容复用 SOP，ROI 极高。"))
+    if (linkedin_ch.get("detected") is True
+            and (linkedin_ch.get("verification") or {}).get("status") == "verified"):
+        bs["score"] += 1
+        bs["reasons"].append(_T(
+            "A verified LinkedIn channel exists — a clear path to reach B2B decision-makers",
+            "已验证 LinkedIn 渠道存在，B2B 决策者触达路径清晰"))
+        bs["custom_tips"].append(_T(
+            "The Playbook's LinkedIn chapter includes a high-ROI content-repurposing SOP for turning product-update tweets into LinkedIn articles.",
+            "Playbook 的 LinkedIn 章节包含「产品更新推文转 LinkedIn 文章」的内容复用 SOP，ROI 极高。"))
 
     # Case study / blog / docs
     if features.get("blog") or features.get("docs"):

@@ -117,7 +117,8 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
     brand = re.sub(r'\.[a-z]{2,6}$', '', domain.lower().replace("www.", ""))
 
     # 1. Website hint (github social link) — most reliable
-    gh_hint = hints.get("github", {}).get("url", "")
+    gh_hint_data = hints.get("github", {}) or {}
+    gh_hint = gh_hint_data.get("url", "") if gh_hint_data.get("weight", 0) >= 2 else ""
     if gh_hint:
         owner, repo = _parse_gh_url(gh_hint)
         if owner and repo:
@@ -177,7 +178,8 @@ async def _resolve_repo(domain: str, product_name: str, hints: dict) -> tuple:
                 rep_lower = rep.lower()
 
                 # Reject substring-only matches (e.g. "lotion" for "notion")
-                is_exact = (
+                generic_brand = len(re.sub(r"[^a-z0-9]", "", brand_lower)) <= 5
+                is_exact = not generic_brand and (
                     rep_lower == brand_lower
                     or rep_lower == name_lower
                     or brand_lower == o.lower()  # org name matches brand
@@ -276,7 +278,8 @@ async def _github_search_api(product_name: str, brand: str, domain: str = "") ->
                         or repo_lower == name_lower
                         or repo_lower == name_lower.replace(" ", "-")
                     )
-                    if name_match:
+                    generic_brand = len(_re.sub(r"[^a-z0-9]", "", brand_lower)) <= 5
+                    if name_match and not generic_brand:
                         return owner, repo
     except Exception:
         pass

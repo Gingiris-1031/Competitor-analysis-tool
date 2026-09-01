@@ -27,6 +27,47 @@ function renderTraffic(tr) {
         <h3 class="text-lg font-semibold mb-1">📈 Traffic & SEO Analysis</h3>
         <p class="text-xs text-gray-500 mb-4">Data Source: DataForSEO + SEO Review Tools</p>`;
 
+    // Decision-first SEO summary. A report should answer "so what?" before
+    // asking the reader to scan hundreds of keyword rows.
+    const allKeywordRows = [
+        ...(kw.product_keywords || []), ...(kw.non_branded_keywords || []),
+        ...(kw.branded_keywords || kw.keywords || []),
+    ];
+    const opportunity = allKeywordRows
+        .filter(k => Number(k.position || 0) > 10 && Number(k.search_volume || 0) > 0)
+        .sort((a, b) => Number(b.search_volume || 0) - Number(a.search_volume || 0))[0];
+    const brandedCount = Number(kw.branded_count || (kw.branded_keywords || []).length || 0);
+    const totalKeywordCount = Number(rank.total_keywords || kw.total || allKeywordRows.length || 0);
+    const contentCount = Number(kw.content_keyword_count || (kw.content_keywords || []).length || 0);
+    const seoConclusions = [];
+    if (rank.organic_traffic || seoM.organic_traffic_estimate) {
+        seoConclusions.push(_t(
+            `Estimated organic search traffic is ${Number(rank.organic_traffic || seoM.organic_traffic_estimate).toLocaleString()}; use it directionally, not as analytics truth.`,
+            `预估自然搜索流量为 ${Number(rank.organic_traffic || seoM.organic_traffic_estimate).toLocaleString()}；适合判断趋势，不等同于站内 Analytics 实数。`
+        ));
+    }
+    if (opportunity) {
+        seoConclusions.push(_t(
+            `Best near-term opportunity: “${opportunity.keyword}” (rank #${opportunity.position}, monthly volume ${Number(opportunity.search_volume).toLocaleString()}).`,
+            `近期最值得推进的机会词：“${opportunity.keyword}”（排名 #${opportunity.position}，月搜索量 ${Number(opportunity.search_volume).toLocaleString()}）。`
+        ));
+    }
+    if (totalKeywordCount) {
+        const contentShare = contentCount / totalKeywordCount;
+        const brandedShare = brandedCount / totalKeywordCount;
+        seoConclusions.push(contentShare >= 0.5
+            ? _t('Most ranking coverage comes from content/tool pages; verify whether it converts to product intent.', '多数关键词来自内容/工具页，应重点验证这些流量是否能转化为产品意图。')
+            : brandedShare >= 0.5
+                ? _t('Keyword visibility is brand-heavy; non-branded category demand is the main growth gap.', '关键词曝光偏品牌词，非品牌品类词是主要增长缺口。')
+                : _t('Keyword coverage is relatively balanced; prioritize terms already close to page one.', '关键词结构相对均衡，应优先推进已接近首页的高意图词。'));
+    }
+    if (seoConclusions.length) {
+        html += `<div class="mb-5 rounded-xl border border-[color:var(--warm-border)] bg-white/70 p-4">
+            <div class="text-xs font-semibold text-[color:var(--accent)] mb-2">${_t('Key SEO conclusions', 'SEO 关键结论')}</div>
+            <ol class="space-y-1.5 text-sm text-[color:var(--ink)]">${seoConclusions.slice(0, 3).map((c, i) => `<li>${i + 1}. ${esc(c)}</li>`).join('')}</ol>
+        </div>`;
+    }
+
     // Domain Authority bar (if available from SEO Review Tools)
     if (seoM.domain_authority) {
         const da = seoM.domain_authority;
@@ -172,7 +213,8 @@ function renderTraffic(tr) {
 
     if (brandedKw.length) {
         html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">🏷️ Branded Keyword Rankings <span class="text-gray-500 font-normal">(${(kw.branded_count||brandedKw.length)})</span></h4>`;
-        html += _renderKeywordTable(brandedKw);
+        html += _renderKeywordTable(brandedKw.slice(0, 8));
+        if (brandedKw.length > 8) html += `<details class="mt-2"><summary class="text-xs cursor-pointer text-[color:var(--accent)]">${_t(`View all ${brandedKw.length} branded keywords`, `查看全部 ${brandedKw.length} 个品牌词`)}</summary><div class="mt-2">${_renderKeywordTable(brandedKw)}</div></details>`;
         html += `</div>`;
     }
 
@@ -183,7 +225,8 @@ function renderTraffic(tr) {
             ? `🔑 Product Non-Branded Keywords <span class="text-gray-500 font-normal">(${kw.product_keyword_count || kwToShow.length}, by search volume)</span>`
             : `🔑 Non-Branded Keywords · Page 1 High Exposure <span class="text-gray-500 font-normal">(${kw.non_branded_count || kwToShow.length}, by search volume)</span>`;
         html += `<div class="mb-4"><h4 class="text-sm font-semibold text-gray-300 mb-2">${label}</h4>`;
-        html += _renderKeywordTable(kwToShow);
+        html += _renderKeywordTable(kwToShow.slice(0, 8));
+        if (kwToShow.length > 8) html += `<details class="mt-2"><summary class="text-xs cursor-pointer text-[color:var(--accent)]">${_t(`View all ${kwToShow.length} keywords`, `查看全部 ${kwToShow.length} 个关键词`)}</summary><div class="mt-2">${_renderKeywordTable(kwToShow)}</div></details>`;
         html += `</div>`;
     } else if (brandedKw.length === 0 && kw.keywords && kw.keywords.length) {
         // Fallback: legacy format without branded/non-branded split
@@ -198,7 +241,7 @@ function renderTraffic(tr) {
             <h4 class="text-sm font-semibold text-gray-500 mb-2">📄 Content SEO Pages (non-product, high-traffic template/tool pages)
                 <span class="text-gray-600 font-normal">${kw.content_keyword_count || contentKw.length}</span>
             </h4>`;
-        html += _renderKeywordTable(contentKw, 'opacity-60');
+        html += `<details><summary class="text-xs cursor-pointer text-[color:var(--accent)]">${_t(`View ${contentKw.length} content keywords`, `查看 ${contentKw.length} 个内容型关键词`)}</summary><div class="mt-2">${_renderKeywordTable(contentKw, 'opacity-70')}</div></details>`;
         html += `</div>`;
     }
 

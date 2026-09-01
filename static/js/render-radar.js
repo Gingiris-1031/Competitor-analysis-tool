@@ -71,7 +71,7 @@ function renderStrategyRadar(radar) {
     // Center score
     const centerScore = `
         <text x="${cx}" y="${cy - 8}" text-anchor="middle" fill="#e5e7eb" font-size="28" font-weight="bold">${avg}</text>
-        <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6b7280" font-size="10">Overall Score</text>
+        <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6b7280" font-size="10">Evidence Score</text>
     `;
 
     const svg = `<svg viewBox="0 0 400 360" style="width:100%; max-width:400px; height:auto;">
@@ -79,10 +79,11 @@ function renderStrategyRadar(radar) {
     </svg>`;
 
     // Build the card
+    const coverage = radar.coverage || {};
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold">🎯 Strategy Radar</h3>
-            <span class="text-[10px] bg-blue-900/40 text-blue-300 border border-blue-700/40 px-2.5 py-1 rounded-full font-medium">Strategy Radar</span>
+            <span class="text-[10px] bg-white/70 text-[color:var(--accent)] border border-[color:var(--warm-border)] px-2.5 py-1 rounded-full font-medium">${coverage.total ? `${coverage.available}/${coverage.total} evidence groups` : 'Directional benchmark'}</span>
         </div>
         <div class="flex flex-col md:flex-row items-center gap-6">
             <div class="flex-shrink-0 w-full md:w-auto flex justify-center">${svg}</div>
@@ -103,6 +104,11 @@ function renderStrategyRadar(radar) {
         </div>`;
     }
 
-    html += `</div></div></div>`;
+    html += `</div></div>
+        <details class="mt-5 border-t border-[color:var(--warm-border)] pt-3">
+            <summary class="cursor-pointer text-xs text-[color:var(--accent)]">How this score is calculated</summary>
+            <p class="mt-2 text-xs leading-relaxed text-[color:var(--ink-muted)]">${esc(radar.methodology || 'Directional benchmark based on public evidence. Missing data is scored conservatively.')}</p>
+        </details>
+    </div>`;
     container.innerHTML = html;
 }

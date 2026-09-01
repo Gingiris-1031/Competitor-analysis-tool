@@ -449,30 +449,7 @@ function _renderPartialResults(partial) {
         reportSec.classList.remove('hidden');
     }
 
-    // Render each completed module that hasn't been rendered yet
-    // Use the report.py format functions via a lightweight shim
-    const moduleMap = {
-        'website':     { section: 'website_analysis', render: typeof renderWebsite !== 'undefined' ? renderWebsite : null,
-                         format: (d) => ({ title: _t("Website Evolution", "官网演变分析"), domain: d.domain, first_seen: d.first_seen, total_snapshots: d.total_snapshots, deep_timeline: d.deep_timeline || [], current: d.current_site || {}, key_changes: d.key_changes || [] }) },
-        'social':      { section: 'social_media', render: typeof renderSocial !== 'undefined' ? renderSocial : null,
-                         format: (d) => ({ title: _t("Social Media", "社交媒体"), brand: d.brand, channels: d.channels || {}, propagation_metrics: d.propagation_metrics || {} }) },
-        'traffic':     { section: 'traffic_analysis', render: typeof renderTraffic !== 'undefined' ? renderTraffic : null, format: (d) => d },
-        'producthunt': { section: 'producthunt', render: typeof renderProductHunt !== 'undefined' ? renderProductHunt : null, format: (d) => d },
-        'pricing':     { section: 'pricing', render: typeof renderPricing !== 'undefined' ? renderPricing : null, format: (d) => d },
-    };
-
-    for (const [key, data] of Object.entries(partial)) {
-        if (_partialRendered.has(key)) continue;
-        const info = moduleMap[key];
-        if (!info || !info.render) continue;
-        try {
-            const formatted = info.format ? info.format(data) : data;
-            info.render(formatted);
-            _partialRendered.add(key);
-        } catch (e) {
-            // Skip render errors for partial data
-        }
-    }
+    window.AnalookReportModules?.renderPartial(partial, _partialRendered);
 }
 
 // ── Load & render report ────────────────────────────────────────────────────
@@ -496,26 +473,9 @@ async function loadReport() {
         renderSummaryCard(report);
         if (typeof renderResearchMap === 'function') renderResearchMap(report);
 
-        // Render all sections
-        if (typeof renderThesis === 'function') renderThesis(report.sections.thesis || {}, report.sections.growth_score || {}, meta.lang);
-        if (typeof renderReferences === 'function') renderReferences(report.sections.references || [], meta.lang);
-        if (typeof renderStrategyRadar === 'function') renderStrategyRadar(report.sections.strategy_radar || {});
-        renderWebsite(report.sections.website_analysis || {}, report.sections.evolution_summary || '', meta.lang);
-        if (typeof renderGithub === 'function') renderGithub(report.sections.github_oss || {});
-        renderProductHunt(report.sections.producthunt || {});
-        renderSocial(report.sections.social_media || {});
-        renderPropagation(report.sections.propagation || {});
-        renderTraffic(report.sections.traffic_analysis || {});
-        if (typeof renderPricing === 'function') renderPricing(report.sections.pricing || {});
-        if (typeof renderBizmodel === 'function') renderBizmodel(report.sections.bizmodel || {});
-        if (typeof renderFunding === 'function') renderFunding(report.sections.funding || {});
-        if (typeof renderPR === 'function') renderPR(report.sections.pr_news || {});
-        renderPeaks(report.sections.traffic_peaks || {});
-        renderGrowth(report.sections.growth_analysis || {});
-        renderInsights(report.sections.ai_insights || report.sections.ai_summary || {});
-        if (typeof renderSummary === 'function') renderSummary(report.sections.summary || {});
-        renderStrategy(report.sections.growth_strategy || {});
-        if (typeof renderPlaybooks === 'function') renderPlaybooks(report);
+        // Module registry owns renderer ordering and isolates section changes.
+        if (!window.AnalookReportModules) throw new Error('Report module registry unavailable');
+        window.AnalookReportModules.renderFull(report);
 
         _maybeShowLastCreditBanner();
         _renderPostReportCTA();
@@ -553,16 +513,48 @@ function renderSummaryCard(report) {
     const ws = s.website_analysis || {};
 
     const monthlyTraffic = traffic.organic_traffic || 0;
-    let twitterFollowers = 0;
-    for (const v of Object.values(social)) {
-        if (v.detected && v.followers) { twitterFollowers = v.followers; break; }
-    }
+    const twitterChannel = social.twitter || social.x || {};
+    const twitterFollowers = twitterChannel.detected
+        && twitterChannel.verification?.status === 'verified'
+        && twitterChannel.followers
+        ? twitterChannel.followers
+        : 0;
     const phScore = ph.found ? ph.votes : null;
     const firstSeen = ws.first_seen || '—';
 
     const twStr = twitterFollowers ? fmtNum(twitterFollowers) : '—';
     const trafficStr = monthlyTraffic ? fmtNum(monthlyTraffic) + '/mo' : '—';
     const phStr = phScore ? `⬆${fmtNum(phScore)}` : _t('Not launched', '未上线');
+    const verifiedSocialCount = Object.values(social).filter(ch =>
+        ch?.detected === true && ch?.verification?.status === 'verified').length;
+    const verifiedMediaCount = [
+        ...(s.pr_news?.hn_posts || []), ...(s.pr_news?.news_articles || []),
+        ...(s.pr_news?.press_mentions || []),
+    ].filter(item => item?.verification?.status === 'verified').length;
+    const seoKeywords = [
+        ...(s.traffic_analysis?.top_keywords?.product_keywords || []),
+        ...(s.traffic_analysis?.top_keywords?.non_branded_keywords || []),
+    ];
+    const seoOpportunity = seoKeywords
+        .filter(k => Number(k.position || 0) > 10 && Number(k.search_volume || 0) > 0)
+        .sort((a, b) => Number(b.search_volume || 0) - Number(a.search_volume || 0))[0];
+    const nextActions = [];
+    if (!verifiedSocialCount) nextActions.push(_t(
+        'Claim official social identity: publish sameAs metadata and footer links, then build one repeatable channel before expanding.',
+        '先补官方社媒身份：在官网增加 sameAs 结构化数据与页脚官方链接，再集中经营一个可重复的主渠道。'
+    ));
+    if (!verifiedMediaCount) nextActions.push(_t(
+        'Create one evidence-rich launch story with a measurable result, then pitch two communities where target users already gather.',
+        '制作一份带量化结果的发布故事，再投向目标用户已聚集的两个社区，先验证真实讨论而不是追求泛曝光。'
+    ));
+    if (seoOpportunity) nextActions.push(_t(
+        `Move “${seoOpportunity.keyword}” from #${seoOpportunity.position} toward page one with one intent-matched landing page and internal links.`,
+        `围绕“${seoOpportunity.keyword}”（当前 #${seoOpportunity.position}）制作一页匹配搜索意图的落地页并补内部链接，优先推进到首页。`
+    ));
+    if (!nextActions.length) nextActions.push(_t(
+        'Choose the strongest verified channel and attach a conversion CTA plus a 14-day measurement window.',
+        '选择最强的已验证渠道，补上明确转化 CTA，并用 14 天窗口验证点击到注册的转化。'
+    ));
 
     el.innerHTML = `
     <div class="card-cream p-5 mb-6">
@@ -574,22 +566,26 @@ function renderSummaryCard(report) {
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="card-cream-subtle p-3">
-                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("Organic search estimate", "有机搜索流量估算")}</div>
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1" data-field-help="organic_search_estimate">${_t("Organic search estimate", "有机搜索流量估算")}</div>
                 <div class="text-xl font-bold text-[color:var(--ink)]">${trafficStr}</div>
                 <div class="text-xs text-[color:var(--ink-faint)] mt-0.5">${_t("Estimated from keyword rankings", "基于关键词排名估算")}</div>
             </div>
             <div class="card-cream-subtle p-3">
-                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("Twitter followers", "Twitter 粉丝")}</div>
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1" data-field-help="twitter_followers">${_t("Twitter followers", "Twitter 粉丝")}</div>
                 <div class="text-xl font-bold text-[color:var(--ink)]">${twStr}</div>
             </div>
             <div class="card-cream-subtle p-3">
-                <div class="text-xs text-[color:var(--ink-muted)] mb-1">Product Hunt</div>
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1" data-field-help="product_hunt_votes">Product Hunt</div>
                 <div class="text-xl font-bold text-[color:var(--ink)]">${phStr}</div>
             </div>
             <div class="card-cream-subtle p-3">
-                <div class="text-xs text-[color:var(--ink-muted)] mb-1">${_t("First seen", "首次出现")}</div>
+                <div class="text-xs text-[color:var(--ink-muted)] mb-1" data-field-help="first_seen">${_t("First seen", "首次出现")}</div>
                 <div class="text-xl font-bold text-[color:var(--ink)]">${esc(firstSeen)}</div>
             </div>
+        </div>
+        <div class="mt-4 pt-4 border-t border-[color:var(--warm-border)]">
+            <div class="text-xs font-semibold text-[color:var(--accent)] mb-2">${_t('Recommended next moves', '建议优先执行')}</div>
+            <ol class="space-y-2">${nextActions.slice(0, 3).map((action, i) => `<li class="text-sm leading-relaxed text-[color:var(--ink)]"><span class="font-mono text-[color:var(--accent)] mr-2">${i + 1}</span>${esc(action)}</li>`).join('')}</ol>
         </div>
     </div>`;
 }

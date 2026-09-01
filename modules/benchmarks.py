@@ -319,7 +319,12 @@ def extract_public_signals(data: dict) -> dict:
         "domain_authority": seo.get("domain_authority") or data.get("domain_authority") or 0,
         "referring_domains": seo.get("referring_domains") or data.get("referring_domains") or 0,
         "has_pricing": bool(features.get("pricing") or website.get("has_pricing")),
-        "social_channels": len([k for k, v in channels.items() if v]) if isinstance(channels, dict) else 0,
+        "social_channels": len([
+            k for k, v in channels.items()
+            if isinstance(v, dict)
+            and v.get("detected") is True
+            and (v.get("verification") or {}).get("status") == "verified"
+        ]) if isinstance(channels, dict) else 0,
         "github_stars": (gh.get("stars") or gh.get("star_count") or 0) if isinstance(gh, dict) else 0,
         "ph_launched": bool(ph.get("launched") or ph.get("posts") or ph.get("found")) if isinstance(ph, dict) else False,
     }
@@ -366,6 +371,10 @@ def score_public(signals: dict, lang: str = "zh") -> dict:
     return {
         "overall_score": overall,
         "dimensions": dims,
+        "evidence_coverage": {
+            "available": sum(bool(x) for x in (traffic, da or refd, has_pricing, channels, stars or ph)),
+            "total": 5,
+        },
         "source": ("Public signals (traffic / SEO / monetization / distribution / community momentum)"
                    if _en else "公开信号（流量 / SEO / 商业化 / 分发 / 社区势能）"),
     }

@@ -85,13 +85,9 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         except Exception:
             brave_hints = {}
 
-    # Merge hints: website links > Brave, but validate both against brand name.
-    # website_hints can contain false positives: testimonial users' Twitter handles,
-    # competitor links in blog posts, share-widget URLs etc.
-    # We validate ALL hints with _handle_matches_brand() before accepting.
-    # Exception: high-confidence sources (link[rel=me], JSON-LD sameAs weight=4)
-    # from _extract_social_links are already authoritative — we keep them.
-    # Brave results are always validated.
+    # Merge hints: website declarations > Brave. Body links are deliberately
+    # excluded: embedded posts, customer logos and resource links are not proof
+    # that an account belongs to the audited product.
     website_hints = website_social_links or {}
     hints = {}
     for platform in set(list(brave_hints.keys()) + list(website_hints.keys())):
@@ -99,20 +95,13 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         b_hint = brave_hints.get(platform) or {}
         w_handle = w_hint.get("handle", "")
         b_handle = b_hint.get("handle", "")
-        # Validate website hint — reject if it doesn't overlap brand/product name
-        # (skip validation for weight-4 hints: link[rel=me] / JSON-LD sameAs)
         w_weight = w_hint.get("weight", 0)
-        w_valid = bool(
-            w_handle and (
-                w_weight >= 4  # authoritative declaration — trust unconditionally
-                or _handle_matches_brand(w_handle, brand, product_name)
-            )
-        )
+        w_valid = bool(w_handle and w_weight >= 2)
         b_valid = bool(b_handle and _handle_matches_brand(b_handle, brand, product_name))
         if w_valid:
-            hints[platform] = w_hint
+            hints[platform] = {**w_hint, "verified_source": "website"}
         elif b_valid:
-            hints[platform] = b_hint
+            hints[platform] = {**b_hint, "verified_source": "search_candidate"}
         # Both invalid → omit (downstream will fall back to direct API lookup)
         if not w_valid and not b_valid and (w_handle or b_handle):
             log.info(
@@ -127,6 +116,11 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
     instagram_hint = hints.get("instagram", {}).get("handle")
     tiktok_hint    = hints.get("tiktok", {}).get("handle")
     facebook_hint  = hints.get("facebook", {}).get("handle")
+    linkedin_hint  = hints.get("linkedin", {}).get("handle")
+    twitter_official = hints.get("twitter", {}).get("verified_source") == "website"
+    github_official = hints.get("github", {}).get("verified_source") == "website"
+    youtube_official = hints.get("youtube", {}).get("verified_source") == "website"
+    linkedin_official = hints.get("linkedin", {}).get("verified_source") == "website"
 
     # Store hints for Phase 1.5 slow-channel callers (TikTok/Facebook run separately)
     results["_tiktok_hint"] = tiktok_hint
@@ -146,7 +140,10 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         async def _twitter_with_timeout():
             try:
                 return await _aio.wait_for(
-                    _deep_twitter_caravo(brand, product_name, handle_hint=twitter_hint),
+                    _deep_twitter_caravo(
+                        brand, product_name, handle_hint=twitter_hint,
+                        domain=domain, hint_is_official=twitter_official,
+                    ),
                     timeout=20,  # TwitterAPI.io is fast (<3s/handle), 20s is generous
                 )
             except _aio.TimeoutError:
@@ -154,9 +151,15 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
                         "note": _T("Twitter analysis timed out", "Twitter 分析超时")}
 
         twitter_task   = _twitter_with_timeout()
-        youtube_task   = _deep_youtube(client, brand, product_name, handle_hint=youtube_hint, domain=domain)
+        youtube_task   = _deep_youtube(
+            client, brand, product_name,
+            handle_hint=youtube_hint if youtube_official else None, domain=domain,
+        )
         reddit_task    = _deep_reddit(client, brand, product_name, domain=domain)
-        github_task    = _deep_github(client, brand, product_name, handle_hint=github_hint, domain=domain)
+        github_task    = _deep_github(
+            client, brand, product_name,
+            handle_hint=github_hint if github_official else None, domain=domain,
+        )
         instagram_task = _deep_instagram_caravo(brand, product_name, handle_hint=instagram_hint)
 
         channel_results = await _aio.gather(
@@ -176,7 +179,10 @@ async def analyze_social(domain: str, product_name: str, website_social_links: d
         # (SerpAPI) instead of guessing linkedin.com/company/{brand}.
         try:
             results["channels"]["linkedin"] = await _aio.wait_for(
-                _check_linkedin_search(brand, product_name, domain), timeout=15,
+                _check_linkedin_search(
+                    brand, product_name, domain,
+                    handle_hint=linkedin_hint if linkedin_official else None,
+                ), timeout=15,
             )
         except Exception:
             results["channels"]["linkedin"] = _check_linkedin(brand)
@@ -622,7 +628,10 @@ async def _call_apify_actor(actor_id: str, input_data: dict, wait_secs: int = 50
         track_data_source("Apify", actor_id, elapsed(), success)
 
 
-async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -> dict:
+async def _deep_twitter_caravo(
+    brand: str, name: str, handle_hint: str = None, domain: str = "",
+    hint_is_official: bool = False,
+) -> dict:
     """深度分析 Twitter — TwitterAPI.io (primary, <3s) → Brave fallback (instant)"""
     result = {
         "platform": "Twitter/X",
@@ -634,6 +643,7 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
         "profile": {},
         "top_tweets": [],
         "note": "",
+        "verification": {"status": "unverified", "source": "none", "confidence": 0},
     }
 
     name_lower = name.lower().replace(" ", "")
@@ -660,19 +670,10 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     # Collect all valid candidates, pick best by followers count.
     # ------------------------------------------------------------------
     twitterapi_key = os.environ.get("TWITTERAPI_IO_KEY", "").strip()
-    # Extract domain for website field cross-validation
-    _domain_clean = ""
-    try:
-        from urllib.parse import urlparse as _urlparse
-        # brand comes from domain, reconstruct it
-        for _tld in ["com", "io", "dev", "ai", "pro", "co", "app", "so", "xyz"]:
-            if f"{brand}.{_tld}" in name.lower() or brand:
-                _domain_clean = f"{brand}.{_tld}"
-                break
-        if not _domain_clean:
-            _domain_clean = brand
-    except Exception:
-        _domain_clean = brand
+    # Keep the audited domain exact. Reconstructing it from the brand silently
+    # changed soku.ai into soku.com and validated an unrelated @SOKU_gg account.
+    _domain_clean = re.sub(r"^https?://", "", (domain or "").lower()).split("/")[0]
+    _domain_clean = re.sub(r"^www\.", "", _domain_clean)
 
     # Track API-level errors across all handle probes so we can distinguish
     # "the API is misbehaving" (should surface as a warning) from
@@ -734,11 +735,7 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             name_lower_check = name.lower()
 
             # Signal 1: website field contains product domain → strongest match
-            website_match = any(d in account_website for d in [
-                f"{brand_lower}.com", f"{brand_lower}.io", f"{brand_lower}.dev",
-                f"{brand_lower}.ai", f"{brand_lower}.pro", f"{brand_lower}.co",
-                f"{brand_lower}.app", f"{brand_lower}.so",
-            ] if d)
+            website_match = bool(_domain_clean and _domain_clean in account_website)
 
             # Signal 2: bio mentions brand/product
             # IMPORTANT: Only count bio/name match if it's NOT just the handle
@@ -768,9 +765,22 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 or _handle_matches_brand(account_name_str, brand, name)
             )
 
-            # Accept if ANY strong signal matches
-            if not website_match and not bio_match and not verified_and_relevant:
+            is_official_hint = bool(
+                hint_is_official and handle_hint
+                and account_handle.lstrip("@").replace("_", "")
+                == handle_hint.lstrip("@").lower().replace("_", "")
+            )
+            generic_brand = len(re.sub(r"[^a-z0-9]", "", brand_lower)) <= 5
+            if generic_brand and not website_match and not is_official_hint:
                 return None
+            if not website_match and not bio_match and not verified_and_relevant and not is_official_hint:
+                return None
+
+            prof["_analook_verification"] = {
+                "status": "verified",
+                "source": "website" if is_official_hint else "profile_domain",
+                "confidence": 1.0 if is_official_hint else 0.95,
+            }
 
             return prof
         except httpx.TimeoutException:
@@ -847,6 +857,9 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
                 "listed_count": 0,
             }
             result["note"] = "✅ via TwitterAPI.io"
+            result["verification"] = best.get("_analook_verification") or {
+                "status": "verified", "source": "profile", "confidence": 0.8,
+            }
 
             # Fetch top tweets for the winning account
             try:
@@ -881,7 +894,8 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
     # Strategy 2: Brave Search fallback (instant, handle + estimated followers)
     # ------------------------------------------------------------------
     if not result["detected"]:
-        handle = handle_hint  # site-declared handle is trusted as-is
+        handle = handle_hint if hint_is_official else None
+        handle_source = "website" if handle else "search_candidate"
         if not handle:
             try:
                 from .web_search import brave_find_twitter
@@ -904,6 +918,11 @@ async def _deep_twitter_caravo(brand: str, name: str, handle_hint: str = None) -
             result["handle"] = f"@{handle}" if not handle.startswith("@") else handle
             result["url"] = f"https://x.com/{handle.lstrip('@')}"
             result["followers"] = followers
+            result["verification"] = {
+                "status": "verified" if handle_source == "website" else "unverified",
+                "source": handle_source,
+                "confidence": 1.0 if handle_source == "website" else 0.35,
+            }
             # If TwitterAPI.io had errors, say so — user should know follower
             # count couldn't be verified against the source of truth.
             if api_errors and not followers:
@@ -1047,6 +1066,7 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
         "video_count": None,
         "total_views": None,
         "note": "",
+        "verification": {"status": "unverified", "source": "none", "confidence": 0},
     }
 
     handles = []
@@ -1085,6 +1105,14 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
             result["video_count"] = ch.get("numberOfVideos") or ch.get("videoCount")
             result["total_views"] = ch.get("channelTotalViews") or ch.get("viewCount")
             result["note"] = _T("✅ YouTube channel data fetched via Apify", "✅ 通过 Apify 获取 YouTube 频道数据")
+            ch_text = " ".join(str(ch.get(k) or "") for k in ("description", "channelDescription", "channelUrl")).lower()
+            domain_clean = re.sub(r"^www\.", "", (domain or "").lower())
+            if handle_hint or (domain_clean and domain_clean in ch_text):
+                result["verification"] = {
+                    "status": "verified",
+                    "source": "website" if handle_hint else "profile_domain",
+                    "confidence": 1.0 if handle_hint else 0.9,
+                }
             log.info("YouTube data for @%s fetched via Apify", handle)
             return result
 
@@ -1125,6 +1153,11 @@ async def _deep_youtube(client: httpx.AsyncClient, brand: str, name: str, handle
             if sub_m:
                 result["subscribers"] = sub_m.group(1)
             result["note"] = (_T("✅ Channel page confirms link to ", "✅ 频道页确认链接到 ") + domain_clean) if domain_in_page else _T("Channel detected (from website claim)", "检测到频道（来自网站声明）")
+            result["verification"] = {
+                "status": "verified",
+                "source": "website" if is_hint else "profile_domain",
+                "confidence": 1.0 if is_hint else 0.9,
+            }
             return result
         except Exception:
             continue
@@ -1315,6 +1348,7 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
         "stars_total": 0,
         "top_repos": [],
         "note": "",
+        "verification": {"status": "unverified", "source": "none", "confidence": 0},
     }
 
     # Clean domain for matching (strip www. and TLD)
@@ -1337,22 +1371,25 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
                 if dv in blog:
                     return True
 
-        # Signal 2: bio/description mentions brand or product name
+        generic_brand = len(re.sub(r"[^a-z0-9]", "", brand.lower())) <= 5
+
+        # Signal 2: bio/description mentions brand or product name. This is too
+        # weak for short/common brands (Soku, Line, Nova, etc.).
         brand_lower = brand.lower()
         name_lower_check = name.lower()
-        if brand_lower in bio or name_lower_check in bio:
+        if not generic_brand and (brand_lower in bio or name_lower_check in bio):
             return True
-        if brand_lower in display_name or name_lower_check in display_name:
+        if not generic_brand and (brand_lower in display_name or name_lower_check in display_name):
             return True
 
         # Signal 3: company field references the brand
-        if brand_lower in company or name_lower_check in company:
+        if not generic_brand and (brand_lower in company or name_lower_check in company):
             return True
 
         # Signal 4: it's an org (orgs are more likely to be the product itself)
         # and the login matches the brand exactly (strong implicit signal)
         login = (data.get("login") or "").lower()
-        if data.get("type") == "Organization" and login == brand_lower:
+        if not generic_brand and data.get("type") == "Organization" and login == brand_lower:
             return True
 
         # Signal 5: handle was explicitly provided by website social_links or Brave
@@ -1441,6 +1478,12 @@ async def _deep_github(client: httpx.AsyncClient, brand: str, name: str, handle_
             result["url"] = data.get("html_url", "")
             result["public_repos"] = data.get("public_repos", 0)
             result["followers"] = data.get("followers", 0)
+            blog = (data.get("blog") or "").lower()
+            result["verification"] = {
+                "status": "verified",
+                "source": "website" if handle_hint else "profile_domain",
+                "confidence": 1.0 if handle_hint else (0.95 if domain_clean in blog else 0.8),
+            }
 
             # Get top repos.
             #
@@ -1490,7 +1533,9 @@ def _check_linkedin(brand: str) -> dict:
     }
 
 
-async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dict:
+async def _check_linkedin_search(
+    brand: str, name: str, domain: str = "", handle_hint: str = None,
+) -> dict:
     """Find the company's LinkedIn page via Google's index (SerpAPI).
 
     Iris 2026-07-06 accuracy audit: the old _check_linkedin just GUESSED
@@ -1501,6 +1546,14 @@ async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dic
     over string-guessing. Still marked "via Google index" because we
     can't read follower counts without auth.
     """
+    if handle_hint:
+        slug = handle_hint.strip("/").split("/")[-1]
+        return {
+            "platform": "LinkedIn", "detected": True,
+            "url": f"https://www.linkedin.com/company/{slug}", "handle": slug,
+            "note": _T("Confirmed by the audited website", "由被分析官网声明"),
+            "verification": {"status": "verified", "source": "website", "confidence": 1.0},
+        }
     key = (os.environ.get("SERPAPI_KEY") or "").strip()
     if not key:
         return _check_linkedin(brand)
@@ -1510,7 +1563,7 @@ async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dic
                 "https://serpapi.com/search.json",
                 params={
                     "engine": "google",
-                    "q": f'site:linkedin.com/company "{name}"',
+                    "q": f'site:linkedin.com/company "{domain}"',
                     "num": 5,
                     "api_key": key,
                 },
@@ -1520,21 +1573,26 @@ async def _check_linkedin_search(brand: str, name: str, domain: str = "") -> dic
             results = r.json().get("organic_results", []) or []
         brand_l = brand.lower()
         name_l = name.lower()
+        domain_l = re.sub(r"^www\.", "", (domain or "").lower())
+        generic_brand = len(re.sub(r"[^a-z0-9]", "", brand_l)) <= 5
         for res in results:
             link = (res.get("link") or "").split("?")[0].rstrip("/")
             if "/company/" not in link:
                 continue
             slug = link.split("/company/")[-1].lower()
             title = (res.get("title") or "").lower()
-            # Relevance: slug or result title must relate to the brand
-            if brand_l in slug or name_l in slug.replace("-", "") \
-               or brand_l in title or name_l in title:
+            snippet = (res.get("snippet") or "").lower()
+            combined = f"{title} {snippet} {link.lower()}"
+            domain_match = bool(domain_l and domain_l in combined)
+            name_match = brand_l in slug or name_l in slug.replace("-", "") or name_l in title
+            if domain_match or (name_match and not generic_brand):
                 return {
                     "platform": "LinkedIn",
                     "detected": True,
                     "url": link,
                     "handle": slug,
                     "note": _T(f"✅ Confirmed via Google index (title: {(res.get('title') or '')[:60]})", f"✅ 经 Google 索引确认（标题: {(res.get('title') or '')[:60]}）"),
+                    "verification": {"status": "verified", "source": "search_domain", "confidence": 0.9},
                 }
         # Indexed pages exist but none match the brand → likely no LinkedIn
         if results:
@@ -1798,6 +1856,12 @@ async def _deep_instagram_caravo(brand: str, name: str, handle_hint: str = None)
 
 def _calc_propagation_metrics(data: dict) -> dict:
     """计算传播指标总览"""
+    def _verified(channel: dict) -> bool:
+        return bool(
+            isinstance(channel, dict)
+            and channel.get("detected") is True
+            and (channel.get("verification") or {}).get("status") == "verified"
+        )
     metrics = {
         "total_participants": 0,
         "estimated_impressions": 0,
@@ -1808,7 +1872,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
     
     # Twitter data (from Caravo API)
     twitter = data["channels"].get("twitter", {})
-    if twitter.get("detected") and twitter.get("followers"):
+    if _verified(twitter) and twitter.get("followers"):
         followers = twitter["followers"] if isinstance(twitter["followers"], int) else 0
         metrics["total_participants"] += followers
         metrics["estimated_impressions"] += followers  # Conservative: followers ≈ potential impressions
@@ -1822,7 +1886,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
     
     # Reddit data
     reddit = data["channels"].get("reddit", {})
-    if reddit.get("top_posts"):
+    if _verified(reddit) and reddit.get("top_posts"):
         reddit_engagement = 0
         for post in reddit["top_posts"]:
             reddit_engagement += (post.get("upvotes", 0) or 0) + (post.get("comments", 0) or 0)
@@ -1836,7 +1900,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
     
     # GitHub data
     github = data["channels"].get("github", {})
-    if github.get("detected"):
+    if _verified(github):
         gh_stars = github.get("stars_total", 0) or 0
         gh_followers = github.get("followers", 0) or 0
         metrics["total_engagement"] += gh_stars
@@ -1846,7 +1910,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
     
     # YouTube
     youtube = data["channels"].get("youtube", {})
-    if youtube.get("detected"):
+    if _verified(youtube):
         subs = youtube.get("subscribers")
         if subs:
             try:
@@ -1859,7 +1923,7 @@ def _calc_propagation_metrics(data: dict) -> dict:
 
     # Instagram data (from Caravo API)
     instagram = data["channels"].get("instagram", {})
-    if instagram.get("detected"):
+    if _verified(instagram):
         ig_followers = instagram.get("followers") or 0
         if isinstance(ig_followers, int) and ig_followers > 0:
             metrics["total_participants"] += ig_followers

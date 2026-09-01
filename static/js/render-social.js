@@ -2,6 +2,13 @@ function renderSocial(sm) {
     const container = document.getElementById('section-social');
     const channels = sm.channels || {};
     const pm = sm.propagation_metrics || {};
+    const zh = (document.documentElement.lang || '').toLowerCase().startsWith('zh');
+    const tx = (en, cn) => zh ? cn : en;
+    const verified = ch => Boolean(ch && ch.detected === true && ch.verification?.status === 'verified');
+    const usefulTweets = tweets => (tweets || []).filter(t => {
+        const text = String(t.text || '').replace(/https?:\/\/\S+/g, '').trim();
+        return text.length >= 40 && !/^[@#\s]+$/.test(text);
+    });
 
     let html = `<div class="bg-gray-900 rounded-xl border border-gray-800 p-6">
         <h3 class="text-lg font-semibold mb-4">📱 Social Media Channel Analysis</h3>
@@ -10,18 +17,21 @@ function renderSocial(sm) {
 
     // Channel cards
     for (const [key, ch] of Object.entries(channels)) {
-        const statusColor = ch.detected ? 'text-green-400' : (ch.detected===null ? 'text-yellow-400' : 'text-gray-500');
-        const statusText = ch.detected ? '✅ Detected' : (ch.detected===null ? '🔍 Manual check needed' : '❌ Not detected');
+        const isVerified = verified(ch);
+        const statusColor = isVerified ? 'text-green-700' : 'text-amber-700';
+        const statusText = isVerified
+            ? tx('✓ Verified official account', '✓ 已验证官方账号')
+            : (ch.detected ? tx('Unverified · excluded from score', '未验证 · 不计入评分') : tx('No verified account', '未找到已验证账号'));
         let extras = [];
-        if (ch.followers) extras.push(`${ch.followers} followers`);
-        if (ch.following) extras.push(`${ch.following} following`);
-        if (ch.subscribers) extras.push(`${ch.subscribers} subscribers`);
-        if (ch.video_count) extras.push(`${ch.video_count} videos`);
-        if (ch.stars_total) extras.push(`⭐ ${ch.stars_total} total stars`);
-        if (ch.public_repos) extras.push(`${ch.public_repos} repos`);
-        if (ch.subreddit_members) extras.push(`${ch.subreddit_members} members`);
-        if (ch.total_mentions) extras.push(`${ch.total_mentions} mentions`);
-        if (ch.handle) extras.push(ch.handle);
+        if (isVerified && ch.followers) extras.push(`${ch.followers} followers`);
+        if (isVerified && ch.following) extras.push(`${ch.following} following`);
+        if (isVerified && ch.subscribers) extras.push(`${ch.subscribers} subscribers`);
+        if (isVerified && ch.video_count) extras.push(`${ch.video_count} videos`);
+        if (isVerified && ch.stars_total) extras.push(`⭐ ${ch.stars_total} total stars`);
+        if (isVerified && ch.public_repos) extras.push(`${ch.public_repos} repos`);
+        if (isVerified && ch.subreddit_members) extras.push(`${ch.subreddit_members} members`);
+        if (isVerified && ch.total_mentions) extras.push(`${ch.total_mentions} mentions`);
+        if (isVerified && ch.handle) extras.push(ch.handle);
 
         html += `<div class="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
             <div class="flex items-center gap-3 flex-wrap">
@@ -30,14 +40,14 @@ function renderSocial(sm) {
                 ${extras.length ? `<span class="text-xs text-gray-400">${extras.join(' · ')}</span>` : ''}
                 ${ch.note && !ch.detected ? `<span class="text-xs text-gray-500">${esc(ch.note)}</span>` : ''}
             </div>
-            ${ch.url ? `<a href="${esc(ch.url)}" target="_blank" class="text-xs text-blue-400 hover:underline shrink-0">Open →</a>` : ''}
+            ${isVerified && ch.url ? `<a href="${esc(ch.url)}" target="_blank" rel="noopener" class="text-xs text-[color:var(--accent)] hover:underline shrink-0">${tx('Open evidence', '打开证据')} →</a>` : ''}
         </div>`;
     }
     html += `</div>`;
 
     // GitHub top repos
     const gh = channels.github;
-    if (gh && gh.detected && gh.top_repos && gh.top_repos.length) {
+    if (verified(gh) && gh.top_repos && gh.top_repos.length) {
         html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-2">GitHub Top Repos</h4>
             <div class="space-y-1">`;
         for (const r of gh.top_repos) {
@@ -54,7 +64,7 @@ function renderSocial(sm) {
 
     // Reddit top posts
     const reddit = channels.reddit;
-    if (reddit && reddit.top_posts && reddit.top_posts.length) {
+    if (verified(reddit) && reddit.top_posts && reddit.top_posts.length) {
         html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-2">Reddit Popular Discussions</h4>
             <div class="space-y-1.5">`;
         for (const p of reddit.top_posts.slice(0,8)) {
@@ -77,7 +87,7 @@ function renderSocial(sm) {
     }
 
     // Propagation metrics
-    html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 Propagation Metrics Overview</h4>
+    if ((pm.data_sources || []).length) html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-3">📊 Propagation Metrics Overview</h4>
         <div class="overflow-x-auto"><table class="w-full text-xs">
             <thead><tr class="bg-gray-800"><th class="text-left px-3 py-2 text-gray-400">Metric</th><th class="text-left px-3 py-2 text-gray-400">Value</th><th class="text-left px-3 py-2 text-gray-400">Notes</th></tr></thead>
             <tbody>
@@ -93,10 +103,11 @@ function renderSocial(sm) {
 
     // Twitter deep analysis (from Caravo API)
     const tw = channels.twitter;
-    if (tw && tw.detected && tw.top_tweets && tw.top_tweets.length) {
+    const usableTweets = verified(tw) ? usefulTweets(tw.top_tweets) : [];
+    if (usableTweets.length) {
         html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-2">🐦 Twitter/X Key Posts Analysis</h4>
             <div class="space-y-2">`;
-        for (const t of tw.top_tweets.slice(0, 5)) {
+        for (const t of usableTweets.slice(0, 5)) {
             html += `<div class="bg-gray-800 rounded-lg p-3">
                 <div class="text-xs text-gray-200 mb-2">${esc(t.text)}</div>
                 <div class="flex flex-wrap gap-3 text-[10px] text-gray-400">
@@ -110,10 +121,14 @@ function renderSocial(sm) {
             </div>`;
         }
         html += `</div></div>`;
+    } else if (verified(tw) && tw.top_tweets && tw.top_tweets.length) {
+        html += `<div class="mb-6 rounded-lg border border-[color:var(--warm-border)] bg-white/60 p-4 text-xs text-[color:var(--ink-muted)]">
+            ${tx('The collected posts are mostly links or low-context updates, so no strategy conclusion is generated from them.', '抓到的帖子以链接或低信息量更新为主，本报告不会据此生成策略结论。')}
+        </div>`;
     }
 
     // Twitter profile summary
-    if (tw && tw.detected && tw.profile && tw.profile.name) {
+    if (verified(tw) && tw.profile && tw.profile.name) {
         html += `<div class="mb-6"><h4 class="text-sm font-semibold text-gray-300 mb-2">📊 Twitter Account Overview</h4>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <div class="bg-gray-800 rounded p-2"><div class="text-[10px] text-gray-400">Followers</div><div class="text-sm font-mono">${tw.followers ? Number(tw.followers).toLocaleString() : '?'}</div></div>

@@ -32,6 +32,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/assets/favicon-192x192.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+    <link rel="stylesheet" href="/css/report-field-help.css?v=20260829">
     <!-- Supabase config (injected by Railway env vars, only anon key is public) -->
     <meta name="supabase-url"  content="https://nkunysycqapregxubcil.supabase.co">
     <meta name="supabase-anon" content="sb_publishable_LuA9_i4yYn1ZKXzxJWY5AA_C0P6INGh">
@@ -104,7 +105,12 @@
         .research-map-card small { margin-top: 4px; color: var(--ink-muted); font-size: 10px; line-height: 1.35; }
         .research-map-number { color: var(--accent); font: 600 10px/1 "JetBrains Mono", monospace; }
         .research-map-state { margin-left: auto; color: #477f52; font-size: 12px; }.research-map-card.is-pending .research-map-state { color: var(--ink-faint); }
-        @media (max-width: 800px) { .research-map-grid { grid-template-columns: 1fr; }.research-map-card { min-height: 0; } }
+        #report-section .bg-gray-900, #report-section .bg-gray-800 { background: rgba(255,255,255,.72) !important; }
+        #report-section .border-gray-800, #report-section .border-gray-700 { border-color: var(--warm-border) !important; }
+        #report-section .text-white, #report-section .text-gray-200, #report-section .text-gray-300 { color: var(--ink) !important; }
+        #report-section .text-gray-400, #report-section .text-gray-500, #report-section .text-gray-600 { color: var(--ink-muted) !important; }
+        .research-map { position: sticky; top: 74px; z-index: 20; backdrop-filter: blur(14px); }
+        @media (max-width: 800px) { .research-map { position: static; }.research-map-grid { grid-template-columns: 1fr; }.research-map-card { min-height: 0; } }
 
         /* Animations */
         .fade-in { animation: fadeIn 0.4s ease-in; }
@@ -773,27 +779,30 @@
     <script src="/js/auth.js?v=20260820-2"></script>
     <script src="/js/referral-modal.js?v=20260820-2" defer></script>
     <script src="/js/promo-modal.js" defer></script>
-    <script src="/js/app.js?v=20260820-2"></script>
+    <script src="/js/app.js?v=20260901"></script>
     <script src="/js/render-research-map.js?v=20260722"></script>
     <script src="/js/health.js?v=20260707"></script>
     <script src="/js/render-github.js?v=20260818"></script>
-    <script src="/js/render-pr.js"></script>
+    <script src="/js/render-pr.js?v=20260901"></script>
     <script src="/js/render-funding.js"></script>
     <script src="/js/render-bizmodel.js"></script>
     <script src="/js/render-playbooks.js"></script>
     <script src="/js/render-producthunt.js"></script>
     <script src="/js/render-insights.js"></script>
-    <script src="/js/render-radar.js"></script>
-    <script src="/js/render-thesis.js"></script>
+    <script src="/js/render-radar.js?v=20260901"></script>
+    <script src="/js/render-thesis.js?v=20260901"></script>
     <script src="/js/render-references.js"></script>
     <script src="/js/render-website.js"></script>
-    <script src="/js/render-social.js"></script>
-    <script src="/js/render-traffic.js"></script>
+    <script src="/js/render-social.js?v=20260901"></script>
+    <script src="/js/render-traffic.js?v=20260901"></script>
     <script src="/js/render-pricing.js?v=20260707"></script>
     <script src="/js/render-growth.js"></script>
     <script src="/js/render-peaks.js?v=20260707"></script>
     <script src="/js/render-propagation.js?v=20260707"></script>
     <script src="/js/render-strategy.js"></script>
+    <script src="/js/report-glossary.js?v=20260829"></script>
+    <script src="/js/report-field-help.js?v=20260829"></script>
+    <script src="/js/report-modules.js?v=20260829"></script>
     <script src="/js/report-translate.js?v=20260708"></script>
 
     <!-- How it works -->
@@ -821,20 +830,20 @@
         <div class="mb-20">
             <h3 class="font-serif text-3xl text-center text-[color:var(--ink)] mb-8">See it in action</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="/report/815b183b" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                <a href="/report/76bb0316" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
                     <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
-                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">AFFiNE</div>
-                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Open-source Notion alternative · 67K GitHub stars · Strategy Radar 58/100</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Buffer</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Social publishing · positioning, channels, public growth signals and next moves</div>
                 </a>
-                <a href="/report/4d329bdd" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                <a href="/report/17323774" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
                     <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
-                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Notion</div>
-                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">The AI workspace · 509K Twitter followers · PH 2,034 votes</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Sudowrite</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">AI writing · monetization, acquisition evidence and decision brief</div>
                 </a>
-                <a href="/report/37230091" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
+                <a href="/report/b27d47be" class="card-cream p-6 hover:border-[color:var(--warm-border-strong)] transition-colors group">
                     <div class="text-[10px] uppercase tracking-[0.2em] text-[color:var(--ink-faint)] mb-2">Sample report</div>
-                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Cal.com</div>
-                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Open-source scheduling · 41K GitHub stars · Strategy Radar 50/100</div>
+                    <div class="font-serif text-2xl text-[color:var(--ink)] mb-2">Cloudflare</div>
+                    <div class="text-xs text-[color:var(--ink-muted)] leading-relaxed">Developer infrastructure · growth archaeology, distribution and evidence</div>
                 </a>
             </div>
         </div>

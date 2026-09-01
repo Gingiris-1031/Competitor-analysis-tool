@@ -1194,6 +1194,12 @@ def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
 
     def _clamp(v): return max(0, min(100, int(v)))
     def _log_scale(v, base=10): return _math.log10(max(v, 1)) if v else 0
+    def _verified(channel):
+        return bool(
+            isinstance(channel, dict)
+            and channel.get("detected") is True
+            and (channel.get("verification") or {}).get("status") == "verified"
+        )
 
     # --- 1. Product Power (产品力) ---
     ph = sections.get("producthunt", {})
@@ -1209,9 +1215,9 @@ def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
     sm = sections.get("social_media", {})
     channels = sm.get("channels", {})
     tw = channels.get("twitter", {}) if isinstance(channels, dict) else {}
-    tw_followers = tw.get("followers", 0) or 0
+    tw_followers = (tw.get("followers", 0) or 0) if _verified(tw) else 0
     yt = channels.get("youtube", {}) if isinstance(channels, dict) else {}
-    yt_subs = yt.get("subscribers", 0) or 0
+    yt_subs = (yt.get("subscribers", 0) or 0) if _verified(yt) else 0
     social_score = _clamp(
         _log_scale(tw_followers) * 15 + _log_scale(yt_subs) * 10 + 10
     )
@@ -1230,7 +1236,7 @@ def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
     stars = gh.get("stars", 0) or 0
     contributors = gh.get("contributors_count", 0) or 0
     rd = channels.get("reddit", {}) if isinstance(channels, dict) else {}
-    has_reddit = 1 if (isinstance(rd, dict) and rd.get("detected")) else 0
+    has_reddit = 1 if _verified(rd) else 0
     community_score = _clamp(
         _log_scale(stars) * 18 + _log_scale(contributors) * 10 + has_reddit * 15
     )
@@ -1255,7 +1261,7 @@ def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
 
     dimensions = [
         {"key": "product", "label": _T(lang, "Product Power", "产品力"), "score": product_score, "emoji": "🎯"},
-        {"key": "social", "label": _T(lang, "Social Influence", "社交影响力"), "score": social_score, "emoji": "📢"},
+        {"key": "social", "label": _T(lang, "Verified Social Reach", "已验证社媒触达"), "score": social_score, "emoji": "📢"},
         {"key": "seo", "label": _T(lang, "SEO Authority", "SEO 权威度"), "score": seo_score, "emoji": "🔍"},
         {"key": "community", "label": _T(lang, "Open Source / Community", "开源/社区"), "score": community_score, "emoji": "💻"},
         {"key": "content", "label": _T(lang, "Content Engine", "内容引擎"), "score": content_score, "emoji": "📝"},
@@ -1265,8 +1271,24 @@ def _compute_strategy_radar(sections: dict, lang: str = "zh") -> dict:
     total = sum(d["score"] for d in dimensions)
     avg = int(total / len(dimensions))
 
+    evidence_inputs = {
+        "producthunt": bool(ph.get("found") or ph.get("launched") or ph_votes),
+        "pricing": bool(pricing.get("found") or pricing.get("plans")),
+        "social": any(_verified(ch) for ch in channels.values()) if isinstance(channels, dict) else False,
+        "seo": bool(da or traffic),
+        "community": bool(stars or contributors or has_reddit),
+        "content": bool(features),
+        "launch": bool(total_waves or peaks_detected or ph.get("found")),
+    }
+    covered = sum(1 for value in evidence_inputs.values() if value)
     return {
         "dimensions": dimensions,
         "total_score": total,
         "avg_score": avg,
+        "methodology": _T(
+            lang,
+            "Directional public-evidence benchmark; missing or unverified signals score conservatively and are not proof of poor product quality.",
+            "公开证据的方向性基准；缺失或未验证信号按保守口径计分，不代表产品质量差。",
+        ),
+        "coverage": {"available": covered, "total": len(evidence_inputs), "inputs": evidence_inputs},
     }

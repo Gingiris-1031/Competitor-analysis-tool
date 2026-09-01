@@ -19,6 +19,7 @@ function renderThesis(thesis, score, lang) {
     const dims = (score && score.dimensions) || [];
     const overall = (score && score.overall_score) != null ? score.overall_score : (thesis.score || 0);
     const band = thesis.band || '';
+    const coverage = (score && score.evidence_coverage) || {};
 
     let lights = '';
     for (const d of dims) {
@@ -36,13 +37,16 @@ function renderThesis(thesis, score, lang) {
                 <span style="font-size:18px; color:var(--ink-faint);">/100</span>
             </div>
             <div style="flex:1; min-width:220px;">
-                <div style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:4px;">${t('核心论断 · 公开增长成熟度', 'Verdict · Public Growth Maturity')}</div>
+                <div style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:4px;">${t('核心论断 · 公开证据基准', 'Verdict · Public Evidence Benchmark')}</div>
                 <div style="font-size:14.5px; line-height:1.65; color:var(--ink);">${esc(thesis.headline)}</div>
             </div>
         </div>
         <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--warm-border);">
             ${lights}
         </div>
-        <div style="font-size:10px; color:var(--ink-faint); margin-top:10px;">${t('基于公开信号（流量 / SEO / 商业化 / 分发 / 社区势能）打分。往下看分维度诊断 →', 'Scored from public signals (traffic / SEO / commercialization / distribution / community). Dimensional diagnosis below →')}</div>
+        <div style="font-size:10px; color:var(--ink-faint); margin-top:10px;">${t(
+            `这是公开证据覆盖度的方向性基准，不是产品质量的绝对评分${coverage.total ? `；当前覆盖 ${coverage.available}/${coverage.total} 类证据` : ''}。往下看归因与缺失项 →`,
+            `This is a directional public-evidence benchmark, not an absolute product-quality score${coverage.total ? `; ${coverage.available}/${coverage.total} evidence groups available` : ''}. See attribution and missing signals below →`
+        )}</div>
     </div>`;
 }

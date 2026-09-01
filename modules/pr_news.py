@@ -26,8 +26,12 @@ async def analyze_pr_news(domain: str, product_name: str) -> dict:
     news_articles  = results[1] if isinstance(results[1], list) else []
     press_mentions = results[2] if isinstance(results[2], list) else []
 
-    # Post-filter: remove press mentions about different companies with similar names
-    press_mentions = _filter_press_by_domain(press_mentions, domain, product_name)
+    # One identity gate for every source. Previously only Brave press results
+    # were filtered, so Google News/HN could inject unrelated papers or
+    # similarly named companies into the score and AI recommendations.
+    hn_posts = _filter_mentions_by_identity(hn_posts, domain, product_name)
+    news_articles = _filter_mentions_by_identity(news_articles, domain, product_name)
+    press_mentions = _filter_mentions_by_identity(press_mentions, domain, product_name)
 
     all_mentions = _merge_mentions(hn_posts, news_articles, press_mentions)
     insights     = _gen_insights(hn_posts, news_articles, press_mentions)
@@ -267,6 +271,42 @@ def _filter_press_by_domain(press: list, domain: str, product_name: str) -> list
         # Skip: this is likely about a different company with a similar name
 
     return filtered
+
+
+def _filter_mentions_by_identity(items: list, domain: str, product_name: str) -> list:
+    """Keep only mentions with auditable evidence that they refer to the target.
+
+    Short brands collide constantly (Soku cosmetics, Soku mousepads, academic
+    terms). For those, a bare brand token is never enough: the exact domain or
+    full dotted product name must appear in the URL/title/snippet. Longer,
+    distinctive brands may also pass an exact full-name match.
+    """
+    domain_clean = re.sub(r"^www\.", "", (domain or "").lower().strip())
+    brand = re.sub(r"\.[a-z]{2,6}$", "", domain_clean)
+    product_l = (product_name or "").lower().strip()
+    generic_brand = len(re.sub(r"[^a-z0-9]", "", brand)) <= 5
+    verified = []
+    for item in items or []:
+        combined = " ".join([
+            str(item.get("url") or ""), str(item.get("title") or ""),
+            str(item.get("snippet") or ""),
+        ]).lower()
+        domain_match = bool(domain_clean and domain_clean in combined)
+        full_name_match = bool(product_l and product_l in combined)
+        distinctive_name_match = bool(
+            not generic_brand and product_l and product_l in combined
+        )
+        if not (domain_match or full_name_match or distinctive_name_match):
+            continue
+        verified.append({
+            **item,
+            "verification": {
+                "status": "verified",
+                "source": "domain_match" if domain_match else "full_name_match",
+                "confidence": 0.95 if domain_match else 0.8,
+            },
+        })
+    return verified
 
 
 def _extract_source(url: str) -> str:

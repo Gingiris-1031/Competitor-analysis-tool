@@ -1,0 +1,67 @@
+.report-field-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.report-field-help-button {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--warm-border-strong, var(--border-strong));
+    border-radius: 999px;
+    color: var(--ink-muted);
+    background: rgba(255, 255, 255, .72);
+    font: 600 .68rem/1 Inter, system-ui, sans-serif;
+    cursor: help;
+}
+
+.report-field-help-button:hover,
+.report-field-help-button:focus-visible,
+.report-field-help-button[aria-expanded="true"] {
+    color: var(--ink);
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(127, 167, 127, .18);
+}
+
+.report-field-popover {
+    position: absolute;
+    z-index: 80;
+    top: calc(100% + .55rem);
+    left: 0;
+    width: min(21rem, calc(100vw - 3rem));
+    padding: .85rem .95rem;
+    border: 1px solid var(--warm-border, var(--border));
+    border-radius: .8rem;
+    background: #fffdf8;
+    color: var(--ink);
+    box-shadow: 0 16px 40px rgba(24, 36, 31, .14);
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.report-field-popover[hidden] { display: none; }
+.report-field-popover-title,
+.report-field-popover-copy,
+.report-field-popover-caveat,
+.report-field-popover-source { display: block; }
+.report-field-popover-title { margin-bottom: .38rem; font-size: .82rem; }
+.report-field-popover-copy { color: var(--ink-muted); font-size: .76rem; line-height: 1.5; }
+.report-field-popover-caveat {
+    margin-top: .55rem;
+    padding-top: .55rem;
+    border-top: 1px solid var(--warm-border, var(--border));
+    color: var(--ink-muted);
+    font-size: .72rem;
+    line-height: 1.45;
+}
+.report-field-popover-source { margin-top: .5rem; color: var(--ink-faint); font-size: .68rem; }
+
+@media (max-width: 520px) {
+    .report-field-popover { position: fixed; top: auto; right: 1rem; bottom: 1rem; left: 1rem; width: auto; }
+}
