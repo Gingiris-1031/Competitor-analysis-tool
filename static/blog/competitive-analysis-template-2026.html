@@ -7,11 +7,11 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-QJDYKDLLVY"></script>
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-QJDYKDLLVY');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Competitive Market Analysis Template: 10 Steps + Free Sheet (2026)</title>
-    <meta name="description" content="A founder's competitive analysis template, refined across 150+ real audits. 10 steps, takes 90 minutes, includes the Google Sheet I use. Skips the McKinsey theater; keeps what actually changes the roadmap.">
+    <title>Competitive Analysis Template: Excel &amp; Google Sheets Workflow</title>
+    <meta name="description" content="Build a competitive analysis template in Excel or Google Sheets. Follow the 10-step framework, SEO comparison fields, and an illustrative report sample.">
     <meta name="keywords" content="competitive analysis template, competitor analysis framework, SaaS competitive analysis, competitor research template, competitive matrix template 2026">
-    <meta property="og:title" content="Competitive Market Analysis Template: The One I Actually Use (2026)">
-    <meta property="og:description" content="10 steps, 90 minutes, free Google Sheet. Refined across 150+ real audits. Skips the McKinsey theater.">
+    <meta property="og:title" content="Competitive Analysis Template: Excel &amp; Google Sheets Workflow">
+    <meta property="og:description" content="A 10-step comparison framework with manual spreadsheet setup, SEO fields, and an illustrative competitor report sample.">
     <meta property="og:url" content="https://www.analook.com/blog/competitive-analysis-template-2026.html">
     <meta name="twitter:image" content="https://www.analook.com/assets/og/blog-comp-analysis-template.png">
     <meta property="og:image" content="https://www.analook.com/assets/og/blog-comp-analysis-template.png">
@@ -43,7 +43,7 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
         "@context": "https://schema.org",
         "@type": "HowTo",
         "name": "Competitive Analysis: 10-Step Template (2026)",
-        "description": "A founder-friendly competitive analysis workflow that takes 90 minutes per competitor, surfaces actionable strategy decisions, and skips the McKinsey theater.",
+        "description": "A 10-step competitive analysis workflow with manual Excel and Google Sheets setup, an SEO competitor analysis template, and an illustrative report sample.",
         "totalTime": "PT90M",
         "estimatedCost": {"@type": "MonetaryAmount", "currency": "USD", "value": "0"},
         "step": [
@@ -69,27 +69,27 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
             {"@type": "Question", "name": "What's the difference between a competitive analysis and a feature matrix?", "acceptedAnswer": {"@type": "Answer", "text": "A feature matrix lists features your tool has vs. theirs. It's a sales tool — useful in a head-to-head pitch. A competitive analysis is a strategy tool — it answers 'where should we compete and where should we avoid', which features alone can't tell you. Most founders accidentally build the feature matrix when they need the strategy tool, then wonder why nothing in their roadmap changes after the exercise."}},
             {"@type": "Question", "name": "How many competitors should I analyze?", "acceptedAnswer": {"@type": "Answer", "text": "5-7 using the 3-bucket rule: 2 direct (same problem, same ICP), 2 adjacent (same problem, different ICP, or vice versa), 1-2 substitutes (different category that solves the same job). Above 7 you start adding noise — competitors that don't really compete for your customer's attention or budget, which dilute the strategic signal."}},
             {"@type": "Question", "name": "How often should I refresh competitive analysis?", "acceptedAnswer": {"@type": "Answer", "text": "Every 90 days for the full sweep, plus event-driven refreshes whenever a competitor raises a round, launches a major feature, repositions, or starts a paid acquisition push. Beyond 90 days, the data is too stale to inform strategy — competitor pricing, positioning, and channel mix shift faster than that in 2026."}},
-            {"@type": "Question", "name": "Should I use a free template or a paid competitive intelligence tool?", "acceptedAnswer": {"@type": "Answer", "text": "Start free — the Google Sheet template in this post handles 95% of founder use cases. Upgrade to a paid tool (Crayon, Klue, or a multi-source aggregator like Analook) when (a) you have a dedicated CI / product marketing role, (b) the velocity of competitor changes is high enough that quarterly manual refresh isn't fast enough, or (c) you're doing competitive enablement for a sales team. Most pre-Series-A founders don't hit any of these."}}
+            {"@type": "Question", "name": "Should I use a free template or a paid competitive intelligence tool?", "acceptedAnswer": {"@type": "Answer", "text": "Start with the manual Excel or Google Sheets setup in this post for a focused comparison. Consider paid software when you need ongoing monitoring, a dedicated competitive intelligence workflow, or sales battlecards. Choose by the research question, evidence requirements, and review cadence."}}
         ]
     }
     </script>
     <style>
-        .prose h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 1.875rem; font-weight: 400; font-style: italic; color: #f5f1eb; margin-top: 3rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
-        .prose h3 { font-size: 1.125rem; font-weight: 600; color: #d1d5db; margin-top: 2rem; margin-bottom: 0.5rem; }
-        .prose p { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; }
-        .prose ul, .prose ol { color: #b8b8b3; font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; padding-left: 1.5rem; }
+        .prose h2 { font-family: "Instrument Serif", Georgia, serif; font-size: 1.875rem; font-weight: 400; font-style: italic; color: var(--ink); margin-top: 3rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
+        .prose h3 { font-size: 1.125rem; font-weight: 600; color: var(--ink); margin-top: 2rem; margin-bottom: 0.5rem; }
+        .prose p { color: var(--ink-muted); font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; }
+        .prose ul, .prose ol { color: var(--ink-muted); font-size: 1rem; line-height: 1.8; margin-bottom: 1.25rem; padding-left: 1.5rem; }
         .prose li { margin-bottom: 0.5rem; }
-        .prose strong { color: #f5f1eb; font-weight: 600; }
-        .prose a { color: #FB923C; text-decoration: underline; text-underline-offset: 3px; }
-        .prose a:hover { color: #FDBA74; }
+        .prose strong { color: var(--ink); font-weight: 600; }
+        .prose a { color: #355f4b; text-decoration: underline; text-underline-offset: 3px; }
+        .prose a:hover { color: #294b3b; }
         .prose table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
-        .prose th { text-align: left; padding: 0.625rem 0.75rem; color: #FB923C; border-bottom: 1px solid rgba(255,255,255,0.15); font-weight: 600; }
-        .prose td { padding: 0.625rem 0.75rem; color: #d1d5db; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .prose blockquote { border-left: 3px solid #FB923C; padding-left: 1.25rem; margin: 1.5rem 0; color: #b8b8b3; font-style: italic; }
-        .prose code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: #FDBA74; }
+        .prose th { text-align: left; padding: 0.625rem 0.75rem; color: #355f4b; border-bottom: 1px solid var(--border); font-weight: 600; }
+        .prose td { padding: 0.625rem 0.75rem; color: var(--ink); border-bottom: 1px solid var(--border); }
+        .prose blockquote { border-left: 3px solid #FB923C; padding-left: 1.25rem; margin: 1.5rem 0; color: var(--ink-muted); font-style: italic; }
+        .prose code { background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 0.85em; color: #294b3b; }
     </style>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.analook.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.analook.com/blog/"}, {"@type": "ListItem", "position": 3, "name": "The Competitive Analysis Template I Actually Use (2026, 10 steps + free sheet)", "item": "https://www.analook.com/blog/competitive-analysis-template-2026.html"}]}
+{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Home", "item": "https://www.analook.com/"}, {"@type": "ListItem", "position": 2, "name": "Blog", "item": "https://www.analook.com/blog/"}, {"@type": "ListItem", "position": 3, "name": "The Competitive Analysis Template I Actually Use (2026, 10 steps + spreadsheet setup)", "item": "https://www.analook.com/blog/competitive-analysis-template-2026.html"}]}
 </script>
     <script src="/js/posthog.js?v=20260814"></script>
 </head>
@@ -107,7 +107,7 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
         <article class="prose">
             <p class="text-xs text-[color:var(--ink-faint)] mb-2 font-mono">June 11, 2026 · 13 min read · by <a href="https://x.com/WeiYipei">Iris Wei</a></p>
 
-            <h1 class="font-serif text-4xl md:text-5xl leading-[0.95] tracking-tight text-white mb-5 mt-0">The Competitive Analysis Template I Actually Use <em class="italic font-normal" style="color:#FB923C">(2026, 10 steps + free sheet)</em></h1>
+            <h1 class="font-serif text-4xl md:text-5xl leading-[0.95] tracking-tight text-white mb-5 mt-0">The Competitive Analysis Template I Actually Use <em class="italic font-normal" style="color:#FB923C">(2026, 10 steps + spreadsheet setup)</em></h1>
 
             <p class="text-lg text-[color:var(--ink-muted)] mb-8 leading-relaxed">In March 2026, a YC founder I was advising sent me a 47-page competitive analysis their team had spent two weeks producing. Their conclusion: "we're better on 14 of 22 features." Their roadmap after the exercise: unchanged. Here's the 10-step template I send people now — 90 minutes per competitor, designed to actually change what you ship.</p>
 
@@ -253,15 +253,49 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
                 <p>If the analysis is older than 90 days, treat it as historical context, not strategic input.</p>
             </div>
 
-            <h2>The free Google Sheet template</h2>
+            <h2 id="spreadsheet-workflow">Competitive analysis template: Excel and Google Sheets setup</h2>
+            <p>For a competitor analysis template, Excel gives you a local workbook with filters and formulas; Google Sheets makes shared review easier. You can recreate the comparison matrix below in either tool. This is a manual spreadsheet workflow, not a built-in Analook spreadsheet export.</p>
+            <h3>Competitive analysis template: Excel comparison matrix</h3>
+            <p>Create one row per competitor and columns for domain, target audience, positioning, pricing, acquisition channel, evidence URL, collection date, confidence, and next action. Freeze the header row, filter by competitor, and keep unknown values distinct from zero. Paste selected findings from a report manually and retain the original source links.</p>
+            <h3>Competitive analysis template: Google Sheets team review</h3>
+            <p>Use the same columns in a shared sheet. Add an owner and review date to each proposed action, and use comments to challenge assumptions before changing the roadmap. For recurring comparisons, keep dated snapshots so a new run does not overwrite the previous baseline.</p>
 
-            <p>I put the actual sheet here so you can copy it: <a href="https://docs.google.com/spreadsheets/d/1analook-competitive-analysis-template-2026" target="_blank" rel="noopener">→ Make a copy of the Competitive Analysis Template (Google Sheets)</a>. Sheets included:</p>
+            <h2 id="seo-template">SEO competitor analysis template: fields to compare</h2>
+            <p>Add an SEO tab when organic search is the decision you need to make. Use the <a href="/blog/competitor-seo-analysis-guide.html">competitive intelligence for SEO guide</a> to collect the evidence for these fields.</p>
+            <div class="overflow-x-auto">
+                <table>
+                    <caption class="text-left text-sm text-[color:var(--ink-muted)] mb-2">Suggested columns for your manual SEO comparison sheet</caption>
+                    <thead><tr><th>Field</th><th>What to record</th><th>Why it matters</th></tr></thead>
+                    <tbody>
+                        <tr><td>Competitor and page URL</td><td>Domain, page type, and source link</td><td>Compare equivalent pages and keep findings traceable</td></tr>
+                        <tr><td>Keyword and search intent</td><td>Target query, audience, and question answered</td><td>Separate traffic opportunities from irrelevant volume</td></tr>
+                        <tr><td>Visibility and evidence</td><td>Observed ranking or estimate, provider, and date</td><td>Avoid mixing measurements from different time windows</td></tr>
+                        <tr><td>Content gap</td><td>Missing example, explanation, comparison, or proof</td><td>Identify a concrete improvement you can publish</td></tr>
+                        <tr><td>Priority and next action</td><td>Business value, confidence, owner, and review date</td><td>Turn the comparison into an accountable task</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 id="seo-report-sample">SEO competitor analysis report sample</h2>
+            <p><strong>Illustrative example, not measured competitor data:</strong> two rival buying guides answer the same product-selection query. Both list features, but neither explains migration steps. Your report can record the gap without inventing their traffic or revenue.</p>
+            <ul>
+                <li><strong>Question:</strong> which content improvement could help a buyer choose?</li>
+                <li><strong>Evidence:</strong> save both page URLs, the review date, and the sections examined.</li>
+                <li><strong>Finding:</strong> migration requirements are missing from both guides.</li>
+                <li><strong>Limitation:</strong> page inspection alone does not establish ranking potential or conversion lift.</li>
+                <li><strong>Action:</strong> draft a sourced migration checklist and review its performance after publication.</li>
+            </ul>
+            <p>For an actual product brief, browse the <a href="/reports/">public competitive intelligence reports</a>, then copy the relevant evidence into your sheet.</p>
+
+            <h2>Build your workbook: seven suggested tabs</h2>
+
+            <p>Create a blank workbook in Excel or Google Sheets and add these seven tabs. Use the fields above as your starting point, then adapt them to the decision you need to make:</p>
 
             <ol>
                 <li><strong>0. Strategic question</strong> — top of every analysis, forces step 1</li>
-                <li><strong>1. Competitor list</strong> — with the 3-bucket tags pre-filled as a dropdown</li>
+                <li><strong>1. Competitor list</strong> — add a dropdown for the three competitor buckets</li>
                 <li><strong>2. Data spine</strong> — one row per competitor × the 5 strategic dimensions</li>
-                <li><strong>3. Intensity scores</strong> — auto-summed columns + rows so you see crowded vs. open dimensions at a glance</li>
+                <li><strong>3. Intensity scores</strong> — add row and column sums to compare crowded and open dimensions</li>
                 <li><strong>4. Wedge worksheet</strong> — the gut-check questions for step 7</li>
                 <li><strong>5. Stance decisions</strong> — compete / differentiate / partner / avoid per competitor</li>
                 <li><strong>6. Sprint commitments</strong> — the 2-3 actions that go into the next planning meeting</li>
@@ -277,7 +311,7 @@ body{font-family:Inter,-apple-system,system-ui,sans-serif;background:var(--bg);c
 
             <h2>When to use a tool instead of the sheet</h2>
 
-            <p>The sheet handles 95% of founder use cases. Upgrade to a competitive intelligence tool when:</p>
+            <p>A manual sheet works well for a focused comparison. Consider a competitive intelligence tool when:</p>
 
             <ol>
                 <li>You have a dedicated CI / product marketing role whose job is competitive monitoring (Crayon, Klue — enterprise category)</li>
