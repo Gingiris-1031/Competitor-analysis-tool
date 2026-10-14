@@ -125,3 +125,22 @@ def test_twitter_summary_does_not_use_an_unrelated_social_channel():
     assert "social.twitter || social.x" in summary
     assert "twitterChannel.verification?.status === 'verified'" in summary
     assert "Object.values(social).filter" in summary
+
+
+def test_unknown_report_pages_return_noindex_404_instead_of_homepage_shell():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    helper = source[source.index("async def _serve_report_shell"):]
+    helper = helper[:helper.index("def _render_gallery_cards")]
+
+    assert "status_code=404" in helper
+    assert '"X-Robots-Tag": "noindex, nofollow"' in helper
+    assert '<meta name="robots" content="noindex,nofollow">' in helper
+
+
+def test_ci_market_research_page_tracks_organic_cta_and_current_metadata():
+    page = (ROOT / "static/research/competitive-intelligence-market-2026.html").read_text(encoding="utf-8")
+
+    assert "14 Best Competitive Intelligence Tools Compared (2026)" in page
+    assert '"dateModified": "2026-10-14"' in page
+    assert "seo_cta_click" in page
+    assert "utm_source=ci_market_report" in page

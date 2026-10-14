@@ -3667,13 +3667,28 @@ def _report_seo(product_name: str, domain: str, zh: bool):
 
 
 async def _serve_report_shell(shell_path: str, job_id: str, zh: bool):
-    """Serve the SPA shell with per-report SEO head injected. Falls back to the
-    plain shell if the report can't be found (SPA still renders client-side)."""
+    """Serve the SPA shell with per-report SEO head injected.
+
+    Unknown report IDs return a real noindex 404 instead of the homepage shell.
+    This keeps typo and bot-generated URLs out of the search index.
+    """
     from starlette.responses import HTMLResponse
     try:
         meta = await _lookup_report_meta(job_id)
         if not meta:
-            return FileResponse(shell_path)
+            lang = "zh-CN" if zh else "en"
+            title = "报告不存在 | Analook" if zh else "Report not found | Analook"
+            message = "该报告不存在或已被删除。" if zh else "This report does not exist or has been removed."
+            return HTMLResponse(
+                content=(
+                    f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
+                    '<meta name="robots" content="noindex,nofollow">'
+                    f'<title>{title}</title></head><body><main><h1>{title}</h1>'
+                    f'<p>{message}</p><p><a href="/">Analook</a></p></main></body></html>'
+                ),
+                status_code=404,
+                headers={"X-Robots-Tag": "noindex, nofollow"},
+            )
         with open(shell_path, "r", encoding="utf-8") as f:
             htmldoc = f.read()
         name = meta["product_name"]
