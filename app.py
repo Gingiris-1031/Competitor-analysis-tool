@@ -774,8 +774,13 @@ async def revoke_mcp_key(key_id: str, request: Request):
     return {"revoked": True}
 
 
-def _load_persisted_report(job_id: str) -> dict | None:
-    """Load report from disk → InsForge → legacy Supabase."""
+def _load_persisted_report_record(job_id: str) -> dict | None:
+    """Load one complete report record from disk → InsForge → Supabase.
+
+    Keeping metadata and report JSON on one repository path prevents a report
+    from being readable through ``/api/report`` but returning 404 on its SSR
+    page after a deploy or when it only exists in InsForge.
+    """
     # Disk
     _reports_dir = os.path.join(os.path.dirname(__file__), "reports")
     path = os.path.join(_reports_dir, f"{job_id}.json")
@@ -783,7 +788,7 @@ def _load_persisted_report(job_id: str) -> dict | None:
         try:
             with open(path) as f:
                 data = _json.load(f)
-            return data.get("report")
+            return data
         except Exception:
             pass
     # InsForge (primary for new reports)
@@ -791,7 +796,7 @@ def _load_persisted_report(job_id: str) -> dict | None:
         from modules.insforge_client import get_report_record_sync
         record = get_report_record_sync(job_id)
         if record and record.get("report"):
-            return record["report"]
+            return record
     except Exception:
         pass
 
@@ -800,12 +805,20 @@ def _load_persisted_report(job_id: str) -> dict | None:
         from modules.supabase_client import get_supabase
         sb = get_supabase()
         if sb:
-            result = sb.table("reports").select("report").eq("id", job_id).limit(1).execute()
+            result = sb.table("reports").select(
+                "id,url,product_name,report,markdown,is_public,status,created_at"
+            ).eq("id", job_id).limit(1).execute()
             if result.data and result.data[0].get("report"):
-                return result.data[0]["report"]
+                return result.data[0]
     except Exception:
         pass
     return None
+
+
+def _load_persisted_report(job_id: str) -> dict | None:
+    """Backward-compatible report-only view of the unified record loader."""
+    record = _load_persisted_report_record(job_id)
+    return record.get("report") if record else None
 
 
 class AnalyzeRequest(BaseModel):
@@ -2623,6 +2636,7 @@ async def _run_analysis(job_id: str):
                 "producthunt": job["results"].get("producthunt", {}),
                 "growth_analysis": job["results"].get("growth_analysis", {}),
                 "traffic_peaks": job["results"].get("traffic_peaks", {}),
+                "github_oss": job["results"].get("github_oss", {}),
             },
             "meta": {"product_name": product_name, "url": url},
         })
@@ -3621,30 +3635,16 @@ import re as _seo_re
 
 
 async def _lookup_report_meta(job_id: str):
-    """3-tier lookup (memory → disk → Supabase) → {product_name, url} or None."""
+    """Unified lookup (memory → disk → InsForge → Supabase)."""
     product_name = url = None
     job = jobs.get(job_id)
     if job:
         product_name, url = job.get("product_name"), job.get("url")
     if not product_name:
         try:
-            path = os.path.join(REPORTS_DIR, f"{job_id}.json")
-            if os.path.exists(path):
-                with open(path, "r", encoding="utf-8") as f:
-                    d = _json.load(f)
-                product_name, url = d.get("product_name"), d.get("url")
-        except Exception:
-            pass
-    if not product_name:
-        try:
-            from modules.supabase_client import get_supabase
-            sb = get_supabase()
-            if sb:
-                res = sb.table("reports").select("product_name,url") \
-                    .eq("id", job_id).limit(1).execute()
-                if res.data:
-                    product_name = res.data[0].get("product_name")
-                    url = res.data[0].get("url")
+            record = await asyncio.to_thread(_load_persisted_report_record, job_id)
+            if record:
+                product_name, url = record.get("product_name"), record.get("url")
         except Exception as e:
             log.warning("_lookup_report_meta failed for %s: %s", job_id, e)
     if not product_name:

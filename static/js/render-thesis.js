@@ -20,9 +20,10 @@ function renderThesis(thesis, score, lang) {
     const overall = (score && score.overall_score) != null ? score.overall_score : (thesis.score || 0);
     const band = thesis.band || '';
     const coverage = (score && score.evidence_coverage) || {};
+    const scoreDisplayable = thesis.score_displayable !== false;
 
     let lights = '';
-    for (const d of dims) {
+    for (const d of (scoreDisplayable ? dims : [])) {
         const col = gradeColor[d.grade] || '#9ca3af';
         lights += `<div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-muted);">
             <span style="width:9px; height:9px; border-radius:50%; background:${col}; box-shadow:0 0 6px ${col}80;"></span>
@@ -33,15 +34,15 @@ function renderThesis(thesis, score, lang) {
     <div style="background:linear-gradient(135deg,rgba(255,255,255,.9),rgba(243,245,236,.88)); border:1px solid var(--warm-border); border-radius:18px; padding:22px 24px; margin-bottom:20px; box-shadow:0 16px 38px rgba(53,72,54,.06);">
         <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
             <div style="display:flex; align-items:baseline; gap:4px;">
-                <span style="font-family:'Instrument Serif',Georgia,serif; font-size:52px; line-height:1; color:var(--accent);">${overall}</span>
-                <span style="font-size:18px; color:var(--ink-faint);">/100</span>
+                <span style="font-family:'Instrument Serif',Georgia,serif; font-size:52px; line-height:1; color:var(--accent);">${scoreDisplayable ? overall : '—'}</span>
+                <span style="font-size:18px; color:var(--ink-faint);">${scoreDisplayable ? '/100' : t('证据不足', 'insufficient evidence')}</span>
             </div>
             <div style="flex:1; min-width:220px;">
                 <div style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:4px;">${t('核心论断 · 公开证据基准', 'Verdict · Public Evidence Benchmark')}</div>
                 <div style="font-size:14.5px; line-height:1.65; color:var(--ink);">${esc(thesis.headline)}</div>
             </div>
         </div>
-        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--warm-border);">
+        <div style="display:${lights ? 'flex' : 'none'}; gap:18px; flex-wrap:wrap; margin-top:16px; padding-top:14px; border-top:1px solid var(--warm-border);">
             ${lights}
         </div>
         <div style="font-size:10px; color:var(--ink-faint); margin-top:10px;">${t(

@@ -630,10 +630,21 @@ def _confidence_emoji(src: str) -> str:
 
 
 def _apply_confidence_markers(prose: str, facts: dict) -> str:
-    """Replace [fact:KEY] markers with a small confidence badge inline."""
+    """Replace valid fact markers and collapse unresolved ones into one note.
+
+    Repeating ``source: unknown`` dozens of times made the report look broken
+    without helping the reader. Unresolved markers now remain explicitly
+    disclosed once, while verified markers keep their per-claim provenance.
+    """
+    unresolved = 0
+
     def repl(m):
+        nonlocal unresolved
         key = m.group(1)
         src = _resolve_source(facts, key)
+        if src == _UNKNOWN:
+            unresolved += 1
+            return ""
         emoji = _confidence_emoji(src)
         # Render as `🟢` only (the prose already has the value text inline).
         return f"{emoji}<sup class=\"src-tag\" title=\"source: {src}\">{src[:4]}</sup>"
@@ -646,6 +657,11 @@ def _apply_confidence_markers(prose: str, facts: dict) -> str:
             "🟢 high-trust API data (DataForSEO / GitHub / TinyFish / PH) · "
             "🟡 scraped from homepage / Wayback / social · "
             "🔴 inferred — verify before quoting."
+        )
+    if unresolved:
+        out += (
+            f"\n\n> ⚪ {unresolved} claim reference(s) could not be matched to the "
+            "structured evidence set; treat those claims as unverified."
         )
     return out
 
@@ -988,12 +1004,12 @@ async def generate_ai_summary(product_name: str, url: str, website: dict, social
         # append the legend footer. Stays in `content` so the existing
         # report renderer doesn't need to change.
         try:
+            cited = set(_FACT_REF_RE.findall(result["content"]))
             result["content"] = _apply_confidence_markers(
                 result["content"], facts
             )
             # Count how many distinct fact keys were actually cited — a
             # quick proxy for "did the LLM follow the citation rule?"
-            cited = set(_FACT_REF_RE.findall(result["content"]))
             result["citations_count"] = len(cited)
             if cited and facts:
                 log.info("Pass-3 confidence applied: %d distinct fact citations",
@@ -1694,4 +1710,3 @@ def _fallback_summary() -> dict:
                     "⚙️ AI 分析需配置 DEEPSEEK_API_KEY 或 OPENROUTER_API_KEY 环境变量。"),
         "source": "fallback",
     }
-

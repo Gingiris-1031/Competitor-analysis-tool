@@ -3,9 +3,17 @@
 var _LANG_ZH = (typeof window !== 'undefined') && (window._ANALOOK_LANG === 'zh' || location.pathname.startsWith('/zh'));
 var _t = _t || function (en, zh) { return _LANG_ZH ? zh : en; };
 let currentJobId = null;
+window.currentJobId = null;
 let analysisStartTime = null;
 let timerInterval = null;
 let currentMode = 'url'; // 'url' | 'text' | 'pdf'
+
+function setCurrentJobId(jobId) {
+    currentJobId = jobId || null;
+    // Language navigation lives in the page shell, so expose only this small
+    // piece of state instead of making the whole app module global.
+    window.currentJobId = currentJobId;
+}
 
 // ── URL validation ──────────────────────────────────────────────────────────
 function normalizeUrl(raw) {
@@ -251,7 +259,7 @@ async function startAnalysis() {
             throw new Error(err.detail || _t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         }
         const data = await resp.json();
-        currentJobId = data.job_id;
+        setCurrentJobId(data.job_id);
         saveToHistory(data.job_id, normalized, name || normalized);
         pollStatus();
     } catch (e) {
@@ -276,7 +284,7 @@ async function startTextAnalysis() {
         });
         if (!resp.ok) throw new Error(_t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         const data = await resp.json();
-        currentJobId = data.job_id;
+        setCurrentJobId(data.job_id);
         saveToHistory(data.job_id, _t(`[text] ${name}`, `[描述] ${name}`), name);
         pollStatus();
     } catch (e) {
@@ -302,7 +310,7 @@ async function startPdfAnalysis() {
             throw new Error(err.error || _t(`Server error ${resp.status}`, `服务器错误 ${resp.status}`));
         }
         const data = await resp.json();
-        currentJobId = data.job_id;
+        setCurrentJobId(data.job_id);
         saveToHistory(data.job_id, `[PDF] ${name}`, name);
         pollStatus();
     } catch (e) {
@@ -364,7 +372,7 @@ async function cancelAnalysis() {
     document.getElementById('input-section').classList.remove('hidden');
     document.getElementById('hero-section')?.classList.remove('hidden');
     if (btn) { btn.classList.add('hidden'); btn.disabled = false; btn.textContent = _t('⏹ Stop', '⏹ 停止分析'); }
-    currentJobId = null;
+    setCurrentJobId(null);
     renderHistory();
 }
 
@@ -612,7 +620,7 @@ function newAnalysis() {
 
 // ── Load shared report ──────────────────────────────────────────────────────
 async function loadSharedReport(jobId) {
-    currentJobId = jobId;
+    setCurrentJobId(jobId);
     document.getElementById('input-section').classList.add('hidden');
     document.getElementById('hero-section')?.classList.add('hidden');
     document.getElementById('history-section')?.classList.add('hidden');

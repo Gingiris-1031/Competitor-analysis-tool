@@ -1,11 +1,10 @@
-"""InsForge REST 客户端 — 评分卡（scorecards）的存储后端（strangler-fig 第一块）。
+"""Server-only InsForge REST client for Analook's staged migration.
 
-背景：Supabase dashboard 绑在已封的旧 GitHub 上、无法登录建表。评分卡是全新、
-无 auth 依赖、无存量数据的独立功能，正好作为迁移 InsForge 的第一块试验田——
-scorecards 直接生在 InsForge，analook 其余（reports/profiles/auth）继续留 Supabase。
-
-开关：设了 INSFORGE_URL + INSFORGE_API_KEY 就走 InsForge，否则回落 Supabase
-（supabase_client 里的三个评分卡函数据此委派）。全部只碰 scorecards，零破坏其余表。
+InsForge is already primary for reports, scorecards, MCP keys/accounts and
+shared internal cache. Legacy account profiles and credit events are mirrored
+here for reconciliation, while Supabase remains the temporary authority for
+browser auth, subscriptions and credit balances. Never expose the project API
+key or these table endpoints directly to browsers.
 
 表结构与 Supabase 版一致（id TEXT 主键存分享 hash），已用 CLI 建好：
   npx @insforge/cli db query "CREATE TABLE scorecards (id TEXT PRIMARY KEY, ...)"
@@ -62,7 +61,7 @@ def _rpc_url(name: str) -> str:
 
 
 def reports_dual_write_enabled() -> bool:
-    """Opt-in mirror for reports while Supabase remains the source of truth."""
+    """Legacy compatibility switch retained for older deployments."""
     return enabled() and (os.environ.get("INSFORGE_REPORTS_DUAL_WRITE") or "").lower() in {
         "1", "true", "yes", "on"
     }

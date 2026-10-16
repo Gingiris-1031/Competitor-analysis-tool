@@ -3,8 +3,10 @@ import unittest
 from bs4 import BeautifulSoup
 
 from modules.pricing import _extract_pricing
-from modules.report import _build_references
+from modules.report import _build_references, _build_thesis
 from modules.benchmarks import extract_public_signals
+from modules.ai_summary import _apply_confidence_markers
+from modules.growth_strategy import recommend_playbooks
 from modules.pr_news import _filter_mentions_by_identity
 from modules.website import _extract_social_links
 
@@ -63,6 +65,37 @@ class ReportTrustTests(unittest.TestCase):
         self.assertEqual(links["twitter"]["handle"], "producthq")
         self.assertEqual(links["twitter"]["weight"], 2)
         self.assertEqual(links["twitter"]["source"], "footer_link")
+
+    def test_thesis_with_sparse_evidence_does_not_publish_an_absolute_score(self):
+        thesis = _build_thesis("Example", {
+            "growth_score": {
+                "overall_score": 32,
+                "dimensions": [{"key": "traffic", "subscore": 15}],
+                "evidence_coverage": {"available": 2, "total": 5},
+            }
+        }, "en")
+        self.assertFalse(thesis["score_displayable"])
+        self.assertIn("2/5", thesis["headline"])
+        self.assertIn("misleading", thesis["headline"])
+
+    def test_unknown_fact_references_are_collapsed_into_one_disclosure(self):
+        rendered = _apply_confidence_markers(
+            "A [fact:missing.one] B [fact:missing.two] C [fact:traffic.visits]",
+            {"traffic": {"visits": {"v": 12, "src": "dataforseo"}}},
+        )
+        self.assertNotIn("source: unknown", rendered)
+        self.assertEqual(rendered.count("could not be matched"), 1)
+        self.assertIn("2 claim reference(s)", rendered)
+        self.assertIn("source: dataforseo", rendered)
+
+    def test_failed_github_probe_blocks_oss_recommendation_evidence(self):
+        result = recommend_playbooks({"sections": {
+            "social_media": {"channels": {"github": {
+                "detected": True, "stars_total": 33000, "public_repos": 23,
+            }}},
+            "github_oss": {"found": False},
+        }})
+        self.assertEqual(result["all_scores"]["gingiris-opensource"], 0)
 
 
 if __name__ == "__main__":

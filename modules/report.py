@@ -166,6 +166,8 @@ def _build_thesis(product_name: str, sections: dict, lang: str = "zh") -> dict:
     gs = sections.get("growth_score") or {}
     score = gs.get("overall_score", 0)
     dims = gs.get("dimensions") or []
+    coverage = gs.get("evidence_coverage") or {}
+    score_displayable = int(coverage.get("available") or 0) >= 4
     strong = max(dims, key=lambda d: d.get("subscore", 0), default=None) if dims else None
     weak = min(dims, key=lambda d: d.get("subscore", 0), default=None) if dims else None
     # 维度标签按语言本地化（key 语言中性；避免 EN thesis 混中文）
@@ -180,7 +182,18 @@ def _build_thesis(product_name: str, sections: dict, lang: str = "zh") -> dict:
             return ""
         return _dim_label.get(d.get("key"), (d.get("label", ""), d.get("label", "")))[0 if zh else 1]
 
-    if zh:
+    if not score_displayable:
+        band = "证据不足" if zh else "Insufficient evidence"
+        available = int(coverage.get("available") or 0)
+        total = int(coverage.get("total") or 5)
+        headline = (
+            f"{product_name} 当前只有 {available}/{total} 类公开证据，暂不给出绝对成熟度分数。"
+            if zh else
+            f"Only {available}/{total} public evidence groups are available for {product_name}; "
+            "an absolute maturity score would be misleading."
+        )
+        strong = weak = None
+    elif zh:
         band = ("强（护城河成型）" if score >= 80 else "健康（可持续）" if score >= 65
                 else "成长中（有单点强项）" if score >= 45 else "早期/虚火（地基薄）")
         headline = f"{product_name} 公开增长成熟度 {score}/100（{band}）。"
@@ -194,7 +207,8 @@ def _build_thesis(product_name: str, sections: dict, lang: str = "zh") -> dict:
         if strong and weak:
             headline += f"Strongest: {_dl(strong)}; biggest gap: {_dl(weak)}. "
         headline += "See the dimensional diagnosis below."
-    return {"score": score, "band": band, "headline": headline,
+    return {"score": score, "score_displayable": score_displayable,
+            "band": band, "headline": headline,
             "strongest": strong, "weakest": weak}
 
 

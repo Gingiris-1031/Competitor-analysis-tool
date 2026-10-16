@@ -77,13 +77,28 @@ def test_bilingual_social_and_media_renderers_hide_unverified_evidence():
         assert "verification?.status === 'verified'" in script
 
 
-def test_sample_report_links_use_current_public_report_ids():
-    expected_ids = ("76bb0316", "17323774", "b27d47be")
-    stale_ids = ("815b183b", "4d329bdd", "37230091")
+def test_sample_report_links_use_stable_static_reports():
+    expected_paths = ("/reports/linear.html", "/reports/cursor.html", "/reports/vercel.html")
+    stale_ids = ("76bb0316", "17323774", "b27d47be", "815b183b", "4d329bdd", "37230091")
     for relative_path in ("static/index.html", "static/zh/index.html"):
         html = (ROOT / relative_path).read_text(encoding="utf-8")
-        assert all(f'/report/{report_id}' in html for report_id in expected_ids)
+        assert all(path in html for path in expected_paths)
         assert all(f'/report/{report_id}' not in html for report_id in stale_ids)
+
+
+def test_report_meta_lookup_uses_the_same_insforge_aware_record_loader():
+    source = (ROOT / "app.py").read_text(encoding="utf-8")
+    helper = source[source.index("async def _lookup_report_meta"):]
+    helper = helper[:helper.index("def _report_seo")]
+    assert "_load_persisted_report_record" in helper
+    assert "asyncio.to_thread" in helper
+    assert 'sb.table("reports")' not in helper
+
+
+def test_language_switch_job_state_is_explicitly_shared_with_page_shell():
+    script = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
+    assert "function setCurrentJobId(jobId)" in script
+    assert "window.currentJobId = currentJobId" in script
 
 
 def test_report_rendering_uses_a_shared_module_registry():

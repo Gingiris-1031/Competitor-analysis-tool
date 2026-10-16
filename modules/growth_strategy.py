@@ -8,7 +8,7 @@ PLAYBOOKS = {
         "label": "GTM 打榜 Playbook",
         "label_en": "GTM Launch Playbook",
         "emoji": "🚀",
-        "url": "https://github.com/Gingiris/gingiris-launch",
+        "url": "https://clawhub.ai/user/gingiris",
         "description": "Product Hunt 多波 Launch 全流程指南 — 从 L-6 周倒计时到发布后复盘",
         "description_en": "End-to-end multi-wave Product Hunt launch guide — from the L-6-week countdown to the post-launch retro",
     },
@@ -17,7 +17,7 @@ PLAYBOOKS = {
         "label": "B2B 增长 Playbook",
         "label_en": "B2B Growth Playbook",
         "emoji": "🏢",
-        "url": "https://github.com/Gingiris/gingiris-b2b-growth",
+        "url": "https://clawhub.ai/user/gingiris",
         "description": "B2B SaaS 从 0 到 100 企业客户的销售与渠道增长手册",
         "description_en": "Sales & channel-growth handbook for B2B SaaS, from 0 to 100 enterprise customers",
     },
@@ -26,7 +26,7 @@ PLAYBOOKS = {
         "label": "OSS 冷启动 Playbook",
         "label_en": "OSS Cold-Start Playbook",
         "emoji": "⭐",
-        "url": "https://github.com/Gingiris/gingiris-opensource",
+        "url": "https://clawhub.ai/user/gingiris",
         "description": "开源项目从 0 到 60K stars 的社区冷启动完整路线图",
         "description_en": "Full community cold-start roadmap for open-source projects, from 0 to 60K stars",
     },
@@ -35,7 +35,7 @@ PLAYBOOKS = {
         "label": "增长工具库",
         "label_en": "Growth Tools Library",
         "emoji": "🛠️",
-        "url": "https://github.com/Gingiris/growth-tools",
+        "url": "https://tools.gingiris.com/skills/",
         "description": "增长黑客精选工具集合，配套任意 Playbook 使用",
         "description_en": "Curated growth-hacking toolkit to pair with any Playbook",
     },
@@ -75,6 +75,7 @@ def recommend_playbooks(report_data: dict) -> dict:
     ph = sections.get("producthunt") or {}
     growth = sections.get("growth_analysis") or {}
     peaks = sections.get("traffic_peaks") or {}
+    github_oss = sections.get("github_oss") or {}
     product_name = report_data.get("meta", {}).get("product_name", "") or report_data.get("product_name", "")
     url = report_data.get("meta", {}).get("url", "") or report_data.get("url", "")
 
@@ -202,8 +203,12 @@ def recommend_playbooks(report_data: dict) -> dict:
     # ── gingiris-opensource ──────────────────────────────────────────────────
     os_s = scores["gingiris-opensource"]
 
-    gh_stars = gh.get("stars_total") or 0
-    if gh.get("detected") or gh_stars > 0:
+    # The dedicated repository probe is the authority. Social discovery may
+    # find an unrelated GitHub organisation with a similar name; it must not
+    # turn into a confident open-source recommendation when the probe failed.
+    github_probe_found = github_oss.get("found") is True
+    gh_stars = (github_oss.get("stars") or gh.get("stars_total") or 0) if github_probe_found else 0
+    if github_probe_found:
         os_s["score"] += 1
         stars_str = f"{gh_stars:,} stars" if gh_stars else _T("GitHub account detected", "已检测到 GitHub 账号")
         os_s["reasons"].append(_T(
@@ -245,7 +250,7 @@ def recommend_playbooks(report_data: dict) -> dict:
             f"竞品 Reddit 已有 {mentions} 次提及。Playbook 第 5 章「Reddit 冷启动」——不要直接推销，从 r/roastmyproduct 开始建立可信度。"))
 
     # Public repos
-    gh_repos = gh.get("public_repos") or 0
+    gh_repos = (gh.get("public_repos") or 1) if github_probe_found else 0
     if gh_repos > 0:
         os_s["score"] += 1
         os_s["reasons"].append(_T(

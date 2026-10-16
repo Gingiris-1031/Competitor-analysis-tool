@@ -3238,7 +3238,7 @@ async def generate_action_plan(
 🚨 **多渠道覆盖硬约束**:以下 4 周每周必须聚焦一个**不同的增长维度**。**不允许整个 4 周计划都聚焦 SEO/GEO**。如果产品类型是 Sales-led,跳过 PH/UGC/Reddit-Karma 周,替换为 Sales Enablement / DevRel / Case Study 周。
 
 🚨 **每个任务的硬约束(落地度)**:
-- **必须**引用 **GINGIRIS_SKILL_TACTICS** 里某个 skill 的**具体战术**(不是泛泛 "做 SEO"),格式:`【来自 \`<skill-slug>\` 的战术】` + 战术原话引述
+- **必须**引用 **GINGIRIS_SKILL_TACTICS** 里某个 skill 的**具体战术**(不是泛泛 "做 SEO"),格式:`【来自 <skill-slug> 的战术】` + 战术原话引述
 - **必须**带 1 个 benchmark 数据(CAC、CVR、CTR、follower 增长、ROI 等等的具体数字,从对应 skill 引)
 - **必须**带 1 段可立即执行的"今天能做什么"(命令 / 邮件模板原文 / 链接 / 工具操作步骤)
 - 禁止写"考虑 / 评估 / 探索"这类含糊词;只用"做 X,结果 Y"的祈使句
