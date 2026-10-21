@@ -117,7 +117,10 @@ async def verify_user_token(token: str) -> Optional[dict]:
             # Linking by email is safe only when InsForge itself confirms the
             # address. Keep this server-side guard even though production Auth
             # currently requires email verification.
-            if not user.get("id") or user.get("email_verified") is not True:
+            email_verified = user.get("email_verified")
+            if email_verified is None:
+                email_verified = user.get("emailVerified")
+            if not user.get("id") or email_verified is not True:
                 return None
             return {
                 "id": str(user["id"]),

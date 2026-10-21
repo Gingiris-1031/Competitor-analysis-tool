@@ -30,7 +30,9 @@
     <div class="warning">Use only an approved canary email. Never test with a customer account without consent.</div>
     <label for="email">Existing Analook email</label>
     <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
-    <button id="send">Send verification code</button>
+    <label for="password">Temporary canary password</label>
+    <input id="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+    <button id="send">Create canary account and send code</button>
     <div id="otp-wrap">
       <label for="otp">6-digit code</label>
       <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
@@ -47,6 +49,11 @@
     const controls = [...document.querySelectorAll('button')];
     const setBusy = value => controls.forEach(button => button.disabled = value);
     const setStatus = message => { statusEl.textContent = message || ''; };
+    const errorMessage = error => {
+      if (!error) return 'Unknown request failure';
+      return [error.message, error.error, error.statusCode && `HTTP ${error.statusCode}`]
+        .filter(Boolean).join(' — ') || JSON.stringify(error);
+    };
     let client;
 
     async function init() {
@@ -77,11 +84,18 @@
 
     document.querySelector('#send').addEventListener('click', async () => {
       const email = document.querySelector('#email').value.trim();
+      const password = document.querySelector('#password').value;
       if (!email) return setStatus('Enter the approved canary email first.');
+      if (password.length < 8) return setStatus('Use a temporary password with at least 8 characters.');
       setBusy(true);
-      const { error } = await client.auth.signInWithOtp({ email });
+      const { data, error } = await client.auth.signUp({ email, password, name: 'Analook canary' });
       setBusy(false);
-      if (error) return setStatus(error.message);
+      if (error) return setStatus(errorMessage(error));
+      if (data?.accessToken) {
+        try { await verifyBridge(data.accessToken); }
+        catch (bridgeError) { setStatus(errorMessage(bridgeError)); }
+        return;
+      }
       document.querySelector('#otp-wrap').style.display = 'block';
       setStatus('Verification code sent. It expires in 5 minutes.');
     });
@@ -91,10 +105,10 @@
       const otp = document.querySelector('#otp').value.trim();
       if (!email || !otp) return setStatus('Enter both email and the 6-digit code.');
       setBusy(true);
-      const { data, error } = await client.auth.verifyOtp({ email, otp });
-      if (error) { setBusy(false); return setStatus(error.message); }
+      const { data, error } = await client.auth.verifyEmail({ email, otp });
+      if (error) { setBusy(false); return setStatus(errorMessage(error)); }
       try { await verifyBridge(data?.accessToken); }
-      catch (error) { setStatus(error.message); }
+      catch (error) { setStatus(errorMessage(error)); }
       setBusy(false);
     });
 
@@ -105,11 +119,11 @@
           redirectTo: `${location.origin}/auth-canary.html`,
           additionalParams: { prompt: 'select_account' },
         });
-        if (error) { setStatus(error.message); setBusy(false); }
+        if (error) { setStatus(errorMessage(error)); setBusy(false); }
       });
     }
 
-    init().catch(error => { setStatus(error.message); setBusy(true); });
+    init().catch(error => { setStatus(errorMessage(error)); setBusy(true); });
   </script>
 </body>
 </html>

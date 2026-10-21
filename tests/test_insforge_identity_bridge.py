@@ -63,6 +63,25 @@ class InsForgeAuthCanaryTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(insforge_client.identity_linking_allowed("APPROVED@example.com"))
             self.assertFalse(insforge_client.identity_linking_allowed("other@example.com"))
 
+    async def test_verify_user_token_accepts_verified_camel_case_identity(self):
+        response = unittest.mock.Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "user": {"id": "if-1", "email": "a@example.com", "emailVerified": True}
+        }
+        client = AsyncMock()
+        client.get.return_value = response
+        context = AsyncMock()
+        context.__aenter__.return_value = client
+        with patch.dict("os.environ", {
+            "INSFORGE_URL": "https://example.insforge.app",
+            "INSFORGE_API_KEY": "server-key",
+        }, clear=False), patch("modules.insforge_client.httpx.AsyncClient", return_value=context):
+            user = await insforge_client.verify_user_token("token")
+        self.assertEqual({
+            "id": "if-1", "email": "a@example.com", "email_verified": True
+        }, user)
+
     async def test_unverified_session_is_rejected(self):
         response = unittest.mock.Mock()
         response.status_code = 200
