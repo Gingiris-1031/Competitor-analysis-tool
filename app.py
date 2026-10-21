@@ -322,6 +322,31 @@ async def health_check_strict():
     return body
 
 
+@app.get("/api/auth/canary-config")
+async def auth_canary_config():
+    """Return browser-safe InsForge config only during an approved rollout.
+
+    The anon key is intentionally public, but the server-side identity bridge
+    separately enforces the rollout mode and canary email allowlist. The
+    project-admin API key is never returned.
+    """
+    from modules.insforge_client import auth_rollout_mode
+
+    mode = auth_rollout_mode()
+    base_url = os.environ.get("INSFORGE_URL", "").strip().rstrip("/")
+    anon_key = os.environ.get("INSFORGE_ANON_KEY", "").strip()
+    if mode not in {"canary", "all"} or not base_url or not anon_key:
+        return JSONResponse(
+            {"error": "InsForge Auth canary is not enabled"},
+            status_code=404,
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        {"baseUrl": base_url, "anonKey": anon_key, "mode": mode},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/health/live")
 async def health_check_live():
     """Liveness probe — process is up. Always 200. Use this for Railway's

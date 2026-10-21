@@ -67,6 +67,32 @@ def reports_dual_write_enabled() -> bool:
     }
 
 
+def auth_rollout_mode() -> str:
+    """Return the explicitly configured InsForge Auth rollout mode.
+
+    ``off`` is the fail-safe default. ``canary`` permits only addresses in
+    ANALOOK_INSFORGE_AUTH_CANARY_EMAILS, while ``all`` enables the bridge for
+    every verified identity.
+    """
+    mode = (os.environ.get("ANALOOK_INSFORGE_AUTH_ROLLOUT") or "off").strip().lower()
+    return mode if mode in {"off", "canary", "all"} else "off"
+
+
+def identity_linking_allowed(email: str) -> bool:
+    mode = auth_rollout_mode()
+    if mode == "all":
+        return True
+    if mode != "canary":
+        return False
+    normalized = (email or "").strip().lower()
+    allowed = {
+        item.strip().lower()
+        for item in (os.environ.get("ANALOOK_INSFORGE_AUTH_CANARY_EMAILS") or "").split(",")
+        if item.strip()
+    }
+    return bool(normalized and normalized in allowed)
+
+
 def _headers(write: bool = False) -> dict:
     h = {"Authorization": f"Bearer {_key()}"}
     if write:
@@ -88,9 +114,16 @@ async def verify_user_token(token: str) -> Optional[dict]:
             if resp.status_code >= 300:
                 return None
             user = (resp.json() or {}).get("user") or {}
-            if not user.get("id"):
+            # Linking by email is safe only when InsForge itself confirms the
+            # address. Keep this server-side guard even though production Auth
+            # currently requires email verification.
+            if not user.get("id") or user.get("email_verified") is not True:
                 return None
-            return {"id": str(user["id"]), "email": user.get("email") or ""}
+            return {
+                "id": str(user["id"]),
+                "email": user.get("email") or "",
+                "email_verified": True,
+            }
     except Exception as e:
         log.debug("InsForge user token verification failed: %s", e)
         return None
@@ -104,11 +137,11 @@ async def link_insforge_identity(user: dict) -> Optional[dict]:
     normalized email, via a server-only, conflict-safe database RPC. It never
     trusts a browser-supplied email or accepts an unverified token.
     """
-    if not enabled() or not user:
+    if not enabled() or not user or user.get("email_verified") is not True:
         return None
     user_id = str(user.get("id") or "").strip()
     email = str(user.get("email") or "").strip().lower()
-    if not user_id or not email:
+    if not user_id or not email or not identity_linking_allowed(email):
         return None
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:

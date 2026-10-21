@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Analook Auth Migration Canary</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #070b16; color: #e5e7eb; }
+    main { width: min(560px, calc(100vw - 32px)); box-sizing: border-box; padding: 28px; border: 1px solid #283044; border-radius: 18px; background: #111827; box-shadow: 0 20px 60px #0008; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { color: #a7b0c0; line-height: 1.55; }
+    label { display: block; margin: 16px 0 6px; font-size: 13px; color: #cbd5e1; }
+    input, button { width: 100%; box-sizing: border-box; border-radius: 10px; padding: 12px 14px; font: inherit; }
+    input { border: 1px solid #374151; background: #0b1220; color: white; }
+    button { margin-top: 12px; border: 0; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #273244; }
+    button:disabled { opacity: .5; cursor: wait; }
+    #otp-wrap, #result { display: none; }
+    #status { min-height: 24px; margin-top: 14px; color: #fbbf24; white-space: pre-wrap; }
+    #result { margin-top: 18px; padding: 14px; border-radius: 10px; background: #052e24; color: #a7f3d0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .warning { padding: 10px 12px; border-radius: 10px; background: #3b2410; color: #fde68a; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Analook account migration canary</h1>
+    <p>This isolated page tests InsForge sign-in and links a verified email to the existing Analook account. Regular Analook sign-in remains unchanged.</p>
+    <div class="warning">Use only an approved canary email. Never test with a customer account without consent.</div>
+    <label for="email">Existing Analook email</label>
+    <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+    <button id="send">Send verification code</button>
+    <div id="otp-wrap">
+      <label for="otp">6-digit code</label>
+      <input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+      <button id="verify">Verify and test account link</button>
+    </div>
+    <button id="google" class="secondary">Continue with Google</button>
+    <button id="github" class="secondary">Continue with GitHub</button>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div id="result"></div>
+  </main>
+  <script type="module">
+    const statusEl = document.querySelector('#status');
+    const resultEl = document.querySelector('#result');
+    const controls = [...document.querySelectorAll('button')];
+    const setBusy = value => controls.forEach(button => button.disabled = value);
+    const setStatus = message => { statusEl.textContent = message || ''; };
+    let client;
+
+    async function init() {
+      const response = await fetch('/api/auth/canary-config', { credentials: 'same-origin' });
+      if (!response.ok) throw new Error(`Canary is unavailable (HTTP ${response.status})`);
+      const config = await response.json();
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@insforge/sdk@1.5.2/+esm');
+      client = createClient({ baseUrl: config.baseUrl, anonKey: config.anonKey });
+      const { data } = await client.auth.getCurrentUser();
+      if (data?.user) await verifyBridge();
+    }
+
+    async function verifyBridge(accessToken) {
+      const token = accessToken || await client.getHttpClient().getValidAccessToken();
+      if (!token) throw new Error('InsForge session did not return an access token');
+      const response = await fetch('/api/me', { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error(`Account bridge rejected the session (HTTP ${response.status})`);
+      const profile = await response.json();
+      resultEl.style.display = 'block';
+      resultEl.textContent = [
+        'Canary passed',
+        `Stable Analook account ID: ${profile.id || 'available'}`,
+        `Plan: ${profile.plan_type || 'unknown'}`,
+        `Credits: ${profile.credits_balance ?? 'unknown'}`,
+      ].join('\n');
+      setStatus('Verified InsForge identity is linked to the existing Analook account.');
+    }
+
+    document.querySelector('#send').addEventListener('click', async () => {
+      const email = document.querySelector('#email').value.trim();
+      if (!email) return setStatus('Enter the approved canary email first.');
+      setBusy(true);
+      const { error } = await client.auth.signInWithOtp({ email });
+      setBusy(false);
+      if (error) return setStatus(error.message);
+      document.querySelector('#otp-wrap').style.display = 'block';
+      setStatus('Verification code sent. It expires in 5 minutes.');
+    });
+
+    document.querySelector('#verify').addEventListener('click', async () => {
+      const email = document.querySelector('#email').value.trim();
+      const otp = document.querySelector('#otp').value.trim();
+      if (!email || !otp) return setStatus('Enter both email and the 6-digit code.');
+      setBusy(true);
+      const { data, error } = await client.auth.verifyOtp({ email, otp });
+      if (error) { setBusy(false); return setStatus(error.message); }
+      try { await verifyBridge(data?.accessToken); }
+      catch (error) { setStatus(error.message); }
+      setBusy(false);
+    });
+
+    for (const provider of ['google', 'github']) {
+      document.querySelector(`#${provider}`).addEventListener('click', async () => {
+        setBusy(true);
+        const { error } = await client.auth.signInWithOAuth(provider, {
+          redirectTo: `${location.origin}/auth-canary.html`,
+          additionalParams: { prompt: 'select_account' },
+        });
+        if (error) { setStatus(error.message); setBusy(false); }
+      });
+    }
+
+    init().catch(error => { setStatus(error.message); setBusy(true); });
+  </script>
+</body>
+</html>
