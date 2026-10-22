@@ -234,25 +234,6 @@ async def run_launch_propagation(social_result: dict) -> dict:
     )
 
 
-def _find_npx() -> str:
-    """Locate npx binary — handles Docker/Railway containers where PATH may differ."""
-    import shutil
-    npx = shutil.which("npx")
-    if npx:
-        return npx
-    # Common container / nvm / nodesource paths
-    for candidate in [
-        "/usr/bin/npx", "/usr/local/bin/npx",
-        "/root/.nvm/versions/node/*/bin/npx",
-        "/usr/lib/node_modules/.bin/npx",
-    ]:
-        import glob
-        matches = glob.glob(candidate)
-        if matches and os.path.isfile(matches[0]):
-            return matches[0]
-    return "npx"  # Last resort — hope it's on PATH
-
-
 def _call_caravo_http(tool_id: str, params: dict, api_key: str) -> dict:
     """Direct HTTP fallback for Caravo API (no CLI needed)."""
     import httpx as _httpx
@@ -295,10 +276,10 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
     # Attempt 1: CLI
     env = os.environ.copy()
     env["CARAVO_API_KEY"] = api_key
-    npx_bin = _find_npx()
+    caravo_bin = os.environ.get("CARAVO_CLI_BIN", "caravo")
     try:
         result = subprocess.run(
-            [npx_bin, "-y", "@caravo/cli@latest", "exec", tool_id, "-d", json.dumps(params)],
+            [caravo_bin, "exec", tool_id, "-d", json.dumps(params)],
             capture_output=True, text=True, timeout=30, env=env
         )
         if result.returncode == 0:

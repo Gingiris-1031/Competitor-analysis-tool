@@ -45,9 +45,10 @@ def _call_caravo(tool_id: str, params: dict) -> dict:
         return {"success": False, "error": "No Caravo API key"}
     env = os.environ.copy()
     env["CARAVO_API_KEY"] = api_key
+    caravo_bin = os.environ.get("CARAVO_CLI_BIN", "caravo")
     try:
         result = subprocess.run(
-            ["npx", "-y", "@caravo/cli@latest", "exec", tool_id, "-d", json.dumps(params)],
+            [caravo_bin, "exec", tool_id, "-d", json.dumps(params)],
             capture_output=True, text=True, timeout=30, env=env
         )
         if result.returncode == 0:
