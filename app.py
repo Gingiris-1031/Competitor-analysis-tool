@@ -96,6 +96,53 @@ app = FastAPI(
 )
 
 
+# Final-copy gate: 503 makes payment providers retry instead of acknowledging
+# events that have not been persisted. Static pages and health remain available.
+@app.middleware("http")
+async def migration_maintenance(request: Request, call_next):
+    from modules.migration_guard import maintenance_enabled, blocks_path
+    if maintenance_enabled() and blocks_path(request.url.path):
+        return JSONResponse(
+            {"error": "maintenance", "message": "Database maintenance in progress. Please retry shortly."},
+            status_code=503, headers={"Retry-After": "120", "Cache-Control": "no-store"})
+    return await call_next(request)
+
+
+@app.get("/internal/migration-status")
+async def migration_status(request: Request):
+    import hmac
+    from modules.migration_guard import FLAG, maintenance_enabled
+    if not FLAG.exists() or not hmac.compare_digest(
+            request.headers.get("X-Migration-Token", ""), FLAG.read_text().strip()):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    return {"maintenance": maintenance_enabled(),
+            "running_jobs": sum(j.get("status") == "running" for j in jobs.values()),
+            "running_audits": sum(j.get("status") == "running" for j in _growth_audit_jobs.values())}
+
+
+@app.middleware("http")
+async def persisted_report_privacy(request: Request, call_next):
+    from modules.report_access import report_id_for_path, owner_can_read
+    from modules.supabase_client import separate_data_backend, get_supabase
+    from modules.migration_guard import maintenance_enabled
+    report_id = report_id_for_path(request.url.path)
+    if report_id and separate_data_backend() and not maintenance_enabled():
+        try:
+            def read_access():
+                return get_supabase().table("reports").select("user_id,is_public").eq("id", report_id).limit(1).execute().data
+            rows = await asyncio.to_thread(read_access)
+            row = rows[0] if rows else None
+            if row and row.get("is_public") is False:
+                user = await _extract_user(request)
+                if not owner_can_read(row, user):
+                    return JSONResponse({"error": "This report is private."}, status_code=403,
+                                        headers={"Cache-Control": "no-store"})
+        except Exception:
+            return JSONResponse({"error": "Report access verification unavailable"}, status_code=503,
+                                headers={"Cache-Control": "no-store"})
+    return await call_next(request)
+
+
 # ── Security response headers ────────────────────────────────────────────────
 # Added on every response (defends clickjacking, MIME sniffing, protocol
 # downgrade, referrer leakage). CSP is scoped to frame-ancestors only so it
@@ -172,8 +219,8 @@ def _service_degraded_response() -> JSONResponse | None:
     Use this at the top of any endpoint that needs Supabase to function —
     avoids returning a misleading 401 when the actual issue is server-side.
     Returns None when service is healthy or in dev mode."""
-    from modules.supabase_client import get_supabase, supabase_required
-    if supabase_required() and get_supabase() is None:
+    from modules.supabase_client import get_supabase, get_auth_supabase, supabase_required
+    if supabase_required() and (get_supabase() is None or get_auth_supabase() is None):
         return JSONResponse(
             {
                 "error": "服务暂时不可用：Supabase 未正确配置",
@@ -198,10 +245,10 @@ async def _require_credits(request: Request):
     """
     user = await _extract_user(request)
 
-    from modules.supabase_client import get_supabase, supabase_required
+    from modules.supabase_client import get_supabase, get_auth_supabase, supabase_required
     sb = get_supabase()
 
-    if not sb:
+    if not sb or (supabase_required() and get_auth_supabase() is None):
         # Branch 1: dev mode (no SUPABASE_URL in env) → allow anonymous use.
         # Branch 2: SUPABASE_URL is set but client init failed → REFUSE.
         # The old code merged these two branches → reports for real users
@@ -277,7 +324,8 @@ async def health_check():
         "TINYFISH_API_KEY": bool(os.environ.get("TINYFISH_API_KEY", "").strip()),
     }
 
-    supabase_ok = get_supabase() is not None
+    from modules.supabase_client import get_auth_supabase
+    supabase_ok = get_supabase() is not None and get_auth_supabase() is not None
     degraded = supabase_required() and not supabase_ok
 
     body = {
@@ -1180,7 +1228,8 @@ async def _restore_growth_audit(job_id: str) -> dict | None:
         restored_email = None
         if row.get("user_id"):
             try:
-                restored_user = sb.auth.admin.get_user_by_id(row["user_id"])
+                from modules.supabase_client import get_auth_supabase
+                restored_user = get_auth_supabase().auth.admin.get_user_by_id(row["user_id"])
                 restored_email = getattr(getattr(restored_user, "user", None), "email", None)
             except Exception:
                 pass
@@ -1981,7 +2030,8 @@ async def admin_user_metrics(request: Request):
                         break
     except Exception as e:
         log.warning("user-metrics list_users via REST failed: %s — falling back to supabase-py", e)
-        for u in (sb.auth.admin.list_users() or []):
+        from modules.supabase_client import get_auth_supabase
+        for u in (get_auth_supabase().auth.admin.list_users() or []):
             users.append({
                 "id": u.id,
                 "email": u.email,
@@ -3948,6 +3998,10 @@ async def admin_run_migration(request: Request):
     got = (request.headers.get("X-Autopilot-Tick-Token") or "").strip()
     if got != expected:
         return JSONResponse({"error": "forbidden"}, status_code=403)
+
+    from modules.supabase_client import separate_data_backend
+    if separate_data_backend():
+        return JSONResponse({"error": "Use the reviewed target database migration scripts"}, status_code=409)
 
     sb = get_supabase()
     if not sb:

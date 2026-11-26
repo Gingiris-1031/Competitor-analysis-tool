@@ -5,6 +5,80 @@ import logging
 log = logging.getLogger(__name__)
 
 _client = None
+_auth_client = None
+
+
+def separate_data_backend() -> bool:
+    """An explicit partial config must fail closed, never write to the old DB."""
+    return any(os.environ.get(k, '').strip() for k in
+               ('SUPABASE_DATA_URL', 'SUPABASE_DATA_SERVICE_KEY'))
+
+
+def get_auth_supabase():
+    """Keep legacy login/admin identity lookup separate from business storage."""
+    global _auth_client
+    if not separate_data_backend():
+        return get_supabase()
+    if _auth_client is not None:
+        return _auth_client
+    url = os.environ.get('SUPABASE_URL', '').strip()
+    key = os.environ.get('SUPABASE_SERVICE_KEY', '').strip()
+    if not url or not key:
+        return None
+    try:
+        from supabase import create_client
+        _auth_client = create_client(url, key)
+    except Exception:
+        log.error('Legacy Supabase Auth client initialization failed')
+    return _auth_client
+
+
+def ensure_data_profile(user_id: str) -> bool:
+    """Insert a missing legacy profile without ever overwriting target balances.
+
+    Call with a server-verified user ID only. The original database still
+    creates profiles for legacy Auth signups during the transition.
+    """
+    if not separate_data_backend():
+        return True
+    target = get_supabase()
+    source = get_auth_supabase()
+    if not target or not source or not user_id:
+        return False
+    try:
+        existing = target.table('profiles').select('id').eq('id', user_id).limit(1).execute()
+        if existing.data:
+            return True
+        original = source.table('profiles').select('*').eq('id', user_id).limit(1).execute()
+        if not original.data or original.data[0].get('id') != user_id:
+            return False
+        # ON CONFLICT DO NOTHING preserves a concurrent payment/credit update.
+        target.table('profiles').upsert(original.data[0], on_conflict='id',
+                                        ignore_duplicates=True).execute()
+        return bool(target.table('profiles').select('id').eq('id', user_id).limit(1).execute().data)
+    except Exception:
+        log.error('Legacy profile provisioning into data backend failed')
+        return False
+
+
+def find_data_user_by_email(email: str) -> str | None:
+    """Resolve a payment recipient, provisioning only a missing legacy profile."""
+    target = get_supabase()
+    if not target or not email:
+        return None
+    rows = target.table('profiles').select('id').eq('email', email).limit(2).execute().data or []
+    if rows:
+        return rows[0]['id'] if len(rows) == 1 else None
+    if not separate_data_backend():
+        return None
+    source = get_auth_supabase()
+    if not source:
+        return None
+    rows = source.table('profiles').select('id').eq('email', email).limit(2).execute().data or []
+    if len(rows) != 1:
+        return None
+    user_id = rows[0]['id']
+    return user_id if ensure_data_profile(user_id) else None
 
 
 def supabase_required() -> bool:
@@ -15,7 +89,7 @@ def supabase_required() -> bool:
     must REFUSE auth-required requests with a 503 instead of silently
     falling into dev-mode — otherwise reports & credits get dropped.
     """
-    return bool(os.environ.get("SUPABASE_URL", "").strip())
+    return bool(os.environ.get("SUPABASE_URL", "").strip()) or separate_data_backend()
 
 
 def get_supabase():
@@ -24,11 +98,12 @@ def get_supabase():
     if _client is not None:
         return _client
 
-    url = os.environ.get("SUPABASE_URL", "").strip()
-    key = os.environ.get("SUPABASE_SERVICE_KEY", "").strip()
+    prefix = 'SUPABASE_DATA' if separate_data_backend() else 'SUPABASE'
+    url = os.environ.get(prefix + '_URL', '').strip()
+    key = os.environ.get(prefix + '_SERVICE_KEY', '').strip()
 
     if not url or not key:
-        log.warning("Supabase 未配置（缺少 SUPABASE_URL 或 SUPABASE_SERVICE_KEY），跳过 Auth 检查")
+        log.warning("Supabase 业务客户端不可用：缺少 %s_URL 或 %s_SERVICE_KEY", prefix, prefix)
         return None
 
     try:
@@ -84,7 +159,7 @@ async def verify_token_and_get_user(token: str) -> dict | None:
     """
     if token.startswith("ak_"):
         return await _verify_api_key(token)
-    sb = get_supabase()
+    sb = get_auth_supabase()
     if not sb:
         return None
     try:
@@ -135,7 +210,10 @@ async def deduct_credit(user_id: str) -> bool:
     """
     sb = get_supabase()
     if not sb:
-        return True  # Supabase 未配置时放行（开发模式）
+        return not supabase_required()  # Never grant free work on partial config.
+
+    if not ensure_data_profile(user_id):
+        return False
 
     try:
         # Close the legacy signup-trigger gap before the atomic debit.  This
@@ -168,6 +246,8 @@ async def get_user_profile(user_id: str) -> dict | None:
     """获取用户 profile（plan_type, credits_balance 等）"""
     sb = get_supabase()
     if not sb:
+        return None
+    if not ensure_data_profile(user_id):
         return None
     try:
         result = sb.table("profiles").select(

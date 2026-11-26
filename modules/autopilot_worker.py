@@ -460,7 +460,8 @@ def _user_email(user_id: str) -> Optional[str]:
         return None
     try:
         # supabase-py's admin API exposes get_user_by_id on the auth namespace.
-        u = sb.auth.admin.get_user_by_id(user_id)
+        from .supabase_client import get_auth_supabase
+        u = get_auth_supabase().auth.admin.get_user_by_id(user_id)
         email = getattr(getattr(u, "user", None), "email", None)
         if email:
             return email

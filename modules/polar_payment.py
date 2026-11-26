@@ -274,13 +274,8 @@ async def _find_user_by_email(email: str) -> str | None:
     if not email:
         return None
     try:
-        from .supabase_client import get_supabase
-        sb = get_supabase()
-        if not sb:
-            return None
-        result = sb.table("profiles").select("id").eq("email", email).limit(1).execute()
-        if result.data:
-            return result.data[0]["id"]
+        from .supabase_client import find_data_user_by_email
+        return find_data_user_by_email(email)
     except Exception as e:
         log.error("Find user by email failed: %s", e)
     return None
@@ -303,6 +298,9 @@ async def _grant_credits(user_id: str, plan: str):
         return
     try:
         from .supabase_client import get_supabase
+        from .supabase_client import ensure_data_profile
+        if not ensure_data_profile(user_id):
+            raise RuntimeError("Payment recipient profile provisioning failed")
         sb = get_supabase()
         if not sb:
             return
@@ -344,6 +342,9 @@ async def _update_user_plan(user_id: str, plan: str):
     credits = PLAN_CREDITS.get(plan, 3)
     try:
         from .supabase_client import get_supabase
+        from .supabase_client import ensure_data_profile
+        if not ensure_data_profile(user_id):
+            raise RuntimeError("Payment recipient profile provisioning failed")
         sb = get_supabase()
         if not sb:
             return

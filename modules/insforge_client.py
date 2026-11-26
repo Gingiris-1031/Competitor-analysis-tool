@@ -1,6 +1,10 @@
 """Server-only InsForge REST client for Analook's staged migration.
 
-InsForge is already primary for reports, scorecards, MCP keys/accounts and
+When SUPABASE_DATA_URL and SUPABASE_DATA_SERVICE_KEY are configured, business
+REST/RPC requests use the new Supabase project; token verification continues
+to use the legacy identity provider. Partial data configuration fails closed.
+
+Without that explicit configuration, InsForge is primary for reports, scorecards, MCP keys/accounts and
 shared internal cache. Legacy account profiles and credit events are mirrored
 here for reconciliation, while Supabase remains the temporary authority for
 browser auth, subscriptions and credit balances. Never expose the project API
@@ -40,6 +44,10 @@ _TIMEOUT = httpx.Timeout(15.0)
 
 def enabled() -> bool:
     """设了 URL + key 才启用 InsForge 后端。"""
+    from .supabase_client import separate_data_backend
+    if separate_data_backend():
+        return bool(os.environ.get('SUPABASE_DATA_URL', '').strip()
+                    and os.environ.get('SUPABASE_DATA_SERVICE_KEY', '').strip())
     return bool(os.environ.get("INSFORGE_URL", "").strip()
                 and os.environ.get("INSFORGE_API_KEY", "").strip())
 
@@ -53,10 +61,20 @@ def _key() -> str:
 
 
 def _records_url(table: str = TABLE) -> str:
+    from .supabase_client import separate_data_backend
+    if separate_data_backend():
+        if not enabled():
+            raise RuntimeError('Incomplete Supabase data backend configuration')
+        return os.environ['SUPABASE_DATA_URL'].strip().rstrip('/') + '/rest/v1/' + table
     return f"{_base()}/api/database/records/{table}"
 
 
 def _rpc_url(name: str) -> str:
+    from .supabase_client import separate_data_backend
+    if separate_data_backend():
+        if not enabled():
+            raise RuntimeError('Incomplete Supabase data backend configuration')
+        return os.environ['SUPABASE_DATA_URL'].strip().rstrip('/') + '/rest/v1/rpc/' + name
     return f"{_base()}/api/database/rpc/{name}"
 
 
@@ -94,7 +112,16 @@ def identity_linking_allowed(email: str) -> bool:
 
 
 def _headers(write: bool = False) -> dict:
-    h = {"Authorization": f"Bearer {_key()}"}
+    from .supabase_client import separate_data_backend
+    if separate_data_backend():
+        if not enabled():
+            raise RuntimeError('Incomplete Supabase data backend configuration')
+        key = os.environ['SUPABASE_DATA_SERVICE_KEY'].strip()
+        h = {'apikey': key}
+        if not key.startswith('sb_secret_'):
+            h['Authorization'] = 'Bearer ' + key
+    else:
+        h = {"Authorization": f"Bearer {_key()}"}
     if write:
         h["Content-Type"] = "application/json"
         h["Prefer"] = "return=representation"
@@ -103,7 +130,7 @@ def _headers(write: bool = False) -> dict:
 
 async def verify_user_token(token: str) -> Optional[dict]:
     """Verify an InsForge user access token and return only safe identity fields."""
-    if not enabled() or not token:
+    if not _base() or not token:
         return None
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
